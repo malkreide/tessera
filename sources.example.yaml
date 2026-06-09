@@ -1,0 +1,34 @@
+# Kuratierte Prozessliste (Vorlage) — kopiere zu `sources.yaml` und passe an.
+#
+# Diese Liste wird VON HAND gepflegt. Es gibt KEINEN Discovery-Agenten.
+# Wähle für v1 einfache, rechtlich risikoarme Lebenslagen. Vermeide die schweren
+# Fälle (Baubewilligung, Betreibung) bis v3 mit erhöhtem Review.
+#
+# Felder:
+#   id              kebab-case, identisch zur `lebenslage_ref` in der Maschinerie
+#   service_name    offizieller Name der Leistung
+#   target_audience eCH-0073: bevoelkerung | wirtschaft | behoerden
+#   official_urls   exakte Quell-URLs (Stadt Zürich) — vor dem Crawl PRÜFEN
+#   notes           Hinweise für den Reviewer
+
+processes:
+  - id: hund-anmelden
+    service_name: "Hund anmelden"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/..."   # TODO: exakte URL prüfen
+    notes: "Einfacher Fall, guter Einstieg für v1."
+
+  - id: zuzug
+    service_name: "Zuzug nach Zürich (Anmeldung)"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/zuzug.html"  # TODO: prüfen
+    notes: "Fristen vorhanden -> als references verlinken, nicht als Wert ausgeben."
+
+  - id: umzug-innerhalb-stadt
+    service_name: "Umzug innerhalb der Stadt"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/..."   # TODO: exakte URL prüfen
+    notes: ""
