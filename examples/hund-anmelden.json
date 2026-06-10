@@ -7,7 +7,7 @@
     "en": "",
     "fr": "",
     "it": "",
-    "leichte_sprache": "Sie haben einen Hund. Sie melden den Hund bei der Stadt an."
+    "ls": "Sie haben einen Hund. Sie melden den Hund bei der Stadt an."
   },
   "target_audience": "bevoelkerung",
   "preconditions": {
@@ -19,7 +19,7 @@
       "actor": "Halter:in",
       "label": {
         "de": "Hund online oder am Schalter anmelden",
-        "leichte_sprache": "Sie melden den Hund an. Online oder am Schalter."
+        "ls": "Sie melden den Hund an. Online oder am Schalter."
       },
       "depends_on": [],
       "reference_ids": [1]
@@ -38,7 +38,7 @@
       "label": {
         "de": "Veranlagung der Hundeabgabe und Rechnungstellung"
       },
-      "depends_on": [2],
+      "depends_on": [{ "step_id": 2, "condition": "Registrierung bestaetigt" }],
       "reference_ids": [2]
     }
   ],
@@ -48,17 +48,17 @@
       "label": { "de": "Anmeldefrist nach Zuzug oder Anschaffung" },
       "source_url": "https://www.stadt-zuerich.ch/...",
       "source_quote": "ILLUSTRATIVES FIXTURE — keine belegte Stelle. Vor Publikation durch woertliches Zitat der Originalseite ersetzen.",
-      "retrieved_at": "2026-06-09T00:00:00Z"
+      "retrieved_at": "2026-06-09"
     },
     {
       "reference_id": 2,
       "label": { "de": "Hoehe der jaehrlichen Hundeabgabe" },
       "source_url": "https://www.stadt-zuerich.ch/...",
       "source_quote": "ILLUSTRATIVES FIXTURE — keine belegte Stelle. Vor Publikation durch woertliches Zitat der Originalseite ersetzen.",
-      "retrieved_at": "2026-06-09T00:00:00Z"
+      "retrieved_at": "2026-06-09"
     }
   ],
   "source_url": "https://www.stadt-zuerich.ch/...",
-  "retrieved_at": "2026-06-09T00:00:00Z",
+  "retrieved_at": "2026-06-09",
   "disclaimer_key": "process.disclaimer.unofficial"
 }

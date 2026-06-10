@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/malkreide/tessera/blob/main/docs/process.schema.json",
   "title": "Tessera Process (Entwurf)",
-  "$comment": "ENTWURF. Kanonisch ist das in v0 im Repo maschinerie-zuerich definierte Schema, sobald es existiert (siehe CLAUDE.md und docs/data-contract.md). Diese Datei bildet den Entwurf aus docs/data-contract.md maschinenlesbar ab und ist KEINE eigenstaendige Quelle der Wahrheit. Bei Abweichung gilt maschinerie-zuerich; dann stoppen und fragen.",
+  "$comment": "ENTWURF, abgeglichen auf das kanonische v0-Schema in maschinerie-zuerich (docs/process-data-contract.md, gemergt). Diese Datei ist NICHT kanonisch; bei Abweichung gilt maschinerie-zuerich. Angeglichene Punkte: Locale-Key 'ls' (Leichte Sprache), depends_on erlaubt {step_id, condition?}, retrieved_at tagesgenaues Datum oder Zeitstempel.",
   "description": "Strukturdaten einer Verwaltungsleistung. Rechtlich bindende Werte (Fristen, Gebuehren, Rekursfristen) erscheinen NUR als references (Label + Deep-Link), nie als gerenderter Wert in einem Step-Label.",
   "type": "object",
   "additionalProperties": false,
@@ -62,13 +62,13 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["de"],
-      "description": "Mehrsprachiger String. de Pflicht; en/fr/it/leichte_sprache duerfen leer sein (Uebersetzung ausstehend) — nicht maschinell raten.",
+      "description": "Mehrsprachiger String. de Pflicht; en/fr/it/ls duerfen leer sein (Uebersetzung ausstehend) — nicht maschinell raten. 'ls' = Leichte Sprache (kanonischer Locale-Key in maschinerie-zuerich).",
       "properties": {
         "de": { "type": "string", "minLength": 1 },
         "en": { "type": "string" },
         "fr": { "type": "string" },
         "it": { "type": "string" },
-        "leichte_sprache": { "type": "string" }
+        "ls": { "type": "string" }
       }
     },
     "i18nList": {
@@ -81,7 +81,7 @@
         "en": { "type": "array", "items": { "type": "string" } },
         "fr": { "type": "array", "items": { "type": "string" } },
         "it": { "type": "array", "items": { "type": "string" } },
-        "leichte_sprache": { "type": "array", "items": { "type": "string" } }
+        "ls": { "type": "array", "items": { "type": "string" } }
       }
     },
     "step": {
@@ -94,8 +94,21 @@
         "label": { "$ref": "#/$defs/i18n" },
         "depends_on": {
           "type": "array",
-          "items": { "type": "integer", "minimum": 1 },
-          "description": "step_ids der Vorgaenger; leer = Start"
+          "description": "Vorgaenger; leer = Start. Eintrag = step_id (integer) ODER {step_id, condition?} fuer bedingte Kanten.",
+          "items": {
+            "oneOf": [
+              { "type": "integer", "minimum": 1 },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["step_id"],
+                "properties": {
+                  "step_id": { "type": "integer", "minimum": 1 },
+                  "condition": { "type": "string" }
+                }
+              }
+            ]
+          }
         },
         "reference_ids": {
           "type": "array",
@@ -126,8 +139,8 @@
     },
     "isoDateTime": {
       "type": "string",
-      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$",
-      "description": "ISO 8601, z.B. 2026-06-09T00:00:00Z"
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2}))?$",
+      "description": "ISO 8601: tagesgenaues Datum (kanonisch, z.B. 2026-06-09) oder voller Zeitstempel (z.B. 2026-06-09T00:00:00Z)"
     }
   }
 }
