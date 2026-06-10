@@ -1,0 +1,20 @@
+name: contract-check
+
+# Prueft Prozess-JSONs gegen den Datenvertrag. Reine Python-stdlib,
+# daher kein Dependency-Install noetig.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Vertrags-Check (Fixtures + Erwartungen)
+        run: python tests/run_checks.py

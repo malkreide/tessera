@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1.0",
+  "id": "hund-anmelden-falsch",
+  "lebenslage_ref": "hund-anmelden-falsch",
+  "title": { "de": "Hund anmelden (Negativ-Beispiel)" },
+  "target_audience": "bevoelkerung",
+  "steps": [
+    {
+      "step_id": 1,
+      "actor": "Halter:in",
+      "label": {
+        "de": "Hund innert 10 Tagen anmelden und Hundeabgabe von CHF 175 zahlen"
+      },
+      "depends_on": []
+    }
+  ],
+  "source_url": "https://www.stadt-zuerich.ch/...",
+  "retrieved_at": "2026-06-09T00:00:00Z",
+  "disclaimer_key": "process.disclaimer.unofficial"
+}
