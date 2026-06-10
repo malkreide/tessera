@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Machine-readable draft of the data contract as JSON Schema (`docs/process.schema.json`),
+  explicitly non-canonical (canonical schema lives in `maschinerie-zuerich`).
+- Dependency-free contract validator (`scripts/validate_contract.py`): structure,
+  DAG integrity, reference integrity, grounding gate (`source_quote`), and a
+  cardinal-rule lint (a binding value in a step label fails the check).
+- Synthetic example fixtures (`examples/`): one valid process and one that
+  intentionally violates the cardinal rule.
+
 ### Planned
 - v1: structure-only extraction for ~10 curated processes, with PR into Maschinerie
 

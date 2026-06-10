@@ -1,0 +1,64 @@
+{
+  "schema_version": "0.1.0",
+  "id": "hund-anmelden",
+  "lebenslage_ref": "hund-anmelden",
+  "title": {
+    "de": "Hund anmelden",
+    "en": "",
+    "fr": "",
+    "it": "",
+    "leichte_sprache": "Sie haben einen Hund. Sie melden den Hund bei der Stadt an."
+  },
+  "target_audience": "bevoelkerung",
+  "preconditions": {
+    "de": ["Wohnsitz in der Stadt Zuerich", "Der Hund ist mit einem Mikrochip gekennzeichnet"]
+  },
+  "steps": [
+    {
+      "step_id": 1,
+      "actor": "Halter:in",
+      "label": {
+        "de": "Hund online oder am Schalter anmelden",
+        "leichte_sprache": "Sie melden den Hund an. Online oder am Schalter."
+      },
+      "depends_on": [],
+      "reference_ids": [1]
+    },
+    {
+      "step_id": 2,
+      "actor": "Veterinaeramt / Hundekontrolle",
+      "label": {
+        "de": "Registrierung in der Hundedatenbank pruefen"
+      },
+      "depends_on": [1]
+    },
+    {
+      "step_id": 3,
+      "actor": "Steueramt",
+      "label": {
+        "de": "Veranlagung der Hundeabgabe und Rechnungstellung"
+      },
+      "depends_on": [2],
+      "reference_ids": [2]
+    }
+  ],
+  "references": [
+    {
+      "reference_id": 1,
+      "label": { "de": "Anmeldefrist nach Zuzug oder Anschaffung" },
+      "source_url": "https://www.stadt-zuerich.ch/...",
+      "source_quote": "ILLUSTRATIVES FIXTURE — keine belegte Stelle. Vor Publikation durch woertliches Zitat der Originalseite ersetzen.",
+      "retrieved_at": "2026-06-09T00:00:00Z"
+    },
+    {
+      "reference_id": 2,
+      "label": { "de": "Hoehe der jaehrlichen Hundeabgabe" },
+      "source_url": "https://www.stadt-zuerich.ch/...",
+      "source_quote": "ILLUSTRATIVES FIXTURE — keine belegte Stelle. Vor Publikation durch woertliches Zitat der Originalseite ersetzen.",
+      "retrieved_at": "2026-06-09T00:00:00Z"
+    }
+  ],
+  "source_url": "https://www.stadt-zuerich.ch/...",
+  "retrieved_at": "2026-06-09T00:00:00Z",
+  "disclaimer_key": "process.disclaimer.unofficial"
+}

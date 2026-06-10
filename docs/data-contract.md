@@ -81,6 +81,21 @@ werden.
 }
 ```
 
+## Maschinenlesbar & Validierung
+
+- Eine maschinenlesbare Fassung dieses Entwurfs liegt als JSON Schema in
+  `docs/process.schema.json`. Sie ist **abgeleitet und nicht-kanonisch** – bei
+  Abweichung gilt das v0-Schema im Repo `maschinerie-zuerich`.
+- Der Check `scripts/validate_contract.py` (nur Python-stdlib, keine Dependency)
+  prueft Prozess-JSONs gegen den Vertrag, inklusive Graph-Integritaet (DAG),
+  Referenz-Integritaet, Grounding-Gate (`source_quote` vorhanden) und der
+  Kardinalregel (bindende Zahl im Step-Label = Fehler). Beispiele in `examples/`.
+
+```bash
+python scripts/validate_contract.py            # prueft examples/*.json
+python scripts/validate_contract.py pfad/zu/prozess.json
+```
+
 ## Was bewusst NICHT im Vertrag steht
 
 - Keine Klartext-Felder für Fristen/Gebühren als Zahl. Wer eine Frist sehen will,
