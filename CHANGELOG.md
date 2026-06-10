@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Synthetic example fixtures (`examples/`): one valid process and one that
   intentionally violates the cardinal rule.
 
+### Changed
+- Aligned the draft contract, JSON Schema, and validator to the canonical v0
+  schema in `maschinerie-zuerich`: Leichte-Sprache locale key `leichte_sprache`
+  → `ls`; `depends_on` now accepts `{step_id, condition?}` for conditional edges;
+  `retrieved_at` accepts a day-precision date in addition to a full timestamp.
+
 ### Planned
 - v1: structure-only extraction for ~10 curated processes, with PR into Maschinerie
 

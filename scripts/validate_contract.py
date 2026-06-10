@@ -16,8 +16,9 @@ Geprueft wird:
     Zahl (Frist/Gebuehr in Verbindung mit einer Einheit) enthalten. Verstoesse
     sind Fehler, kein Warnhinweis.
 
-Hinweis: Dies ist der Entwurf-Check. Kanonisch ist das v0-Schema im Repo
-maschinerie-zuerich, sobald es existiert. Bei Abweichung: stoppen und fragen.
+Hinweis: Dieser Check ist auf das kanonische v0-Schema in maschinerie-zuerich
+abgeglichen (Locale-Key 'ls', depends_on-Objektvariante, tagesgenaues Datum). Er
+ist nicht kanonisch; bei Abweichung gilt maschinerie-zuerich — stoppen und fragen.
 
 Aufruf:
     python scripts/validate_contract.py [PFAD ...]
@@ -29,16 +30,18 @@ from __future__ import annotations
 import json
 import re
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 AUDIENCES = {"bevoelkerung", "wirtschaft", "behoerden"}
-LOCALES = ("de", "en", "fr", "it", "leichte_sprache")
+# Locale-Schluessel: kanonisch ist 'ls' (Leichte Sprache) im Repo maschinerie-zuerich.
+LOCALES = ("de", "en", "fr", "it", "ls")
 
 KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+# ISO 8601: Tagesgenaues Datum (kanonisch, z.B. 2026-06-06) ODER voller Zeitstempel.
 ISO = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$"
+    r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$"
 )
 
 # Kardinalregel-Lint: Zahl in Verbindung mit einer bindenden Einheit.
@@ -86,7 +89,7 @@ def _check_i18n(rep: Report, where: str, value: object, require_de: bool = True)
     de = value.get("de")
     if require_de and (not isinstance(de, str) or not de.strip()):
         rep.error(f"{where}: 'de' ist Pflicht und darf nicht leer sein.")
-    for loc in ("en", "fr", "it", "leichte_sprache"):
+    for loc in ("en", "fr", "it", "ls"):
         v = value.get(loc)
         if v is not None and not isinstance(v, str):
             rep.error(f"{where}.{loc}: muss ein String sein.")
@@ -96,10 +99,13 @@ def _check_i18n(rep: Report, where: str, value: object, require_de: bool = True)
 
 def _check_iso(rep: Report, where: str, value: object) -> None:
     if not isinstance(value, str) or not ISO.match(value):
-        rep.error(f"{where}: kein ISO-8601-Zeitstempel ({value!r}).")
+        rep.error(f"{where}: kein ISO-8601-Datum/-Zeitstempel ({value!r}).")
         return
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if "T" in value:
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+        else:
+            date.fromisoformat(value)
     except ValueError:
         rep.error(f"{where}: ungueltiges Datum ({value!r}).")
 
@@ -107,6 +113,24 @@ def _check_iso(rep: Report, where: str, value: object) -> None:
 def _check_url(rep: Report, where: str, value: object) -> None:
     if not isinstance(value, str) or not re.match(r"^https?://", value):
         rep.error(f"{where}: keine http(s)-URL ({value!r}).")
+
+
+def _dep_step_id(dep: object) -> int | None:
+    """Normalisiert einen depends_on-Eintrag auf seine step_id.
+
+    Erlaubt sind die kanonischen Varianten: ein integer ODER ein Objekt
+    {step_id, condition?} (bedingte Kante). Gibt None zurueck, wenn der
+    Eintrag keine gueltige step_id traegt.
+    """
+    if isinstance(dep, bool):
+        return None
+    if isinstance(dep, int):
+        return dep
+    if isinstance(dep, dict):
+        sid = dep.get("step_id")
+        if isinstance(sid, int) and not isinstance(sid, bool):
+            return sid
+    return None
 
 
 def _check_cardinal_rule(rep: Report, step_id: object, label: object) -> None:
@@ -145,10 +169,21 @@ def _check_steps(rep: Report, steps: object) -> set[int]:
         _check_i18n(rep, f"{where}.label", step.get("label"))
         _check_cardinal_rule(rep, sid, step.get("label"))
         dep = step.get("depends_on")
-        if not isinstance(dep, list) or any(
-            not isinstance(d, int) or isinstance(d, bool) for d in dep
-        ):
-            rep.error(f"{where}.depends_on: Pflicht, Liste von step_ids (leer = Start).")
+        if not isinstance(dep, list):
+            rep.error(f"{where}.depends_on: Pflicht, Liste (leer = Start).")
+        else:
+            for j, d in enumerate(dep):
+                if _dep_step_id(d) is None:
+                    rep.error(
+                        f"{where}.depends_on[{j}]: muss eine step_id (integer) "
+                        "oder ein Objekt {step_id, condition?} sein."
+                    )
+                elif isinstance(d, dict):
+                    extra = set(d) - {"step_id", "condition"}
+                    if extra:
+                        rep.error(f"{where}.depends_on[{j}]: unbekannte Felder {sorted(extra)}.")
+                    if "condition" in d and not isinstance(d["condition"], str):
+                        rep.error(f"{where}.depends_on[{j}].condition: muss ein String sein.")
         ref_ids = step.get("reference_ids", [])
         if ref_ids and (
             not isinstance(ref_ids, list)
@@ -171,7 +206,10 @@ def _check_graph(rep: Report, steps: list, step_ids: set[int]) -> None:
         edges[sid] = []
         if not deps:
             starts += 1
-        for d in deps:
+        for raw in deps:
+            d = _dep_step_id(raw)
+            if d is None:
+                continue  # Typfehler wurde bereits in _check_steps gemeldet
             if d == sid:
                 rep.error(f"Schritt {sid}: depends_on darf nicht auf sich selbst zeigen.")
             elif d not in step_ids:
