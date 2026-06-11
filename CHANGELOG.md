@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cardinal-rule lint (a binding value in a step label fails the check).
 - Synthetic example fixtures (`examples/`): one valid process and one that
   intentionally violates the cardinal rule.
+- v1 groundwork (offline, no new deps): curated `sources.yaml` (risk-light start
+  set hund-anmelden + umzug-melden), pre-flight report templates
+  (`reports/coverage.md`, `reports/scraping-compliance.md`), and the pipeline
+  architecture (`docs/v1-pipeline.md`).
 
 ### Changed
 - Aligned the draft contract, JSON Schema, and validator to the canonical v0

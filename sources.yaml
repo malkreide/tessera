@@ -1,0 +1,39 @@
+# Kuratierte Prozessliste für v1 — VON HAND gepflegt. KEIN Discovery-Agent.
+#
+# Start-Set: rechtlich risikoarme Lebenslagen. Bindende Werte (Fristen, Gebühren,
+# Rekursfristen) gehören als `references` mit Deep-Link + wörtlicher `source_quote`
+# in die Ausgabe, NIE als Zahl in ein Schritt-Label (Kardinalregel).
+#
+# WICHTIG:
+#   * `id` muss identisch zur bestehenden `lebenslage_ref` im Repo maschinerie-zuerich
+#     sein (kebab-case). Nicht neu erfinden.
+#   * `official_urls` sind die exakten Quell-Seiten — VOR dem Crawl prüfen
+#     (Erreichbarkeit, robots.txt, ToU → reports/scraping-compliance.md).
+#   * Schwere Fälle (Baubewilligung/baugesuch, Betreibung, Sozialhilfe) bewusst
+#     NICHT in v1.
+
+processes:
+  - id: hund-anmelden
+    service_name: "Hund anmelden"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/hundekontrolle.html"   # Hundekontrolle / Anmeldung
+      - "https://www.zh.ch/de/umwelt-tiere/tiere/haustiere-heimtiere/hunde.html"                              # kantonale Anmeldefrist
+    notes: >
+      Risikoarm. Bindende Werte: Hundesteuer (stadt-zuerich.ch), Anmeldefrist
+      (zh.ch). Beide als references mit source_quote belegen, nicht als Zahl im Label.
+
+  - id: umzug-melden
+    service_name: "Umzug melden (Zuzug / Wegzug / Umzug innerhalb der Stadt)"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/pd/de/index/bevoelkerungsamt/anmeldung_zuzug.html"   # Bevölkerungsamt, Anmeldung Zuzug
+    notes: >
+      Meldefrist als reference verlinken (z.B. «innert 14 Tagen»), nicht als Zahl
+      im Schritt-Label. eUmzugCH ggf. als ergänzende source.
+
+  # Weitere risikoarme Kandidaten für v1 (erst nach den ersten beiden, nach Rückfrage):
+  #   - id: fundsache        # Fundbüro Stadtpolizei
+  #   - id: parkplatz        # Anwohnerparkkarte
+  #   - id: kita-platz       # Betreuungsgutscheine
+  # NICHT in v1: baugesuch (Baubewilligung), sozialhilfe, veranstaltung.
