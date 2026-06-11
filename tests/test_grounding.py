@@ -90,6 +90,17 @@ def test_normalize_typography() -> None:
     assert Corpus(CORPUS_TEXT).contains("innert zehn Tagen nach Uebernahme")
 
 
+def test_normalize_markdown_links() -> None:
+    # Linksyntax mitten im Satz darf den woertlichen Abgleich nicht brechen.
+    corpus = Corpus(
+        "Der Hund muss bei [Externer Link:AMICUS](http://www.amicus.ch) "
+        "registriert werden."
+    )
+    assert corpus.contains("muss bei AMICUS registriert werden")
+    # Auch wenn das Zitat die Linksyntax mitkopiert:
+    assert corpus.contains("bei [Externer Link:AMICUS](http://www.amicus.ch) registriert")
+
+
 def test_reference_gate() -> None:
     process, quotes = _process()
     gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))

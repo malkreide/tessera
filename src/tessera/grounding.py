@@ -26,12 +26,19 @@ _QUOTE_MAP = str.maketrans({
     "–": "-", "—": "-",
 })
 _SOFT_HYPHEN = "­"
+_MD_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")  # [Text](url) -> Text
+_URL = re.compile(r"https?://\S+")
+# Accessibility-Labels, die Extraktoren in Anker-Texte einbetten (kein Inhalt).
+_A11Y_LABEL = re.compile(r"(?:Externer|Interner) Link:\s*", re.IGNORECASE)
 _MD_NOISE = re.compile(r"[*_#>|\[\]()]")  # Markdown-Dekor, kein Inhalt
 _WS = re.compile(r"\s+")
 
 
 def normalize(text: str) -> str:
+    text = _MD_LINK.sub(r"\1", text)
     text = text.translate(_QUOTE_MAP).replace(_SOFT_HYPHEN, "")
+    text = _A11Y_LABEL.sub("", text)
+    text = _URL.sub(" ", text)
     text = _MD_NOISE.sub(" ", text)
     return _WS.sub(" ", text).strip()
 

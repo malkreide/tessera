@@ -53,7 +53,7 @@ def _fetch_i14y(url: str, ua: str) -> list[str]:
                     for k in (svc.get("keywords") or [])
                     if isinstance(k, dict)
                 ]
-                names.append(" | ".join([name, *kw]).strip())
+                names.append(" · ".join(s for s in [name, *kw] if s).strip())
             total_pages = int(r.headers.get("x-paging-totalpages", page))
             if page >= total_pages:
                 break
@@ -146,7 +146,7 @@ def run_preflight(cfg: SourcesConfig, only: list[str] | None = None) -> dict[str
     for p in procs:
         i_hits = _matches(i14y_names, p.catalog_keywords)
         e_hits = _matches(ech_names, p.catalog_keywords)
-        fmt = lambda hits: "; ".join(h[:60] for h in hits[:4]) + (
+        fmt = lambda hits: "; ".join(h[:60].replace("|", "/") for h in hits[:4]) + (
             f" (+{len(hits) - 4})" if len(hits) > 4 else ""
         ) if hits else "—  (kommunale Leistung, kein Bundes-Eintrag)"
         lines.append(f"| `{p.id}` ({p.service_name}) | {fmt(i_hits)} | {fmt(e_hits)} |")

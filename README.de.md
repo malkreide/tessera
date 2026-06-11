@@ -75,24 +75,33 @@ uv sync          # oder: python -m venv .venv && pip install -e ".[dev]"
 
 ## Verwendung / Quickstart
 
-> Noch nicht funktionsfähig — das ist der vorgesehene Einstieg, sobald v1 gebaut ist.
-
 ```bash
-# Pre-flight: bestehende Inventare + Scraping-Regeln prüfen (schreibt nach reports/)
+# Pre-flight (Pflicht vor jedem Crawl): Inventar-Abdeckung (I14Y, eCH-0070)
+# und robots.txt/Nutzungsbedingungen prüfen — schreibt nach reports/
 tessera preflight
 
-# Einen kuratierten Prozess extrahieren und einen Review-PR gegen die Maschinerie öffnen
-tessera run --service hund-anmelden
+# Einzelne Schritte (jeweils optional auf eine Leistung begrenzbar)
+tessera crawl    --id hund-anmelden    # Quellseiten → Markdown-Snapshots
+tessera extract  --id hund-anmelden    # LLM-Extraktion + Grounding-Gate → out/
+tessera validate --id hund-anmelden    # Vertrags-Validator (muss Exit 0 liefern)
+tessera pr       --id hund-anmelden    # Draft-PR-Bundle bauen / einreichen
+
+# Oder alles in Reihenfolge
+tessera run --id hund-anmelden
 ```
+
+Ohne `GITHUB_TOKEN` wird kein PR eingereicht; das fertige Bundle (JSON +
+PR-Body mit Reviewer-Checkliste) liegt dann in `out/outbox/<id>/`.
 
 ## Konfiguration
 
-Umgebungsvariablen (siehe `.env.example`, sobald angelegt):
+Umgebungsvariablen — Keys werden nie committet und nie geloggt:
 
 | Variable | Zweck |
 |---|---|
-| `LLM_PROVIDER` / `LLM_API_KEY` | Modell für die strukturierte Extraktion |
-| `GITHUB_TOKEN` | Schreibrecht auf das Ziel-Repo für die PR-Erstellung |
+| `TESSERA_MODEL` | pydantic-ai-Modellstring; Default `anthropic:claude-opus-4-8` |
+| `ANTHROPIC_API_KEY` | Key des LLM-Providers (bzw. der zum Modell passende Key) |
+| `GITHUB_TOKEN` | Schreibrecht auf das Ziel-Repo für die PR-Erstellung (optional) |
 | `TARGET_REPO` | Default: `malkreide/maschinerie-zuerich` |
 
 ## Projektstruktur

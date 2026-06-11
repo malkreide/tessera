@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- v1 core pipeline (`src/tessera/`, plain loop, no orchestration framework):
+  `preflight` (I14Y public API + eCH-0070 inventory -> `reports/coverage.md`;
+  robots.txt/ToU -> `reports/scraping-compliance.md`, hard crawl gate on
+  disallow), `crawl` (Crawl4AI -> Markdown snapshots, documented Trafilatura
+  fallback), `extract` (pydantic-ai, strict structure-only schema, provider/
+  model/key from ENV only), `grounding` (status-aware gate: unverifiable
+  reference -> `unverifiziert` + flag, unverifiable step -> dropped + DAG
+  rewiring + flag), `pr` (one draft PR per service against `TARGET_REPO`;
+  without `GITHUB_TOKEN` the bundle lands in `out/outbox/`). Every output must
+  pass `scripts/validate_contract.py` (exit 0) before a PR is built.
+- Curated source list `sources.yaml` (hund-anmelden, umzug-melden); URLs
+  manually verified 2026-06-11.
+- stdlib tests for the grounding gate (`tests/test_grounding.py`) wired into CI.
 - Machine-readable draft of the data contract as JSON Schema (`docs/process.schema.json`),
   explicitly non-canonical (canonical schema lives in `maschinerie-zuerich`).
 - Dependency-free contract validator (`scripts/validate_contract.py`): structure,
