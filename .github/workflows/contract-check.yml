@@ -18,3 +18,5 @@ jobs:
           python-version: "3.11"
       - name: Vertrags-Check (Fixtures + Erwartungen)
         run: python tests/run_checks.py
+      - name: Grounding-Gate-Tests (stdlib)
+        run: python tests/test_grounding.py

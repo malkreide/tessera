@@ -1,0 +1,53 @@
+# Kuratierte Prozessliste fuer tessera v1 — VON HAND gepflegt.
+# Es gibt KEINEN Discovery-Agenten; neue Leistungen werden hier manuell ergaenzt.
+#
+# v1 startet bewusst mit rechtlich risikoarmen Leistungen (hund-anmelden,
+# umzug-melden). Schwere Faelle (Baubewilligung, Betreibung, Sozialhilfe)
+# kommen fruehestens in v3 mit erhoehtem Review.
+#
+# Felder:
+#   id                kebab-case, identisch zur lebenslage_ref in der Maschinerie
+#   service_name      offizieller Name der Leistung
+#   target_audience   eCH-0073: bevoelkerung | wirtschaft | behoerden
+#   official_urls     exakte Quell-URLs — am 2026-06-11 manuell auf HTTP 200 geprueft
+#   catalog_keywords  Stichwoerter fuer den Abdeckungs-Abgleich (I14Y / eCH-0070)
+#   notes             Hinweise fuer Reviewer:innen
+
+catalog:
+  # I14Y Public API (Behoerdenleistungen, ohne Auth) — wird KONSUMIERT, nicht entdeckt.
+  i14y_publicservices_url: "https://api.i14y.admin.ch/api/public/v1/publicservices"
+  # eCH-0070 Leistungsinventar (Beilage 1, V4.2.0) als XLSX.
+  ech0070_inventory_url: "https://www.ech.ch/sites/default/files/imce/eCH-Dossier/0061-0090/eCH-0070/4.2.0/Beilagen/BEIL1_d%26f_eCH-0070_V4.2.0_Leistungsinventar.xlsx"
+
+crawler:
+  # Identifizierender User-Agent (Pflicht laut CLAUDE.md / Pre-Flight).
+  user_agent: "tessera/0.1 (+https://github.com/malkreide/tessera; offene Prozess-Extraktion; Kontakt via GitHub-Issues)"
+  # Rate-Limit: Pause zwischen zwei Requests in Sekunden.
+  delay_seconds: 2.0
+
+processes:
+  - id: hund-anmelden
+    service_name: "Hund anmelden / Hundekontrolle"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/hundekontrolle.html"
+      - "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/hundekontrolle/anmeldung.html"
+      - "https://www.zh.ch/de/umwelt-tiere/tiere/haustiere-heimtiere/hunde.html"
+    catalog_keywords: ["hund"]
+    notes: >-
+      Einfacher Fall, Einstieg fuer v1. Kantonale Meldefrist und Hundesteuer
+      duerfen NUR als references (Label + Deep-Link + woertliches Zitat)
+      erscheinen, nie als Wert in einem Schritt-Label.
+
+  - id: umzug-melden
+    service_name: "Umzug melden (Zuzug, Umzug, Wegzug)"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden.html"
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/zuzug.html"
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/umzug.html"
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/wegzug.html"
+    catalog_keywords: ["umzug", "zuzug", "wegzug", "adress"]
+    notes: >-
+      Meldefristen vorhanden — ausschliesslich als references verlinken.
+      Die Lebenslage umfasst Zuzug, Umzug innerhalb der Stadt und Wegzug.
