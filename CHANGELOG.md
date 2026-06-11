@@ -19,8 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Aligned the draft contract, JSON Schema, and validator to the canonical v0
   schema in `maschinerie-zuerich`: Leichte-Sprache locale key `leichte_sprache`
-  → `ls`; `depends_on` now accepts `{step_id, condition?}` for conditional edges;
-  `retrieved_at` accepts a day-precision date in addition to a full timestamp.
+  → `ls`; `depends_on` now accepts `{step_id, condition?}` (condition is i18n) for
+  conditional edges; `retrieved_at` accepts a day-precision date in addition to a
+  full timestamp; `preconditions` is now a list of i18n objects.
+- Added the canonical additive fields so the validator and JSON Schema accept real
+  canonical process files 1:1: process `$schema`/`city`/`description`/`actors`/
+  `legal_basis`/`sources`/`reife`/`meta`; step `type`/`description`/`documents`/
+  `source_id`/`loops_back_to`; reference `status`. The grounding gate is now
+  status-aware (`verifiziert` requires a quote; `unverifiziert` may omit it).
+  Verified: all 8 live canonical process JSONs pass both the validator and the
+  JSON Schema. New fixtures `extensions-showcase.json` and
+  `invalid-grounding-verifiziert.json`.
 
 ### Planned
 - v1: structure-only extraction for ~10 curated processes, with PR into Maschinerie

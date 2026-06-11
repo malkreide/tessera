@@ -32,7 +32,7 @@ werden.
 | `lebenslage_ref` | string | ja | Schlüssel der bestehenden Lebenslage in der Maschinerie |
 | `title` | i18n-Objekt | ja | `{de, en, fr, it, ls}` – `ls` = Leichte Sprache; `de` Pflicht |
 | `target_audience` | enum | ja | eCH-0073: `bevoelkerung` \| `wirtschaft` \| `behoerden` |
-| `preconditions` | i18n-Liste | nein | Vorbedingungen (eCH-0073) |
+| `preconditions` | `i18n[]` | nein | Liste von i18n-Objekten – Vorbedingungen (eCH-0073) |
 | `steps` | `Step[]` | ja | siehe unten |
 | `references` | `Reference[]` | nein | bindende Werte als Links (siehe unten) |
 | `source_url` | string (URL) | ja | Originalseite der Behörde |
@@ -46,8 +46,11 @@ werden.
 | `step_id` | integer | ja | eindeutig je Prozess (Knoten im Graph) |
 | `actor` | string | ja | handelnde Behörde oder Bürger:in |
 | `label` | i18n-Objekt | ja | Schritt-Bezeichnung; **keine bindenden Zahlen** |
-| `depends_on` | `(integer \| {step_id, condition?})[]` | ja | Vorgänger (Kanten); leer = Start. Objektform für bedingte Kanten |
+| `depends_on` | `(integer \| {step_id, condition?})[]` | ja | Vorgänger (Kanten); leer = Start. `condition` ist ein i18n-Objekt |
 | `reference_ids` | integer[] | nein | Verweise auf `references` (z.B. zugehörige Frist) |
+
+Additive Step-Felder (optional, siehe «Additive kanonische Felder»):
+`type`, `description` (i18n, Kardinalregel-Lint), `documents`, `source_id`, `loops_back_to`.
 
 ## Objekt `Reference` (hier liegen Fristen, Gebühren, Rekursfristen)
 
@@ -56,8 +59,9 @@ werden.
 | `reference_id` | integer | ja | eindeutig je Prozess |
 | `label` | i18n-Objekt | ja | z.B. «Rekursfrist» – **ohne** die Zahl als behaupteten Fakt |
 | `source_url` | string (URL) | ja | Deep-Link auf die exakte Stelle der Originalseite |
-| `source_quote` | string | ja | wörtliche Belegstelle aus der Quelle (für Grounding/Audit) |
+| `source_quote` | string | ja* | wörtliche Belegstelle; *Pflicht bei `status: verifiziert` (Grounding-Gate), bei `unverifiziert` optional |
 | `retrieved_at` | string (ISO 8601) | ja | tagesgenaues Datum oder Zeitstempel |
+| `status` | enum | nein | `verifiziert` (Default) \| `unverifiziert` – steuert das Grounding-Gate |
 
 ## Beispiel (gekürzt)
 
@@ -68,14 +72,14 @@ werden.
   "lebenslage_ref": "hund-anmelden",
   "title": { "de": "Hund anmelden", "en": "", "fr": "", "it": "", "ls": "" },
   "target_audience": "bevoelkerung",
-  "preconditions": { "de": ["Wohnsitz in der Stadt Zürich"] },
+  "preconditions": [{ "de": "Wohnsitz in der Stadt Zürich" }],
   "steps": [
     { "step_id": 1, "actor": "Halter:in", "label": { "de": "Hund online anmelden" }, "depends_on": [], "reference_ids": [1] },
-    { "step_id": 2, "actor": "Steueramt", "label": { "de": "Veranlagung der Hundeabgabe" }, "depends_on": [{ "step_id": 1, "condition": "Registrierung bestätigt" }], "reference_ids": [2] }
+    { "step_id": 2, "actor": "Steueramt", "label": { "de": "Veranlagung der Hundeabgabe" }, "depends_on": [{ "step_id": 1, "condition": { "de": "Registrierung bestätigt" } }], "reference_ids": [2] }
   ],
   "references": [
-    { "reference_id": 1, "label": { "de": "Anmeldefrist" }, "source_url": "https://www.stadt-zuerich.ch/...", "source_quote": "innert ...", "retrieved_at": "2026-06-09" },
-    { "reference_id": 2, "label": { "de": "Höhe der Hundeabgabe" }, "source_url": "https://www.stadt-zuerich.ch/...", "source_quote": "...", "retrieved_at": "2026-06-09" }
+    { "reference_id": 1, "label": { "de": "Anmeldefrist" }, "source_url": "https://www.stadt-zuerich.ch/...", "source_quote": "innert ...", "status": "verifiziert", "retrieved_at": "2026-06-09" },
+    { "reference_id": 2, "label": { "de": "Höhe der Hundeabgabe" }, "source_url": "https://www.stadt-zuerich.ch/...", "source_quote": "...", "status": "verifiziert", "retrieved_at": "2026-06-09" }
   ],
   "source_url": "https://www.stadt-zuerich.ch/...",
   "retrieved_at": "2026-06-09",
@@ -101,18 +105,41 @@ python scripts/validate_contract.py pfad/zu/prozess.json
 ## Abgleich mit dem kanonischen Schema (maschinerie-zuerich)
 
 Kanonisch ist `docs/process-data-contract.md` im Repo `maschinerie-zuerich` (v0,
-gemergt). Dieser Entwurf wurde an drei dort bewusst gesetzten Punkten nachgezogen:
+gemergt). Dieser Entwurf und der Validator wurden darauf abgeglichen – **bewiesen**
+dadurch, dass alle echten kanonischen Prozess-JSONs den Validator **und** das JSON
+Schema 1:1 bestehen.
+
+Kern-Angleichungen:
 
 | Punkt | Kanonisch | Hier nachgezogen |
 |---|---|---|
 | Leichte Sprache | Locale-Key `ls` | `title.ls` / `label.ls` statt `leichte_sprache` |
-| `depends_on` | `(integer \| {step_id, condition?})[]` | Objektform für bedingte Kanten akzeptiert |
+| `depends_on` | `(integer \| {step_id, condition?})[]` | Objektform; `condition` ist i18n |
 | `retrieved_at` | tagesgenaues Datum | Datum **und** Zeitstempel akzeptiert |
+| `preconditions` | `i18n[]` | Liste von i18n-Objekten (statt `{de:[…]}`) |
 
-Das kanonische Schema kennt zusätzlich dokumentierte, **additive** Erweiterungen
-(`city`, Step-`type`, Reference-`status`, `actors`/Swimlanes, `legal_basis` u.a.).
-Diese sind für reine Vertrags-Konsumenten ignorierbar; Tessera produziert in v1 nur
-die Kernfelder. Eine Übernahme weiterer Felder erfolgt nur nach Rückfrage.
+### Additive kanonische Felder (alle optional)
+
+Diese Felder existieren im kanonischen Schema und werden hier akzeptiert/validiert,
+damit Tessera reale kanonische Dateien 1:1 prüfen kann. Tessera **produziert** in v1
+weiterhin primär die Kernfelder; diese Felder sind für reine Konsumenten ignorierbar.
+
+| Ebene | Feld | Typ / Werte |
+|---|---|---|
+| Process | `$schema` | string |
+| Process | `city` | string (z.B. `zh`) |
+| Process | `description` | i18n (Kardinalregel-Lint) |
+| Process | `actors` | `{id, label(i18n), type, einheit_ref?}[]`; `type` ∈ antragsteller·behoerde·fachstelle·gericht·dritte |
+| Process | `legal_basis` | `{label(string), url?}[]` |
+| Process | `sources` | `{id, title, url, retrieved_at}[]` |
+| Process | `reife` | object (experimentell, passthrough) |
+| Process | `meta` | `{erstellt?, aktualisiert?, maintainer?, lizenz?}` |
+| Step | `type` | start·input·prozess·entscheidung·loop·warten·ende |
+| Step | `description` | i18n (Kardinalregel-Lint) |
+| Step | `documents` | `{label(i18n), url?, required?}[]` |
+| Step | `source_id` | string → `sources[].id` |
+| Step | `loops_back_to` | integer[]; nur bei `type: loop`, **nicht** Teil des DAG |
+| Reference | `status` | `verifiziert` (Default) \| `unverifiziert` |
 
 ## Was bewusst NICHT im Vertrag steht
 

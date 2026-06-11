@@ -1,0 +1,81 @@
+{
+  "$schema": "../schemas/opengov-process-schema.json",
+  "schema_version": "0.1.0",
+  "id": "muster-prozess",
+  "lebenslage_ref": "muster-prozess",
+  "city": "zh",
+  "title": { "de": "Muster-Prozess", "ls": "Ein Beispiel." },
+  "description": { "de": "Synthetisches Fixture, das alle additiven Felder ausuebt." },
+  "target_audience": "bevoelkerung",
+  "preconditions": [
+    { "de": "Wohnsitz in der Stadt Zuerich" }
+  ],
+  "actors": [
+    { "id": "buerger", "label": { "de": "Buerger:in" }, "type": "antragsteller" },
+    { "id": "amt", "label": { "de": "Zustaendiges Amt" }, "type": "behoerde", "einheit_ref": "amt-x" }
+  ],
+  "steps": [
+    {
+      "step_id": 1,
+      "actor": "buerger",
+      "label": { "de": "Antrag stellen" },
+      "type": "start",
+      "depends_on": [],
+      "documents": [{ "label": { "de": "Ausweis" }, "required": true }],
+      "reference_ids": [1]
+    },
+    {
+      "step_id": 2,
+      "actor": "amt",
+      "label": { "de": "Antrag pruefen" },
+      "type": "entscheidung",
+      "description": { "de": "Das Amt prueft den Antrag." },
+      "depends_on": [{ "step_id": 1, "condition": { "de": "Unterlagen vollstaendig" } }],
+      "source_id": "s1"
+    },
+    {
+      "step_id": 3,
+      "actor": "buerger",
+      "label": { "de": "Unterlagen nachbessern" },
+      "type": "loop",
+      "depends_on": [2],
+      "loops_back_to": [1]
+    },
+    {
+      "step_id": 4,
+      "actor": "amt",
+      "label": { "de": "Entscheid eroeffnen" },
+      "type": "ende",
+      "depends_on": [2],
+      "reference_ids": [2]
+    }
+  ],
+  "references": [
+    {
+      "reference_id": 1,
+      "label": { "de": "Bearbeitungsgebuehr" },
+      "source_url": "https://www.stadt-zuerich.ch/...",
+      "source_quote": "ILLUSTRATIVES FIXTURE — vor Publikation durch woertliches Zitat ersetzen.",
+      "status": "verifiziert",
+      "retrieved_at": "2026-06-09"
+    },
+    {
+      "reference_id": 2,
+      "label": { "de": "Rekursfrist" },
+      "source_url": "https://www.zh.ch/...",
+      "status": "unverifiziert",
+      "retrieved_at": "2026-06-09"
+    }
+  ],
+  "legal_basis": [
+    { "label": "Gemeindegesetz des Kantons Zuerich", "url": "https://www.zhlaw.ch/Erlass/131.1" }
+  ],
+  "sources": [
+    { "id": "s1", "title": "Amtsseite", "url": "https://www.stadt-zuerich.ch/...", "retrieved_at": "2026-06-09" }
+  ],
+  "reife": { "onlineReifegrad": 3, "medienbrueche": 1 },
+  "meta": { "erstellt": "2026-06-09", "aktualisiert": "2026-06-11", "maintainer": "malkreide", "lizenz": "CC-BY-4.0" },
+  "source_url": "https://www.stadt-zuerich.ch/...",
+  "retrieved_at": "2026-06-09",
+  "disclaimer_key": "process.disclaimer.unofficial"
+}

@@ -10,9 +10,10 @@
     "ls": "Sie haben einen Hund. Sie melden den Hund bei der Stadt an."
   },
   "target_audience": "bevoelkerung",
-  "preconditions": {
-    "de": ["Wohnsitz in der Stadt Zuerich", "Der Hund ist mit einem Mikrochip gekennzeichnet"]
-  },
+  "preconditions": [
+    { "de": "Wohnsitz in der Stadt Zuerich" },
+    { "de": "Der Hund ist mit einem Mikrochip gekennzeichnet" }
+  ],
   "steps": [
     {
       "step_id": 1,
@@ -38,7 +39,7 @@
       "label": {
         "de": "Veranlagung der Hundeabgabe und Rechnungstellung"
       },
-      "depends_on": [{ "step_id": 2, "condition": "Registrierung bestaetigt" }],
+      "depends_on": [{ "step_id": 2, "condition": { "de": "Registrierung bestaetigt" } }],
       "reference_ids": [2]
     }
   ],

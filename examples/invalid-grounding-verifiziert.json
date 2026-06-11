@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1.0",
+  "id": "grounding-negativ",
+  "lebenslage_ref": "grounding-negativ",
+  "title": { "de": "Grounding-Gate Negativ-Beispiel" },
+  "target_audience": "bevoelkerung",
+  "steps": [
+    { "step_id": 1, "actor": "Amt", "label": { "de": "Schritt mit Gebuehr-Referenz" }, "depends_on": [], "reference_ids": [1] }
+  ],
+  "references": [
+    {
+      "reference_id": 1,
+      "label": { "de": "Hoehe der Gebuehr" },
+      "source_url": "https://www.stadt-zuerich.ch/...",
+      "status": "verifiziert",
+      "retrieved_at": "2026-06-09"
+    }
+  ],
+  "source_url": "https://www.stadt-zuerich.ch/...",
+  "retrieved_at": "2026-06-09",
+  "disclaimer_key": "process.disclaimer.unofficial"
+}

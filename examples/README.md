@@ -11,14 +11,23 @@ Kardinalregel.
 
 ## Dateien
 
+Dateien mit Praefix `invalid-` MUESSEN den Validator scheitern lassen; alle anderen
+MUESSEN gueltig sein (`tests/run_checks.py` prueft genau diese Erwartung).
+
 | Datei | Zweck |
 |---|---|
-| `hund-anmelden.json` | **Gueltiges** Fixture. Bindende Werte (Anmeldefrist, Hundeabgabe) liegen nur in `references`; Schritte verlinken sie via `reference_ids`. en/fr/it sind leer (Uebersetzung ausstehend). |
-| `invalid-binding-value-in-label.json` | **Ungueltiges** Fixture. Enthaelt absichtlich eine bindende Zahl im Step-Label («innert 10 Tagen», «CHF 175») und verletzt damit die Kardinalregel. Der Validator muss es ablehnen. |
+| `hund-anmelden.json` | **Gueltig.** Bindende Werte nur in `references`; eine bedingte `depends_on`-Kante (i18n-`condition`); `ls` + tagesgenaues Datum. |
+| `extensions-showcase.json` | **Gueltig.** Uebt **alle additiven kanonischen Felder** aus: `city`, `description`, `actors` (mit `einheit_ref`), `legal_basis`, `sources`, `reife`, `meta`; Step `type`/`description`/`documents`/`source_id`/`loops_back_to`; Reference `status` (verifiziert + unverifiziert). |
+| `invalid-binding-value-in-label.json` | **Ungueltig.** Bindende Zahl im Step-Label («innert 10 Tagen», «CHF 175») – Kardinalregel-Verstoss. |
+| `invalid-grounding-verifiziert.json` | **Ungueltig.** Reference mit `status: verifiziert` ohne `source_quote` – Grounding-Gate-Verstoss. |
 
 ## Pruefen
 
 ```bash
 python scripts/validate_contract.py            # prueft examples/*.json
 python scripts/validate_contract.py path/zu.json
+python tests/run_checks.py                      # Erwartungen (CI-Einstieg)
 ```
+
+Der Validator prueft die echten kanonischen Prozess-JSONs aus `maschinerie-zuerich`
+1:1 (Kern- + additive Felder).
