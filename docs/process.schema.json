@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/malkreide/tessera/blob/main/docs/process.schema.json",
   "title": "Tessera Process (Entwurf)",
-  "$comment": "ENTWURF, abgeglichen auf das kanonische v0-Schema in maschinerie-zuerich (docs/process-data-contract.md, gemergt). Diese Datei ist NICHT kanonisch; bei Abweichung gilt maschinerie-zuerich. Angeglichene Punkte: Locale-Key 'ls' (Leichte Sprache), depends_on erlaubt {step_id, condition?}, retrieved_at tagesgenaues Datum oder Zeitstempel.",
-  "description": "Strukturdaten einer Verwaltungsleistung. Rechtlich bindende Werte (Fristen, Gebuehren, Rekursfristen) erscheinen NUR als references (Label + Deep-Link), nie als gerenderter Wert in einem Step-Label.",
+  "$comment": "ENTWURF, abgeglichen auf das kanonische v0-Schema in maschinerie-zuerich (docs/process-data-contract.md, gemergt). NICHT kanonisch; bei Abweichung gilt maschinerie-zuerich. Validiert die echten kanonischen Prozess-JSONs 1:1 (inkl. additiver Felder). Angeglichen: Locale-Key 'ls'; depends_on {step_id, condition(i18n)?}; retrieved_at Datum/Zeitstempel; preconditions = i18n[]; additive Felder city/description/actors/legal_basis/sources/reife/meta sowie Step type/description/documents/source_id/loops_back_to und Reference status.",
+  "description": "Strukturdaten einer Verwaltungsleistung. Rechtlich bindende Werte (Fristen, Gebuehren, Rekursfristen) erscheinen NUR als references (Label + Deep-Link), nie als gerenderter Wert in Step-Label/-Description.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,6 +18,7 @@
     "disclaimer_key"
   ],
   "properties": {
+    "$schema": { "type": "string" },
     "schema_version": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
@@ -30,8 +31,7 @@
     },
     "lebenslage_ref": {
       "type": "string",
-      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
-      "description": "Schluessel der bestehenden Lebenslage in der Maschinerie"
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
     },
     "title": { "$ref": "#/$defs/i18n" },
     "target_audience": {
@@ -39,7 +39,11 @@
       "enum": ["bevoelkerung", "wirtschaft", "behoerden"],
       "description": "eCH-0073"
     },
-    "preconditions": { "$ref": "#/$defs/i18nList" },
+    "preconditions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/i18n" },
+      "description": "Liste von i18n-Objekten (kanonisch)."
+    },
     "steps": {
       "type": "array",
       "minItems": 1,
@@ -53,8 +57,23 @@
     "retrieved_at": { "$ref": "#/$defs/isoDateTime" },
     "disclaimer_key": {
       "type": "string",
-      "minLength": 1,
-      "description": "i18n-Key des Inoffiziell-Hinweises"
+      "minLength": 1
+    },
+    "city": { "type": "string", "minLength": 1, "description": "Stadt-Kennung, z.B. zh (additiv)" },
+    "description": { "$ref": "#/$defs/i18n" },
+    "actors": { "type": "array", "items": { "$ref": "#/$defs/actor" } },
+    "legal_basis": { "type": "array", "items": { "$ref": "#/$defs/legalBasis" } },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+    "reife": { "type": "object", "description": "Digitale Reife/Medienbrueche (experimentell, passthrough)" },
+    "meta": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "erstellt": { "type": "string" },
+        "aktualisiert": { "type": "string" },
+        "maintainer": { "type": "string" },
+        "lizenz": { "type": "string" }
+      }
     }
   },
   "$defs": {
@@ -62,7 +81,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["de"],
-      "description": "Mehrsprachiger String. de Pflicht; en/fr/it/ls duerfen leer sein (Uebersetzung ausstehend) — nicht maschinell raten. 'ls' = Leichte Sprache (kanonischer Locale-Key in maschinerie-zuerich).",
+      "description": "Mehrsprachiger String. de Pflicht; en/fr/it/ls duerfen leer/fehlen (Uebersetzung ausstehend). 'ls' = Leichte Sprache (kanonisch).",
       "properties": {
         "de": { "type": "string", "minLength": 1 },
         "en": { "type": "string" },
@@ -71,30 +90,17 @@
         "ls": { "type": "string" }
       }
     },
-    "i18nList": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["de"],
-      "description": "Mehrsprachige Liste von Strings.",
-      "properties": {
-        "de": { "type": "array", "items": { "type": "string" } },
-        "en": { "type": "array", "items": { "type": "string" } },
-        "fr": { "type": "array", "items": { "type": "string" } },
-        "it": { "type": "array", "items": { "type": "string" } },
-        "ls": { "type": "array", "items": { "type": "string" } }
-      }
-    },
     "step": {
       "type": "object",
       "additionalProperties": false,
       "required": ["step_id", "actor", "label", "depends_on"],
       "properties": {
         "step_id": { "type": "integer", "minimum": 1 },
-        "actor": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string", "minLength": 1, "description": "String; bei vorhandenem actors[] eine actors[].id" },
         "label": { "$ref": "#/$defs/i18n" },
         "depends_on": {
           "type": "array",
-          "description": "Vorgaenger; leer = Start. Eintrag = step_id (integer) ODER {step_id, condition?} fuer bedingte Kanten.",
+          "description": "Vorgaenger; leer = Start. Eintrag = step_id (integer) ODER {step_id, condition?(i18n)} fuer bedingte Kanten.",
           "items": {
             "oneOf": [
               { "type": "integer", "minimum": 1 },
@@ -104,7 +110,7 @@
                 "required": ["step_id"],
                 "properties": {
                   "step_id": { "type": "integer", "minimum": 1 },
-                  "condition": { "type": "string" }
+                  "condition": { "$ref": "#/$defs/i18n" }
                 }
               }
             ]
@@ -113,24 +119,96 @@
         "reference_ids": {
           "type": "array",
           "items": { "type": "integer", "minimum": 1 }
+        },
+        "type": {
+          "type": "string",
+          "enum": ["start", "input", "prozess", "entscheidung", "loop", "warten", "ende"],
+          "description": "Render-Hinweis (additiv)"
+        },
+        "description": { "$ref": "#/$defs/i18n" },
+        "documents": { "type": "array", "items": { "$ref": "#/$defs/document" } },
+        "source_id": { "type": "string", "description": "Verweis auf sources[].id" },
+        "loops_back_to": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 },
+          "description": "Ruecksprung-Hinweis (Rendering), NICHT Teil des DAG; nur auf type 'loop'"
         }
       }
     },
     "reference": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["reference_id", "label", "source_url", "source_quote", "retrieved_at"],
+      "required": ["reference_id", "label", "source_url", "retrieved_at"],
       "description": "Hier liegen Fristen/Gebuehren/Rekursfristen — nur als Link, nie als behaupteter Wert.",
       "properties": {
         "reference_id": { "type": "integer", "minimum": 1 },
         "label": { "$ref": "#/$defs/i18n" },
         "source_url": { "$ref": "#/$defs/url" },
-        "source_quote": {
+        "source_quote": { "type": "string", "description": "woertliche Belegstelle (Grounding/Audit)" },
+        "retrieved_at": { "$ref": "#/$defs/isoDateTime" },
+        "status": {
           "type": "string",
-          "minLength": 1,
-          "description": "woertliche Belegstelle aus der Quelle (Grounding/Audit)"
+          "enum": ["verifiziert", "unverifiziert"],
+          "description": "Default verifiziert. Grounding-Gate: verifiziert verlangt nicht-leere source_quote."
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "Grounding-Gate: ausser bei status 'unverifiziert' ist source_quote Pflicht und nicht-leer.",
+          "if": {
+            "properties": { "status": { "const": "unverifiziert" } },
+            "required": ["status"]
+          },
+          "then": true,
+          "else": {
+            "required": ["source_quote"],
+            "properties": { "source_quote": { "type": "string", "minLength": 1 } }
+          }
+        }
+      ]
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "type"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "$ref": "#/$defs/i18n" },
+        "type": {
+          "type": "string",
+          "enum": ["antragsteller", "behoerde", "fachstelle", "gericht", "dritte"]
         },
+        "einheit_ref": { "type": "string", "description": "Brücke zum Org-Chart (data/<city>/org-chart.json)" }
+      }
+    },
+    "legalBasis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "url": { "$ref": "#/$defs/url" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "url", "retrieved_at"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "url": { "$ref": "#/$defs/url" },
         "retrieved_at": { "$ref": "#/$defs/isoDateTime" }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label"],
+      "properties": {
+        "label": { "$ref": "#/$defs/i18n" },
+        "url": { "$ref": "#/$defs/url" },
+        "required": { "type": "boolean" }
       }
     },
     "url": {
@@ -140,7 +218,7 @@
     "isoDateTime": {
       "type": "string",
       "pattern": "^\\d{4}-\\d{2}-\\d{2}(T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2}))?$",
-      "description": "ISO 8601: tagesgenaues Datum (kanonisch, z.B. 2026-06-09) oder voller Zeitstempel (z.B. 2026-06-09T00:00:00Z)"
+      "description": "ISO 8601: tagesgenaues Datum (kanonisch) oder voller Zeitstempel"
     }
   }
 }

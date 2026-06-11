@@ -11,10 +11,14 @@ Geprueft wird:
     kein Selbstbezug, mindestens ein Start-Schritt, keine Zyklen (DAG).
   * Referenz-Integritaet: eindeutige reference_ids, reference_ids in Schritten
     verweisen auf existierende references.
-  * Grounding-Gate: jede Reference traegt eine nicht-leere source_quote.
-  * KARDINALREGEL ("Link, don't assert"): ein Step-Label darf keine bindende
-    Zahl (Frist/Gebuehr in Verbindung mit einer Einheit) enthalten. Verstoesse
-    sind Fehler, kein Warnhinweis.
+  * Grounding-Gate (statusabhaengig): status 'verifiziert' (Default) verlangt eine
+    nicht-leere source_quote (Fehler); 'unverifiziert' darf leer sein (Hinweis).
+  * KARDINALREGEL ("Link, don't assert"): kein gerenderter Text (Step-Label,
+    Step-/Prozess-Description) darf eine bindende Zahl (Wert + Einheit) enthalten.
+    Verstoesse sind Fehler, kein Warnhinweis.
+  * Additive kanonische Felder (optional): city, description, actors, legal_basis,
+    sources, reife, meta; Step type/description/documents/source_id/loops_back_to;
+    Reference status. Damit validiert der Check reale kanonische Dateien 1:1.
 
 Hinweis: Dieser Check ist auf das kanonische v0-Schema in maschinerie-zuerich
 abgeglichen (Locale-Key 'ls', depends_on-Objektvariante, tagesgenaues Datum). Er
@@ -36,6 +40,11 @@ from pathlib import Path
 AUDIENCES = {"bevoelkerung", "wirtschaft", "behoerden"}
 # Locale-Schluessel: kanonisch ist 'ls' (Leichte Sprache) im Repo maschinerie-zuerich.
 LOCALES = ("de", "en", "fr", "it", "ls")
+
+# Additive kanonische Erweiterungen (maschinerie-zuerich, docs/process-data-contract.md).
+STEP_TYPES = {"start", "input", "prozess", "entscheidung", "loop", "warten", "ende"}
+ACTOR_TYPES = {"antragsteller", "behoerde", "fachstelle", "gericht", "dritte"}
+REF_STATUS = {"verifiziert", "unverifiziert"}
 
 KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
@@ -133,17 +142,22 @@ def _dep_step_id(dep: object) -> int | None:
     return None
 
 
-def _check_cardinal_rule(rep: Report, step_id: object, label: object) -> None:
-    if not isinstance(label, dict):
+def _lint_binding(rep: Report, where: str, i18n: object) -> None:
+    """Kardinalregel: keine bindende Zahl (Wert + Einheit) in gerendertem Text.
+
+    Gilt fuer jeden gerenderten i18n-Text (Step-Label, Step-/Prozess-Description).
+    Bindende Werte leben ausschliesslich in references (Label + Link + source_quote).
+    """
+    if not isinstance(i18n, dict):
         return
-    for loc, text in label.items():
+    for loc, text in i18n.items():
         if isinstance(text, str):
             hit = BINDING_VALUE.search(text)
             if hit:
                 rep.error(
-                    f"Schritt {step_id} label.{loc}: KARDINALREGEL verletzt — "
-                    f"bindende Zahl {hit.group(0)!r} gehoert in eine Reference "
-                    f"(Label + Link), nicht ins Step-Label: {text!r}"
+                    f"{where}.{loc}: KARDINALREGEL verletzt — bindende Zahl "
+                    f"{hit.group(0)!r} gehoert in eine Reference (Label + Link), "
+                    f"nicht in gerenderten Text: {text!r}"
                 )
 
 
@@ -164,10 +178,35 @@ def _check_steps(rep: Report, steps: object) -> set[int]:
             rep.error(f"{where}.step_id: {sid} ist nicht eindeutig.")
         else:
             seen.add(sid)
+        allowed_step = {
+            "step_id", "actor", "label", "depends_on", "reference_ids",
+            # additive kanonische Erweiterungen:
+            "type", "description", "documents", "source_id", "loops_back_to",
+        }
+        for f in sorted(set(step) - allowed_step):
+            rep.error(f"{where}: unbekanntes Feld {f!r}.")
         if not isinstance(step.get("actor"), str) or not step["actor"].strip():
             rep.error(f"{where}.actor: Pflicht, nicht-leerer String.")
         _check_i18n(rep, f"{where}.label", step.get("label"))
-        _check_cardinal_rule(rep, sid, step.get("label"))
+        _lint_binding(rep, f"{where}.label", step.get("label"))
+        # additive: type, description, documents, source_id, loops_back_to
+        if "type" in step and step["type"] not in STEP_TYPES:
+            rep.error(f"{where}.type: muss eines von {sorted(STEP_TYPES)} sein ({step['type']!r}).")
+        if "description" in step:
+            _check_i18n(rep, f"{where}.description", step["description"])
+            _lint_binding(rep, f"{where}.description", step["description"])
+        if "documents" in step:
+            _check_documents(rep, f"{where}.documents", step["documents"])
+        if "source_id" in step and not isinstance(step["source_id"], str):
+            rep.error(f"{where}.source_id: muss ein String sein.")
+        if "loops_back_to" in step:
+            lbt = step["loops_back_to"]
+            if not isinstance(lbt, list) or any(
+                not isinstance(x, int) or isinstance(x, bool) for x in lbt
+            ):
+                rep.error(f"{where}.loops_back_to: Liste von step_ids erwartet.")
+            elif step.get("type") != "loop":
+                rep.warn(f"{where}.loops_back_to: nur auf type 'loop' vorgesehen.")
         dep = step.get("depends_on")
         if not isinstance(dep, list):
             rep.error(f"{where}.depends_on: Pflicht, Liste (leer = Start).")
@@ -182,8 +221,13 @@ def _check_steps(rep: Report, steps: object) -> set[int]:
                     extra = set(d) - {"step_id", "condition"}
                     if extra:
                         rep.error(f"{where}.depends_on[{j}]: unbekannte Felder {sorted(extra)}.")
-                    if "condition" in d and not isinstance(d["condition"], str):
-                        rep.error(f"{where}.depends_on[{j}].condition: muss ein String sein.")
+                    cond = d.get("condition")
+                    if "condition" in d and (
+                        not isinstance(cond, dict)
+                        or not isinstance(cond.get("de"), str)
+                        or not cond["de"].strip()
+                    ):
+                        rep.error(f"{where}.depends_on[{j}].condition: i18n-Objekt mit 'de' erwartet.")
         ref_ids = step.get("reference_ids", [])
         if ref_ids and (
             not isinstance(ref_ids, list)
@@ -256,16 +300,120 @@ def _check_references(rep: Report, refs: object) -> set[int]:
             rep.error(f"{where}.reference_id: {rid} ist nicht eindeutig.")
         else:
             seen.add(rid)
+        for f in sorted(set(ref) - {
+            "reference_id", "label", "source_url", "source_quote",
+            "retrieved_at", "status",
+        }):
+            rep.error(f"{where}: unbekanntes Feld {f!r}.")
         _check_i18n(rep, f"{where}.label", ref.get("label"))
         _check_url(rep, f"{where}.source_url", ref.get("source_url"))
+
+        status = ref.get("status", "verifiziert")  # default kanonisch: verifiziert
+        if status not in REF_STATUS:
+            rep.error(f"{where}.status: muss eines von {sorted(REF_STATUS)} sein ({status!r}).")
         sq = ref.get("source_quote")
-        if not isinstance(sq, str) or not sq.strip():
+        has_quote = isinstance(sq, str) and sq.strip()
+        if sq is not None and not isinstance(sq, str):
+            rep.error(f"{where}.source_quote: muss ein String sein.")
+        elif status == "verifiziert" and not has_quote:
+            # Grounding-Gate: ein verifizierter Beleg braucht ein woertliches Zitat.
             rep.error(
-                f"{where}.source_quote: Pflicht (Grounding-Gate) — "
-                "nicht belegbare Referenzen werden verworfen, nicht ausgegeben."
+                f"{where}.source_quote: Pflicht bei status 'verifiziert' "
+                "(Grounding-Gate) — woertliche Belegstelle erforderlich."
             )
+        elif status == "unverifiziert" and not has_quote:
+            # Erlaubt: UI rendert nur Label + Link; fuer Reviewer markiert.
+            rep.warn(f"{where}: status 'unverifiziert' ohne source_quote — fuer Review offen.")
         _check_iso(rep, f"{where}.retrieved_at", ref.get("retrieved_at"))
     return seen
+
+
+def _check_documents(rep: Report, where: str, docs: object) -> None:
+    if not isinstance(docs, list):
+        rep.error(f"{where}: muss eine Liste sein.")
+        return
+    for i, d in enumerate(docs):
+        w = f"{where}[{i}]"
+        if not isinstance(d, dict):
+            rep.error(f"{w}: muss ein Objekt sein.")
+            continue
+        for f in sorted(set(d) - {"label", "url", "required"}):
+            rep.error(f"{w}: unbekanntes Feld {f!r}.")
+        _check_i18n(rep, f"{w}.label", d.get("label"))
+        if "url" in d:
+            _check_url(rep, f"{w}.url", d["url"])
+        if "required" in d and not isinstance(d["required"], bool):
+            rep.error(f"{w}.required: muss boolean sein.")
+
+
+def _check_actors(rep: Report, actors: object) -> set[str]:
+    ids: set[str] = set()
+    if not isinstance(actors, list):
+        rep.error("actors: muss eine Liste sein.")
+        return ids
+    for i, a in enumerate(actors):
+        w = f"actors[{i}]"
+        if not isinstance(a, dict):
+            rep.error(f"{w}: muss ein Objekt sein.")
+            continue
+        for f in sorted(set(a) - {"id", "label", "type", "einheit_ref"}):
+            rep.error(f"{w}: unbekanntes Feld {f!r}.")
+        aid = a.get("id")
+        if not isinstance(aid, str) or not aid.strip():
+            rep.error(f"{w}.id: Pflicht, nicht-leerer String.")
+        elif aid in ids:
+            rep.error(f"{w}.id: {aid!r} ist nicht eindeutig.")
+        else:
+            ids.add(aid)
+        _check_i18n(rep, f"{w}.label", a.get("label"))
+        if a.get("type") not in ACTOR_TYPES:
+            rep.error(f"{w}.type: muss eines von {sorted(ACTOR_TYPES)} sein ({a.get('type')!r}).")
+        if "einheit_ref" in a and not isinstance(a["einheit_ref"], str):
+            rep.error(f"{w}.einheit_ref: muss ein String sein.")
+    return ids
+
+
+def _check_sources(rep: Report, sources: object) -> set[str]:
+    ids: set[str] = set()
+    if not isinstance(sources, list):
+        rep.error("sources: muss eine Liste sein.")
+        return ids
+    for i, s in enumerate(sources):
+        w = f"sources[{i}]"
+        if not isinstance(s, dict):
+            rep.error(f"{w}: muss ein Objekt sein.")
+            continue
+        for f in sorted(set(s) - {"id", "title", "url", "retrieved_at"}):
+            rep.error(f"{w}: unbekanntes Feld {f!r}.")
+        sid = s.get("id")
+        if not isinstance(sid, str) or not sid.strip():
+            rep.error(f"{w}.id: Pflicht, nicht-leerer String.")
+        elif sid in ids:
+            rep.error(f"{w}.id: {sid!r} ist nicht eindeutig.")
+        else:
+            ids.add(sid)
+        if not isinstance(s.get("title"), str) or not s.get("title", "").strip():
+            rep.error(f"{w}.title: Pflicht, nicht-leerer String.")
+        _check_url(rep, f"{w}.url", s.get("url"))
+        _check_iso(rep, f"{w}.retrieved_at", s.get("retrieved_at"))
+    return ids
+
+
+def _check_legal_basis(rep: Report, lb: object) -> None:
+    if not isinstance(lb, list):
+        rep.error("legal_basis: muss eine Liste sein.")
+        return
+    for i, e in enumerate(lb):
+        w = f"legal_basis[{i}]"
+        if not isinstance(e, dict):
+            rep.error(f"{w}: muss ein Objekt sein.")
+            continue
+        for f in sorted(set(e) - {"label", "url"}):
+            rep.error(f"{w}: unbekanntes Feld {f!r}.")
+        if not isinstance(e.get("label"), str) or not e.get("label", "").strip():
+            rep.error(f"{w}.label: Pflicht, nicht-leerer String.")
+        if "url" in e:
+            _check_url(rep, f"{w}.url", e["url"])
 
 
 def validate(data: object, rep: Report) -> None:
@@ -280,7 +428,11 @@ def validate(data: object, rep: Report) -> None:
     for field in sorted(required - set(data)):
         rep.error(f"Pflichtfeld fehlt: {field}")
 
-    allowed = required | {"preconditions", "references"}
+    allowed = required | {
+        "$schema", "preconditions", "references",
+        # additive kanonische Erweiterungen (maschinerie-zuerich):
+        "city", "description", "actors", "legal_basis", "sources", "reife", "meta",
+    }
     for field in sorted(set(data) - allowed):
         rep.error(f"Unbekanntes Feld: {field}")
 
@@ -305,8 +457,11 @@ def validate(data: object, rep: Report) -> None:
         )
     if "preconditions" in data:
         pc = data["preconditions"]
-        if not isinstance(pc, dict) or not isinstance(pc.get("de"), list):
-            rep.error("preconditions: i18n-Liste mit 'de' als Array erwartet.")
+        if not isinstance(pc, list):
+            rep.error("preconditions: Liste von i18n-Objekten erwartet.")
+        else:
+            for i, item in enumerate(pc):
+                _check_i18n(rep, f"preconditions[{i}]", item)
     if "source_url" in data:
         _check_url(rep, "source_url", data["source_url"])
     if "retrieved_at" in data:
@@ -314,22 +469,50 @@ def validate(data: object, rep: Report) -> None:
     if not isinstance(data.get("disclaimer_key"), str) or not data.get("disclaimer_key", "").strip():
         rep.error("disclaimer_key: Pflicht, nicht-leerer String.")
 
+    # --- Additive kanonische Erweiterungen (alle optional) ---
+    if "city" in data and (not isinstance(data["city"], str) or not data["city"].strip()):
+        rep.error("city: muss ein nicht-leerer String sein.")
+    if "description" in data:
+        _check_i18n(rep, "description", data["description"])
+        _lint_binding(rep, "description", data["description"])
+    actor_ids = _check_actors(rep, data["actors"]) if "actors" in data else set()
+    if "legal_basis" in data:
+        _check_legal_basis(rep, data["legal_basis"])
+    source_ids = _check_sources(rep, data["sources"]) if "sources" in data else set()
+    if "reife" in data and not isinstance(data["reife"], dict):
+        rep.error("reife: muss ein Objekt sein.")
+    if "meta" in data:
+        meta = data["meta"]
+        if not isinstance(meta, dict):
+            rep.error("meta: muss ein Objekt sein.")
+        else:
+            for f in sorted(set(meta) - {"erstellt", "aktualisiert", "maintainer", "lizenz"}):
+                rep.error(f"meta: unbekanntes Feld {f!r}.")
+
     step_ids = _check_steps(rep, data.get("steps"))
     if isinstance(data.get("steps"), list):
         _check_graph(rep, data["steps"], step_ids)
     ref_ids = _check_references(rep, data.get("references"))
 
-    # Querverweis Schritte -> references.
+    # Querverweise Schritte -> references / sources / actors / loops_back_to.
     if isinstance(data.get("steps"), list):
         for step in data["steps"]:
             if not isinstance(step, dict):
                 continue
+            sid = step.get("step_id")
             for r in step.get("reference_ids", []) or []:
                 if isinstance(r, int) and r not in ref_ids:
-                    rep.error(
-                        f"Schritt {step.get('step_id')}: reference_id {r} "
-                        "existiert nicht in references."
-                    )
+                    rep.error(f"Schritt {sid}: reference_id {r} existiert nicht in references.")
+            src = step.get("source_id")
+            if isinstance(src, str) and source_ids and src not in source_ids:
+                rep.error(f"Schritt {sid}: source_id {src!r} existiert nicht in sources.")
+            actor = step.get("actor")
+            if actor_ids and isinstance(actor, str) and actor not in actor_ids:
+                # Wenn actors[] vorhanden ist, sollte step.actor eine actors[].id sein.
+                rep.warn(f"Schritt {sid}: actor {actor!r} ist keine actors[].id.")
+            for t in step.get("loops_back_to", []) or []:
+                if isinstance(t, int) and t not in step_ids:
+                    rep.error(f"Schritt {sid}: loops_back_to {t} existiert nicht.")
 
 
 def validate_file(path: Path) -> Report:
