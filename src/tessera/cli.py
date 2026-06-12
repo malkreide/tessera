@@ -68,6 +68,7 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
         process, step_quotes = schema.to_contract(
             x,
             proc_id=proc.id,
+            target_audience=proc.target_audience,  # kuratiert, nie LLM-inferiert
             source_url=proc.official_urls[0],
             retrieved_at=retrieved_at,
         )

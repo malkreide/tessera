@@ -13,9 +13,12 @@ Geprueft wird:
     verweisen auf existierende references.
   * Grounding-Gate (statusabhaengig): status 'verifiziert' (Default) verlangt eine
     nicht-leere source_quote (Fehler); 'unverifiziert' darf leer sein (Hinweis).
-  * KARDINALREGEL ("Link, don't assert"): kein gerenderter Text (Step-Label,
-    Step-/Prozess-Description) darf eine bindende Zahl (Wert + Einheit) enthalten.
-    Verstoesse sind Fehler, kein Warnhinweis.
+  * KARDINALREGEL ("Link, don't assert"): kein gerenderter Text darf eine
+    bindende Zahl (Wert + Einheit) enthalten. Gelintet werden die kanonischen
+    Felder: title, description, preconditions[], steps[].label/.description,
+    steps[].documents[].label, depends_on[].condition, references[].label und
+    die reife-Freitexte. Verstoesse sind Fehler, kein Warnhinweis. Bindende
+    Werte leben ausschliesslich im source_quote einer Reference.
   * Additive kanonische Felder (optional): city, description, actors, legal_basis,
     sources, reife, meta; Step type/description/documents/source_id/loops_back_to;
     Reference status. Damit validiert der Check reale kanonische Dateien 1:1.
@@ -161,6 +164,31 @@ def _lint_binding(rep: Report, where: str, i18n: object) -> None:
                 )
 
 
+def _lint_reife(rep: Report, reife: dict) -> None:
+    """Kardinalregel auf den reife-Freitexten (kanonische Liste); das Objekt
+    bleibt ansonsten Passthrough (experimentell)."""
+    _lint_binding(rep, "reife.onceOnlyPotenzial", reife.get("onceOnlyPotenzial"))
+    for key in ("nutzergruppen", "painPoints", "improvementIdeas"):
+        items = reife.get(key)
+        if isinstance(items, list):
+            for i, item in enumerate(items):
+                _lint_binding(rep, f"reife.{key}[{i}]", item)
+    kpis = reife.get("wirkungKpi")
+    if isinstance(kpis, list):
+        for i, kpi in enumerate(kpis):
+            if not isinstance(kpi, dict):
+                continue
+            _lint_binding(rep, f"reife.wirkungKpi[{i}].label", kpi.get("label"))
+            wert = kpi.get("wert")
+            if isinstance(wert, str):
+                hit = BINDING_VALUE.search(wert)
+                if hit:
+                    rep.error(
+                        f"reife.wirkungKpi[{i}].wert: KARDINALREGEL verletzt — "
+                        f"bindende Zahl {hit.group(0)!r} gehoert in eine Reference: {wert!r}"
+                    )
+
+
 def _check_steps(rep: Report, steps: object) -> set[int]:
     seen: set[int] = set()
     if not isinstance(steps, list) or not steps:
@@ -228,6 +256,7 @@ def _check_steps(rep: Report, steps: object) -> set[int]:
                         or not cond["de"].strip()
                     ):
                         rep.error(f"{where}.depends_on[{j}].condition: i18n-Objekt mit 'de' erwartet.")
+                    _lint_binding(rep, f"{where}.depends_on[{j}].condition", cond)
         ref_ids = step.get("reference_ids", [])
         if ref_ids and (
             not isinstance(ref_ids, list)
@@ -306,6 +335,8 @@ def _check_references(rep: Report, refs: object) -> set[int]:
         }):
             rep.error(f"{where}: unbekanntes Feld {f!r}.")
         _check_i18n(rep, f"{where}.label", ref.get("label"))
+        # Kardinalregel: das Label benennt den Wert, traegt aber nie die Zahl.
+        _lint_binding(rep, f"{where}.label", ref.get("label"))
         _check_url(rep, f"{where}.source_url", ref.get("source_url"))
 
         status = ref.get("status", "verifiziert")  # default kanonisch: verifiziert
@@ -340,6 +371,7 @@ def _check_documents(rep: Report, where: str, docs: object) -> None:
         for f in sorted(set(d) - {"label", "url", "required"}):
             rep.error(f"{w}: unbekanntes Feld {f!r}.")
         _check_i18n(rep, f"{w}.label", d.get("label"))
+        _lint_binding(rep, f"{w}.label", d.get("label"))
         if "url" in d:
             _check_url(rep, f"{w}.url", d["url"])
         if "required" in d and not isinstance(d["required"], bool):
@@ -450,6 +482,7 @@ def validate(data: object, rep: Report) -> None:
 
     if "title" in data:
         _check_i18n(rep, "title", data["title"])
+        _lint_binding(rep, "title", data["title"])
     if data.get("target_audience") not in AUDIENCES:
         rep.error(
             f"target_audience: muss eines von {sorted(AUDIENCES)} sein "
@@ -462,6 +495,7 @@ def validate(data: object, rep: Report) -> None:
         else:
             for i, item in enumerate(pc):
                 _check_i18n(rep, f"preconditions[{i}]", item)
+                _lint_binding(rep, f"preconditions[{i}]", item)
     if "source_url" in data:
         _check_url(rep, "source_url", data["source_url"])
     if "retrieved_at" in data:
@@ -479,8 +513,11 @@ def validate(data: object, rep: Report) -> None:
     if "legal_basis" in data:
         _check_legal_basis(rep, data["legal_basis"])
     source_ids = _check_sources(rep, data["sources"]) if "sources" in data else set()
-    if "reife" in data and not isinstance(data["reife"], dict):
-        rep.error("reife: muss ein Objekt sein.")
+    if "reife" in data:
+        if not isinstance(data["reife"], dict):
+            rep.error("reife: muss ein Objekt sein.")
+        else:
+            _lint_reife(rep, data["reife"])
     if "meta" in data:
         meta = data["meta"]
         if not isinstance(meta, dict):

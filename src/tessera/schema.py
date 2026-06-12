@@ -14,8 +14,6 @@ bindenden Zahlen tragen; Fristen/Gebuehren existieren nur als Reference.
 """
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -66,10 +64,12 @@ class XStep(BaseModel):
 
 
 class XProcess(BaseModel):
+    """Extraktionsergebnis. Bewusst OHNE target_audience: das ist kuratiertes
+    Metadatum aus sources.yaml und wird nicht vom LLM (neu) klassifiziert."""
+
     model_config = ConfigDict(extra="forbid")
 
     title: XText
-    target_audience: Literal["bevoelkerung", "wirtschaft", "behoerden"]
     preconditions: list[XText] = Field(default_factory=list)
     steps: list[XStep]
     references: list[XReference] = Field(default_factory=list)
@@ -90,6 +90,7 @@ def to_contract(
     x: XProcess,
     *,
     proc_id: str,
+    target_audience: str,
     source_url: str,
     retrieved_at: str,
 ) -> tuple[dict, dict[int, str]]:
@@ -135,7 +136,7 @@ def to_contract(
         "lebenslage_ref": proc_id,
         "city": "zh",
         "title": _i18n(x.title),
-        "target_audience": x.target_audience,
+        "target_audience": target_audience,
         "steps": steps,
         "source_url": source_url,
         "retrieved_at": retrieved_at,

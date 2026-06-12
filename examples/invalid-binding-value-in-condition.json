@@ -1,0 +1,29 @@
+{
+  "schema_version": "0.1.0",
+  "id": "synthetic-bedingung",
+  "lebenslage_ref": "synthetic-bedingung",
+  "title": { "de": "Synthetisches Beispiel: bindende Zahl in einer Bedingung" },
+  "target_audience": "bevoelkerung",
+  "steps": [
+    {
+      "step_id": 1,
+      "actor": "Buerger:in",
+      "label": { "de": "Gesuch einreichen" },
+      "depends_on": []
+    },
+    {
+      "step_id": 2,
+      "actor": "Amt",
+      "label": { "de": "Gesuch pruefen" },
+      "depends_on": [
+        {
+          "step_id": 1,
+          "condition": { "de": "Einsprache innert 30 Tagen erhoben" }
+        }
+      ]
+    }
+  ],
+  "source_url": "https://example.org/leistung",
+  "retrieved_at": "2026-06-12",
+  "disclaimer_key": "Prozesse.disclaimer"
+}
