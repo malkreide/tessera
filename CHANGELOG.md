@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cardinal-rule lint (a binding value in a step label fails the check).
 - Synthetic example fixtures (`examples/`): one valid process and one that
   intentionally violates the cardinal rule.
+- v1 groundwork (offline, no new deps): curated `sources.yaml` (risk-light start
+  set hund-anmelden + umzug-melden), pre-flight report templates
+  (`reports/coverage.md`, `reports/scraping-compliance.md`), and the pipeline
+  architecture (`docs/v1-pipeline.md`).
 
 ### Changed
 - Aligned the draft contract, JSON Schema, and validator to the canonical v0
@@ -45,7 +49,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `invalid-grounding-verifiziert.json`.
 
 ### Planned
-- v1: structure-only extraction for ~10 curated processes, with PR into Maschinerie
+- v1: first extraction runs + draft PRs into Maschinerie (pipeline is built;
+  needs a session with `ANTHROPIC_API_KEY` / `GITHUB_TOKEN` set by the maintainer),
+  then widen the curated set (~10 processes).
 
 ## [0.0.1] - 2026-06-09
 

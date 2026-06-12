@@ -51,3 +51,9 @@ processes:
     notes: >-
       Meldefristen vorhanden — ausschliesslich als references verlinken.
       Die Lebenslage umfasst Zuzug, Umzug innerhalb der Stadt und Wegzug.
+
+# Weitere risikoarme Kandidaten fuer v1 (erst nach den ersten beiden, nach Rueckfrage):
+#   - id: fundsache        # Fundbuero Stadtpolizei
+#   - id: parkplatz        # Anwohnerparkkarte
+#   - id: kita-platz       # Betreuungsgutscheine
+# NICHT in v1: baugesuch (Baubewilligung), sozialhilfe, veranstaltung.

@@ -1,10 +1,13 @@
 # Scraping-Compliance (robots.txt & Nutzungsbedingungen)
 
-Stand: 2026-06-11 — erzeugt durch `tessera preflight`.
-User-Agent: `tessera/0.1 (+https://github.com/malkreide/tessera; offene Prozess-Extraktion; Kontakt via GitHub-Issues)`
-Rate-Limit: 2.0s Pause zwischen Requests;
-keine Umgehung technischer Schutzmassnahmen; nur oeffentliche Seiten,
-keine personenbezogenen Daten in URLs oder Logs.
+Stand: 2026-06-12 — erzeugt durch `tessera preflight`.
+
+## Respekt-Regeln (fix)
+
+- **User-Agent:** identifizierend — `tessera/0.1 (+https://github.com/malkreide/tessera; offene Prozess-Extraktion; Kontakt via GitHub-Issues)`
+- **Rate-Limit:** 2.0s Pause zwischen Requests, Backoff bei Fehlern
+- **Keine** Umgehung von Logins, Captchas oder anderen Schutzmassnahmen
+- **Keine** personenbezogenen Daten in URLs, Query-Strings oder Logs
 
 ## Domains
 
