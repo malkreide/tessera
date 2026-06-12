@@ -1,9 +1,9 @@
 # v1-Pipeline: struktur-only-Extraktion
 
-> **Status: Plan.** Beschreibt den v1-Kern. Voraussetzung ist eine netz- und
-> key-fähige Session (siehe «Setup»). Der Schema-/Validierungs-Teil ist bereits
-> gebaut (`scripts/validate_contract.py`, `docs/process.schema.json`); dieser Doc
-> beschreibt die Crawl-/Extraktions-Stufen drumherum.
+> **Status: umgesetzt** in `src/tessera/` (CLI: `tessera preflight | crawl |
+> extract | validate | pr | run`). Der LLM-Schritt und der Cross-Repo-PR
+> brauchen eine key-fähige Session (siehe «Setup»); Preflight, Crawl,
+> Grounding-Gate und Validierung laufen ohne Keys.
 
 ## Was v1 ist – und was nicht
 
@@ -30,11 +30,13 @@ pypi.org   files.pythonhosted.org
 **LLM-Provider** ausschliesslich über ENV (kein Key in Code/Commit/Log):
 
 ```
-LLM_PROVIDER=anthropic         # via pydantic-ai, provider-agnostisch
-LLM_MODEL=claude-sonnet-4-6    # Opus für schwierige Seiten; per ENV umstellbar
-ANTHROPIC_API_KEY=…            # setzt der Maintainer
+TESSERA_MODEL=anthropic:claude-opus-4-8     # pydantic-ai-Modellstring (Default)
+ANTHROPIC_API_KEY=…                         # setzt der Maintainer (nie in Code/Log)
+GITHUB_TOKEN=…                              # nur fuer den Cross-Repo-Draft-PR
 TARGET_REPO=malkreide/maschinerie-zuerich   # Default
 ```
+
+Ohne `GITHUB_TOKEN` landet das fertige PR-Bundle in `out/outbox/<id>/`.
 
 **Runtime-Deps** (in `pyproject.toml` als „intended" vermerkt — Installation nach
 Rückfrage): `crawl4ai`, `pydantic>=2`, `pydantic-ai`, `httpx`, `pyyaml`, `openpyxl`.

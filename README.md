@@ -71,24 +71,33 @@ uv sync          # or: python -m venv .venv && pip install -e ".[dev]"
 
 ## Usage / Quickstart
 
-> Not yet functional — this is the intended entry point once v1 is built.
-
 ```bash
-# Pre-flight: check existing inventories + scraping rules (writes to reports/)
+# Pre-flight (mandatory before any crawl): catalog coverage (I14Y, eCH-0070)
+# and robots.txt / terms-of-use checks — writes to reports/
 tessera preflight
 
-# Extract one curated process and open a review PR against the Maschinerie repo
-tessera run --service hund-anmelden
+# Individual steps (each optionally limited to one service)
+tessera crawl    --id hund-anmelden    # source pages → Markdown snapshots
+tessera extract  --id hund-anmelden    # LLM extraction + grounding gate → out/
+tessera validate --id hund-anmelden    # contract validator (must exit 0)
+tessera pr       --id hund-anmelden    # build / submit the draft-PR bundle
+
+# Or everything in order
+tessera run --id hund-anmelden
 ```
+
+Without `GITHUB_TOKEN` no PR is submitted; the finished bundle (JSON +
+PR body with reviewer checklist) is written to `out/outbox/<id>/` instead.
 
 ## Configuration
 
-Environment variables (see `.env.example` once created):
+Environment variables — keys are never committed and never logged:
 
 | Variable | Purpose |
 |---|---|
-| `LLM_PROVIDER` / `LLM_API_KEY` | Model used for structured extraction |
-| `GITHUB_TOKEN` | Write access to the target repo for PR creation |
+| `TESSERA_MODEL` | pydantic-ai model string; default `anthropic:claude-opus-4-8` |
+| `ANTHROPIC_API_KEY` | LLM provider key (or the key matching your model) |
+| `GITHUB_TOKEN` | Write access to the target repo for PR creation (optional) |
 | `TARGET_REPO` | Default: `malkreide/maschinerie-zuerich` |
 
 ## Project Structure

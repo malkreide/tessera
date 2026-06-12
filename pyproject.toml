@@ -8,8 +8,6 @@ license = { text = "MIT" }
 authors = [{ name = "malkreide" }]
 keywords = ["civic-tech", "open-government", "ai-agents", "e-government", "swiss-open-data"]
 
-# NOTE: This is a starting manifest. The actual pipeline is built in v1 via Claude Code.
-# Pin/adjust versions when the pipeline is implemented.
 dependencies = [
     "crawl4ai",       # HTML -> clean Markdown
     "pydantic>=2",    # strict schema
@@ -21,9 +19,12 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
+# Fallback-Extraktor, falls Crawl4AI/Playwright in der Umgebung nicht laeuft
+# (httpx + Trafilatura); Nutzung wird in den Snapshot-Metadaten vermerkt.
+crawl-fallback = ["trafilatura"]
 
 [project.scripts]
-tessera = "tessera.cli:main"   # placeholder; implemented in v1
+tessera = "tessera.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/malkreide/tessera"

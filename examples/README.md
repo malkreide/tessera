@@ -19,6 +19,7 @@ MUESSEN gueltig sein (`tests/run_checks.py` prueft genau diese Erwartung).
 | `hund-anmelden.json` | **Gueltig.** Bindende Werte nur in `references`; eine bedingte `depends_on`-Kante (i18n-`condition`); `ls` + tagesgenaues Datum. |
 | `extensions-showcase.json` | **Gueltig.** Uebt **alle additiven kanonischen Felder** aus: `city`, `description`, `actors` (mit `einheit_ref`), `legal_basis`, `sources`, `reife`, `meta`; Step `type`/`description`/`documents`/`source_id`/`loops_back_to`; Reference `status` (verifiziert + unverifiziert). |
 | `invalid-binding-value-in-label.json` | **Ungueltig.** Bindende Zahl im Step-Label («innert 10 Tagen», «CHF 175») – Kardinalregel-Verstoss. |
+| `invalid-binding-value-in-condition.json` | **Ungueltig.** Bindende Zahl in einer `depends_on[].condition` («innert 30 Tagen») – Kardinalregel gilt fuer ALLE gerenderten Texte, auch Bedingungs-Kanten. |
 | `invalid-grounding-verifiziert.json` | **Ungueltig.** Reference mit `status: verifiziert` ohne `source_quote` – Grounding-Gate-Verstoss. |
 
 ## Pruefen
