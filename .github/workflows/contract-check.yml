@@ -20,3 +20,5 @@ jobs:
         run: python tests/run_checks.py
       - name: Grounding-Gate-Tests (stdlib)
         run: python tests/test_grounding.py
+      - name: Merge-Tests (Handdaten erhalten, stdlib)
+        run: python tests/test_merge.py

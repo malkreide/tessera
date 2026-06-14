@@ -123,9 +123,12 @@ def cmd_pr(cfg: SourcesConfig, ids: list[str] | None) -> int:
         process = json.loads(out_json.read_text(encoding="utf-8"))
         flags = json.loads(flags_file.read_text(encoding="utf-8")) if flags_file.exists() else []
         meta = json.loads((RAW / proc.id / "meta.json").read_text(encoding="utf-8"))
+        # Lokales Artefakt vorab schreiben (struktur-only); open_draft_pr merged
+        # bei Bedarf gegen die bestehende Zieldatei und ueberschreibt das Bundle
+        # mit dem tatsaechlich eingereichten (gemergten) Stand.
         body = pr_mod.build_pr_body(proc, process, flags, meta)
         pr_mod.write_bundle(proc, process, body)
-        pr_mod.open_draft_pr(proc, process, body)
+        pr_mod.open_draft_pr(proc, process, flags, meta)
     return rc
 
 

@@ -65,8 +65,30 @@ sources.yaml  (kuratiert, von Hand — ein Eintrag pro Leistung)
       │
 [5] Emit PR   ein Draft-PR pro Leistung gegen TARGET_REPO
               Datei: stadt-zuerich-next/data/prozesse/zh/<id>.json
+              existiert die Datei schon → feldweise mergen (s.u.), nicht ueberschreiben
               NIE mergen, NIE nach main pushen
 ```
+
+### Merge gegen bestehende (handgepflegte) Zieldateien
+
+Für mehrere Leistungen existieren im Ziel-Repo bereits **von Hand angereicherte**
+Dateien mit vollständigen Übersetzungen (`de/en/fr/it/ls`) und `description`-Blöcken.
+tessera liefert struktur-only (de plus leere `en/fr/it`). Ein blindes `PUT`-mit-`sha`
+würde die reicheren Handdaten durch die ärmere Extraktion ersetzen — Übersetzungs-
+und Beschreibungs-Regression. Deshalb merged `src/tessera/merge.py` **feldweise**:
+
+- Bestehende, nicht-leere i18n-Locale-Werte (`de/en/fr/it/ls`) und `description`-
+  Blöcke bleiben **immer** erhalten; die Extraktion füllt nur Lücken (leer/None/fehlend).
+- Gemerged wird über **fachliche Schlüssel** (`step_id`, `reference_id`, `actor.id`),
+  nicht über Array-Index — Reihenfolgeänderungen zerstören nichts.
+- Neue Schritte/References/Felder werden ergänzt; bestehende Reihenfolge bleibt.
+- Ist ein Fall nicht sauber mergebar (kaputtes JSON, `id`-Mismatch, doppelte
+  Schlüssel) → Datei **überspringen** statt verarmen, klar geloggt, kein PR.
+
+Der PR-Body enthält dann eine **Reviewer-Warnung** «überschreibt bestehende
+handgepflegte Datei» mit den erhaltenen und ergänzten Feldern. So besteht der PR
+den Ziel-Repo-Guard `npm run check:regression` (seit Ziel-PR #108) **ohne**
+`ALLOW_PROZESS_SHRINK` — die Escape-Hatch wird bewusst nicht genutzt.
 
 ## Ausgabeformat
 
