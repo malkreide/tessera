@@ -8,16 +8,56 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from datetime import date
 from pathlib import Path
 
 import httpx
 
 from .config import ROOT, ProcessSource
+from .merge import MergeConflict, MergeReport, merge_process
 
 OUTBOX = ROOT / "out" / "outbox"
 DEFAULT_TARGET = "malkreide/maschinerie-zuerich"
 TARGET_PATH = "stadt-zuerich-next/data/prozesse/zh"
+
+
+def _bullets(items: list[str], limit: int = 12) -> list[str]:
+    """Aufzaehlung fuer den PR-Body, lange Listen gekuerzt."""
+    shown = [f"  - `{i}`" for i in items[:limit]]
+    if len(items) > limit:
+        shown.append(f"  - … und {len(items) - limit} weitere")
+    return shown
+
+
+def build_merge_warning(report: MergeReport, path: str) -> str:
+    """Reviewer-Warnung: dieser PR ueberschreibt eine bestehende, handgepflegte
+    Datei. Listet auf, welche Felder ERHALTEN (vor Verarmung geschuetzt) und
+    welche ERGAENZT wurden."""
+    lines = [
+        "## ⚠️ Reviewer-Warnung: bestehende handgepflegte Datei",
+        "",
+        f"Dieser PR aendert die bereits existierende Datei `{path}` im Ziel-Repo.",
+        "tessera liefert struktur-only (leere en/fr/it); deshalb wurde **nicht",
+        "blind ueberschrieben**, sondern feldweise gemerged: bestehende, nicht-",
+        "leere i18n-Werte (de/en/fr/it/ls) und description-Bloecke bleiben",
+        "erhalten, die Extraktion fuellt nur Luecken und ergaenzt neue Struktur.",
+        "",
+        f"- Erhaltene Felder (gegen Leerung geschuetzt): **{len(report.preserved)}**",
+    ]
+    if report.preserved:
+        lines += _bullets(report.preserved)
+    lines.append(f"- Ergaenzte Felder / neue Schritte/References: **{len(report.added)}**")
+    if report.added:
+        lines += _bullets(report.added)
+    lines += [
+        "",
+        "> Bitte den Diff gegen den Ziel-Branch genau pruefen: es darf **kein**",
+        "> belegter i18n-/description-Text verloren gehen (CI-Guard "
+        "`npm run check:regression`).",
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def build_pr_body(
@@ -25,6 +65,7 @@ def build_pr_body(
     process: dict,
     flags: list[str],
     crawl_meta: list[dict],
+    merge_note: str | None = None,
 ) -> str:
     refs = process.get("references", [])
     verified = [r for r in refs if r.get("status", "verifiziert") == "verifiziert"]
@@ -38,6 +79,10 @@ def build_pr_body(
         "sind ausschliesslich als `references` mit Deep-Link und woertlicher",
         "Belegstelle enthalten — nie als Wert im Schritt-Label (Kardinalregel).",
         "",
+    ]
+    if merge_note:
+        lines += [merge_note, ""]
+    lines += [
         "## Zusammenfassung",
         "",
         f"- Schritte: {len(process['steps'])}, References: {len(refs)} "
@@ -88,10 +133,23 @@ def write_bundle(proc: ProcessSource, process: dict, body: str) -> Path:
     return outdir
 
 
-def open_draft_pr(proc: ProcessSource, process: dict, body: str) -> str | None:
-    """Erzeugt Branch + Datei + Draft-PR im Ziel-Repo. None ohne GITHUB_TOKEN."""
+def open_draft_pr(
+    proc: ProcessSource,
+    process: dict,
+    flags: list[str],
+    crawl_meta: list[dict],
+) -> str | None:
+    """Erzeugt Branch + Datei + Draft-PR im Ziel-Repo. None ohne GITHUB_TOKEN.
+
+    Existiert die Zieldatei bereits (z.B. handgepflegt mit vollstaendigen
+    Uebersetzungen), wird NICHT blind ueberschrieben, sondern feldweise gemerged
+    (`merge.merge_process`): bestehende, belegte i18n-/description-Texte bleiben
+    erhalten, die Extraktion fuellt nur Luecken. So besteht der PR den CI-Guard
+    `npm run check:regression` im Ziel-Repo ohne `ALLOW_PROZESS_SHRINK`.
+    """
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
+        body = build_pr_body(proc, process, flags, crawl_meta)
         print(
             f"  [{proc.id}] Kein GITHUB_TOKEN im ENV — PR-Bundle liegt in "
             f"{write_bundle(proc, process, body)} (manuell einreichen)."
@@ -107,13 +165,45 @@ def open_draft_pr(proc: ProcessSource, process: dict, body: str) -> str | None:
     }
     branch = f"tessera/{proc.id}-{date.today().isoformat()}"
     path = f"{TARGET_PATH}/{proc.id}.json"
-    content = json.dumps(process, indent=2, ensure_ascii=False) + "\n"
 
     import base64  # noqa: PLC0415
 
     with httpx.Client(headers=headers, timeout=30) as client:
         repo = client.get(api).raise_for_status().json()
         default_branch = repo["default_branch"]
+
+        # Bestehende Zieldatei laden (wird ohnehin fuer den sha gebraucht) und
+        # feldweise mergen, statt handgepflegte Daten zu verarmen.
+        existing = client.get(f"{api}/contents/{path}", params={"ref": default_branch})
+        existing_sha: str | None = None
+        merge_note: str | None = None
+        final_process = process
+        if existing.status_code == 200:
+            existing_sha = existing.json()["sha"]
+            try:
+                existing_doc = json.loads(
+                    base64.b64decode(existing.json()["content"]).decode("utf-8")
+                )
+                final_process, report = merge_process(existing_doc, process)
+            except (MergeConflict, json.JSONDecodeError, ValueError) as exc:
+                # Lieber UEBERSPRINGEN als die handgepflegte Datei verarmen.
+                print(
+                    f"  [{proc.id}] Bestehende Datei {path} nicht sauber "
+                    f"mergebar ({exc}) — UEBERSPRUNGEN, kein PR.",
+                    file=sys.stderr,
+                )
+                return None
+            merge_note = build_merge_warning(report, path)
+            print(
+                f"  [{proc.id}] Bestehende Datei gemerged: "
+                f"{len(report.preserved)} Felder erhalten, "
+                f"{len(report.added)} ergaenzt."
+            )
+
+        body = build_pr_body(proc, final_process, flags, crawl_meta, merge_note=merge_note)
+        write_bundle(proc, final_process, body)  # lokales Artefakt = eingereichter Stand
+        content = json.dumps(final_process, indent=2, ensure_ascii=False) + "\n"
+
         base_sha = (
             client.get(f"{api}/git/ref/heads/{default_branch}").raise_for_status().json()
         )["object"]["sha"]
@@ -121,20 +211,22 @@ def open_draft_pr(proc: ProcessSource, process: dict, body: str) -> str | None:
             f"{api}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": base_sha}
         ).raise_for_status()
 
+        msg = f"feat(prozesse): {proc.id} — struktur-only Extraktion (tessera v1)"
+        if existing_sha:
+            msg = f"feat(prozesse): {proc.id} — Struktur ergaenzen (Handdaten erhalten, tessera v1)"
         put: dict = {
-            "message": f"feat(prozesse): {proc.id} — struktur-only Extraktion (tessera v1)",
+            "message": msg,
             "content": base64.b64encode(content.encode()).decode(),
             "branch": branch,
         }
-        existing = client.get(f"{api}/contents/{path}", params={"ref": default_branch})
-        if existing.status_code == 200:
-            put["sha"] = existing.json()["sha"]
+        if existing_sha:
+            put["sha"] = existing_sha
         client.put(f"{api}/contents/{path}", json=put).raise_for_status()
 
         pr = client.post(
             f"{api}/pulls",
             json={
-                "title": f"tessera v1: {process['title']['de']} ({proc.id})",
+                "title": f"tessera v1: {final_process['title']['de']} ({proc.id})",
                 "head": branch,
                 "base": default_branch,
                 "body": body,
