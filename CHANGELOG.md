@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- High-risk legal-case policy (`src/tessera/risk.py` as single source of truth):
+  `baugesuch`, `sozialhilfe`, `veranstaltung` are reputation-critical and remain
+  excluded from automated v1 extraction. Heightened review where they touch the
+  pipeline: the contract validator turns an `unverifiziert`/ungrounded reference
+  into a hard **error** (not a warning) for these ids, prints a `HOCHRISIKO`
+  banner, and recommends a visible high-risk `disclaimer_key`; the draft PR body
+  carries a prominent high-risk reviewer checklist. New stdlib tests
+  (`tests/test_risk.py`) and fixtures (`examples/baugesuch.json`,
+  `examples/invalid-high-risk-ungrounded.json`) wired into CI. Governance docs
+  (README EN/DE, `docs/v1-pipeline.md`, `CLAUDE.md`) reconcile the "v1 is
+  low-risk" story with v0 already shipping hand-authored heavy cases.
+- Lossless field-wise merge against existing hand-curated target files
+  (`src/tessera/merge.py`): existing non-empty i18n locales (`de/en/fr/it/ls`)
+  and `description` blocks are never emptied; extraction only fills gaps and adds
+  new structure, merged by business key (`step_id`/`reference_id`/`actor.id`).
+  Non-mergeable cases are skipped, not impoverished. The draft PR carries a
+  reviewer warning listing preserved/added fields, so tessera PRs pass the target
+  repo's `check:regression` guard without `ALLOW_PROZESS_SHRINK`. Covered by
+  `tests/test_merge.py` (in CI).
 - v1 core pipeline (`src/tessera/`, plain loop, no orchestration framework):
   `preflight` (I14Y public API + eCH-0070 inventory -> `reports/coverage.md`;
   robots.txt/ToU -> `reports/scraping-compliance.md`, hard crawl gate on

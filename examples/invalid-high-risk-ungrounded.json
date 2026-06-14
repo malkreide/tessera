@@ -1,0 +1,30 @@
+{
+  "$schema": "../schemas/opengov-process-schema.json",
+  "schema_version": "0.1.0",
+  "id": "veranstaltung",
+  "lebenslage_ref": "veranstaltung",
+  "city": "zh",
+  "title": { "de": "Veranstaltung bewilligen lassen", "en": "", "fr": "", "it": "" },
+  "target_audience": "bevoelkerung",
+  "steps": [
+    {
+      "step_id": 1,
+      "actor": "Veranstalter:in",
+      "label": { "de": "Gesuch fuer die Veranstaltung einreichen" },
+      "depends_on": [],
+      "reference_ids": [1]
+    }
+  ],
+  "references": [
+    {
+      "reference_id": 1,
+      "label": { "de": "Eingabefrist fuer das Gesuch" },
+      "source_url": "https://www.stadt-zuerich.ch/veranstaltung",
+      "status": "unverifiziert",
+      "retrieved_at": "2026-06-14"
+    }
+  ],
+  "source_url": "https://www.stadt-zuerich.ch/veranstaltung",
+  "retrieved_at": "2026-06-14",
+  "disclaimer_key": "process.disclaimer.high_risk_legal"
+}

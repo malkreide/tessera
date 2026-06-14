@@ -58,6 +58,28 @@ hinter einen Nutzen-Nachweis gehängt, der im Maschinerie-Repo liegt, nicht hier
 **Die Baureihenfolge ist ein Gate:** v1 nicht starten, bevor v0 gemergt und im
 Vercel-Preview der Maschinerie als nützlich bestätigt ist.
 
+### Risiko-Haltung vs. schwere Rechtsfälle
+
+«v1 ist risikoarm» beschreibt Tesseras **automatischen** Output, nicht die ganze
+Maschinerie. v0 zeigt bereits einige der schwersten Rechtsfälle — Baubewilligung
+(`baugesuch`), Sozialhilfe (`sozialhilfe`), Veranstaltungsbewilligung (`veranstaltung`)
+— als **von Hand modellierte, menschlich reviewte** Prozesse. Das ist legitim (ein
+Mensch hat sie modelliert und geprüft), aber sie tragen das höchste Reputationsrisiko:
+eine falsche Frist/Gebühr, auf die sich jemand verlässt, ist realer Schaden. Beide
+Aussagen passen zusammen — **gerade weil** diese Fälle menschlich kuratierter
+v0-Inhalt sind, während Tesseras Pipeline sie in v1 bewusst von der Extraktion
+**ausschliesst** (siehe `sources.yaml`).
+
+Wo ein solcher Fall die Pipeline dennoch berührt (z.B. ein Merge gegen eine bestehende
+Datei), gilt erhöhter Review — einmal definiert in `src/tessera/risk.py` und vom
+Vertrags-Validator erzwungen:
+
+- **Jede bindende Reference muss wörtlich belegt sein.** Bei einem Hochrisiko-Prozess
+  ist eine `unverifiziert`e / ungrounded Reference ein harter **Fehler**, kein Hinweis
+  — ein reputationskritischer Prozess darf kein unbelegtes Frist-/Gebühren-Label tragen.
+- **Ein sichtbarer Hochrisiko-Disclaimer wird erwartet** (`disclaimer_key`), und der
+  Draft-PR trägt eine prominente Hochrisiko-Reviewer-Checkliste.
+
 ## Voraussetzungen
 
 - Python 3.11+
