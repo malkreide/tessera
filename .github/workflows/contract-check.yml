@@ -22,3 +22,5 @@ jobs:
         run: python tests/test_grounding.py
       - name: Merge-Tests (Handdaten erhalten, stdlib)
         run: python tests/test_merge.py
+      - name: Hochrisiko-Tests (erhoehter Review, stdlib)
+        run: python tests/test_risk.py

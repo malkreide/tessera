@@ -40,6 +40,17 @@ import sys
 from datetime import date, datetime
 from pathlib import Path
 
+# Hochrisiko-Registry ist die EINE Wahrheitsquelle in src/tessera/risk.py.
+# Der Validator bleibt dependency-frei; wir bootstrappen nur den src-Pfad und
+# importieren reine stdlib-Konstanten (kein pydantic/httpx).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from tessera.risk import (  # noqa: E402
+    HIGH_RISK_DISCLAIMER_KEY,
+    HIGH_RISK_RATIONALE,
+    is_high_risk,
+    is_high_risk_disclaimer,
+)
+
 AUDIENCES = {"bevoelkerung", "wirtschaft", "behoerden"}
 # Locale-Schluessel: kanonisch ist 'ls' (Leichte Sprache) im Repo maschinerie-zuerich.
 LOCALES = ("de", "en", "fr", "it", "ls")
@@ -72,6 +83,7 @@ class Report:
         self.errors: list[str] = []
         self.warnings: list[str] = []
         self.pending: list[str] = []  # i18n-Felder ohne Uebersetzung
+        self.high_risk = False  # reputationskritischer Rechtsfall (erhoehter Review)
 
     def error(self, msg: str) -> None:
         self.errors.append(msg)
@@ -448,6 +460,50 @@ def _check_legal_basis(rep: Report, lb: object) -> None:
             _check_url(rep, f"{w}.url", e["url"])
 
 
+def _check_high_risk(rep: Report, data: dict) -> None:
+    """Erhoehter Review fuer reputationskritische Rechtsfaelle (baugesuch,
+    sozialhilfe, veranstaltung).
+
+    Strenger als der Normalfall:
+      * Jede bindende Reference MUSS woertlich belegt sein — eine 'unverifiziert'e
+        oder unbelegte Reference ist hier ein FEHLER (sonst nur Hinweis). Ein
+        reputationskritischer Prozess darf kein ungrounded Frist-/Gebuehren-Label
+        tragen.
+      * Der disclaimer_key soll einen sichtbaren Hochrisiko-Hinweis tragen
+        (Empfehlung HIGH_RISK_DISCLAIMER_KEY) — sonst ein Hinweis (Cross-Repo-
+        Grenze: kein unilateral erzwungener Vertragswert).
+    """
+    rep.high_risk = True
+    refs = data.get("references")
+    if isinstance(refs, list):
+        for i, ref in enumerate(refs):
+            if not isinstance(ref, dict):
+                continue
+            where = f"references[{i}]"
+            status = ref.get("status", "verifiziert")
+            sq = ref.get("source_quote")
+            has_quote = isinstance(sq, str) and bool(sq.strip())
+            if status == "unverifiziert":
+                rep.error(
+                    f"{where}.status: HOCHRISIKO — 'unverifiziert' ist hier nicht "
+                    "erlaubt. Jede bindende Reference muss woertlich belegt "
+                    "(verifiziert + source_quote) oder entfernt werden."
+                )
+            elif not has_quote:
+                # Wird im Normalfall schon gemeldet; hier explizit als Hochrisiko-Fehler.
+                rep.error(
+                    f"{where}.source_quote: HOCHRISIKO — bindende Reference ohne "
+                    "woertliche Belegstelle ist nicht publizierbar."
+                )
+
+    if not is_high_risk_disclaimer(data.get("disclaimer_key")):
+        rep.warn(
+            "HOCHRISIKO: empfohlen ist ein sichtbarer Hochrisiko-Disclaimer "
+            f"(disclaimer_key z.B. {HIGH_RISK_DISCLAIMER_KEY!r}); aktuell "
+            f"{data.get('disclaimer_key')!r}."
+        )
+
+
 def validate(data: object, rep: Report) -> None:
     if not isinstance(data, dict):
         rep.error("Wurzel: muss ein Objekt sein.")
@@ -551,6 +607,10 @@ def validate(data: object, rep: Report) -> None:
                 if isinstance(t, int) and t not in step_ids:
                     rep.error(f"Schritt {sid}: loops_back_to {t} existiert nicht.")
 
+    # Erhoehter Review fuer reputationskritische Rechtsfaelle.
+    if is_high_risk(data.get("id")):
+        _check_high_risk(rep, data)
+
 
 def validate_file(path: Path) -> Report:
     rep = Report(path)
@@ -581,6 +641,11 @@ def main(argv: list[str]) -> int:
         rep = validate_file(path)
         status = "OK  " if rep.ok else "FAIL"
         print(f"[{status}] {path}")
+        if rep.high_risk:
+            print(
+                "    ⚠ HOCHRISIKO-RECHTSFALL — erhoehter Kardinalregel-/Grounding-"
+                "Review erforderlich (jede bindende Reference woertlich belegt)."
+            )
         for w in rep.warnings:
             print(f"    - Hinweis: {w}")
         if rep.pending:

@@ -1,0 +1,68 @@
+{
+  "$schema": "../schemas/opengov-process-schema.json",
+  "schema_version": "0.1.0",
+  "id": "baugesuch",
+  "lebenslage_ref": "baugesuch",
+  "city": "zh",
+  "title": { "de": "Baugesuch einreichen", "en": "", "fr": "", "it": "", "ls": "Sie wollen bauen. Sie reichen ein Gesuch ein." },
+  "description": { "de": "Wie ein Baugesuch in der Stadt Zuerich eingereicht und beurteilt wird." },
+  "target_audience": "bevoelkerung",
+  "preconditions": [
+    { "de": "Bauvorhaben auf einem Grundstueck in der Stadt Zuerich" }
+  ],
+  "steps": [
+    {
+      "step_id": 1,
+      "actor": "Bauherrschaft",
+      "label": { "de": "Baugesuch mit Planunterlagen einreichen" },
+      "type": "start",
+      "depends_on": [],
+      "reference_ids": [1]
+    },
+    {
+      "step_id": 2,
+      "actor": "Amt fuer Baubewilligungen",
+      "label": { "de": "Gesuch pruefen und oeffentlich auflegen" },
+      "type": "prozess",
+      "depends_on": [1],
+      "reference_ids": [2]
+    },
+    {
+      "step_id": 3,
+      "actor": "Amt fuer Baubewilligungen",
+      "label": { "de": "Bauentscheid eroeffnen" },
+      "type": "entscheidung",
+      "depends_on": [{ "step_id": 2, "condition": { "de": "keine Einsprache haengig" } }],
+      "reference_ids": [3]
+    }
+  ],
+  "references": [
+    {
+      "reference_id": 1,
+      "label": { "de": "Erforderliche Gesuchsunterlagen" },
+      "source_url": "https://www.stadt-zuerich.ch/baugesuch",
+      "source_quote": "ILLUSTRATIVES FIXTURE — vor Publikation durch woertliches Zitat der Originalseite ersetzen.",
+      "status": "verifiziert",
+      "retrieved_at": "2026-06-14"
+    },
+    {
+      "reference_id": 2,
+      "label": { "de": "Frist der oeffentlichen Auflage" },
+      "source_url": "https://www.zh.ch/baurecht",
+      "source_quote": "ILLUSTRATIVES FIXTURE — vor Publikation durch woertliches Zitat der Originalseite ersetzen.",
+      "status": "verifiziert",
+      "retrieved_at": "2026-06-14"
+    },
+    {
+      "reference_id": 3,
+      "label": { "de": "Rekursfrist gegen den Bauentscheid" },
+      "source_url": "https://www.zh.ch/baurekursgericht",
+      "source_quote": "ILLUSTRATIVES FIXTURE — vor Publikation durch woertliches Zitat der Originalseite ersetzen.",
+      "status": "verifiziert",
+      "retrieved_at": "2026-06-14"
+    }
+  ],
+  "source_url": "https://www.stadt-zuerich.ch/baugesuch",
+  "retrieved_at": "2026-06-14",
+  "disclaimer_key": "process.disclaimer.high_risk_legal"
+}

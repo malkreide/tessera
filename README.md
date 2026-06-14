@@ -54,6 +54,27 @@ proof-of-value step that lives in the Maschinerie repo, not here.
 **Build order is a gate:** do not start v1 until v0 is merged and confirmed useful in
 the Maschinerie's Vercel preview.
 
+### Risk posture vs. heavy legal cases
+
+"v1 is low-risk" describes Tessera's **automated** output, not the whole Maschinerie.
+v0 already ships some of the heaviest legal cases — building permits (`baugesuch`),
+social assistance (`sozialhilfe`), event permits (`veranstaltung`) — as **hand-authored,
+human-reviewed** processes. That is legitimate (a human modelled and checked them), but
+they carry the highest reputation risk: a wrong deadline or fee that someone relies on
+is real harm. The two statements are consistent precisely *because* those cases are
+human-curated v0 content, while Tessera's pipeline deliberately **excludes** them from
+v1 extraction (see `sources.yaml`).
+
+Where such a case touches the pipeline anyway (e.g. a merge against an existing file),
+heightened review applies — defined once in `src/tessera/risk.py` and enforced by the
+contract validator:
+
+- **Every binding reference must be verbatim-grounded.** For a high-risk process an
+  `unverifiziert` / ungrounded reference is a hard **error**, not a warning — a
+  reputation-critical process may carry no unbacked deadline/fee label.
+- **A visible high-risk disclaimer is expected** (`disclaimer_key`), and the draft PR
+  carries a prominent high-risk reviewer checklist.
+
 ## Prerequisites
 
 - Python 3.11+

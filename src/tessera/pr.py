@@ -16,6 +16,12 @@ import httpx
 
 from .config import ROOT, ProcessSource
 from .merge import MergeConflict, MergeReport, merge_process
+from .risk import (
+    HIGH_RISK_DISCLAIMER_KEY,
+    HIGH_RISK_RATIONALE,
+    is_high_risk,
+    is_high_risk_disclaimer,
+)
 
 OUTBOX = ROOT / "out" / "outbox"
 DEFAULT_TARGET = "malkreide/maschinerie-zuerich"
@@ -60,6 +66,41 @@ def build_merge_warning(report: MergeReport, path: str) -> str:
     return "\n".join(lines)
 
 
+def build_high_risk_warning(process: dict) -> str:
+    """Prominente Reviewer-Warnung fuer reputationskritische Rechtsfaelle
+    (baugesuch, sozialhilfe, veranstaltung): erhoehter Kardinalregel-Review und
+    sichtbarer Hochrisiko-Disclaimer."""
+    proc_id = process.get("id", "")
+    rationale = HIGH_RISK_RATIONALE.get(proc_id, "Reputationskritischer Rechtsfall.")
+    lines = [
+        "## 🔴 HOCHRISIKO-RECHTSFALL — erhoehter Review erforderlich",
+        "",
+        f"`{proc_id}` zaehlt zu den reputationskritischen Rechtsfaellen: {rationale}",
+        "Eine falsche Frist/Gebuehr, auf die sich jemand verlaesst, ist realer "
+        "Schaden — hier gilt der Kardinalregel-/Grounding-Review **verschaerft**:",
+        "",
+        "- [ ] **Jede** bindende Reference ist `verifiziert` **und** woertlich belegt "
+        "(`source_quote`); keine `unverifiziert`en/ungrounded Fristen/Gebuehren",
+        "- [ ] Kein gerenderter Text (Label/Description/Bedingung) traegt eine "
+        "bindende Zahl — Wert nur via Reference-Link",
+        "- [ ] Jedes Zitat woertlich gegen die verlinkte Originalseite geprueft",
+        "- [ ] Sichtbarer Hochrisiko-Disclaimer gesetzt "
+        f"(`disclaimer_key`, empfohlen `{HIGH_RISK_DISCLAIMER_KEY}`)",
+    ]
+    if not is_high_risk_disclaimer(process.get("disclaimer_key")):
+        lines.append(
+            f"  - ⚠️ aktueller `disclaimer_key`: `{process.get('disclaimer_key')}` "
+            "— erscheint **nicht** als Hochrisiko-Hinweis; bitte pruefen"
+        )
+    lines += [
+        "",
+        "> Governance: dieser Prozess existiert als **handmodellierter v0-Inhalt** "
+        "in der Maschinerie; tessera extrahiert ihn in v1 **nicht** automatisch.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def build_pr_body(
     proc: ProcessSource,
     process: dict,
@@ -80,6 +121,8 @@ def build_pr_body(
         "Belegstelle enthalten — nie als Wert im Schritt-Label (Kardinalregel).",
         "",
     ]
+    if is_high_risk(process.get("id")):
+        lines += [build_high_risk_warning(process), ""]
     if merge_note:
         lines += [merge_note, ""]
     lines += [

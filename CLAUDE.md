@@ -36,6 +36,17 @@ Begründung: Eine falsche bindende Angabe, auf die sich jemand verlässt, ist re
 Schaden und ein Vertrauensverlust für die ganze Maschinerie. Risiko wird
 weggedesignt, nicht wegtechnisiert.
 
+## Hochrisiko-Rechtsfälle (erhöhter Review)
+
+«v1 ist risikoarm» gilt für Tesseras **automatischen** Output. Die schwersten
+Rechtsfälle – `baugesuch` (Baubewilligung), `sozialhilfe`, `veranstaltung` – existieren
+bereits als **von Hand modellierte, menschlich reviewte** v0-Prozesse in der
+Maschinerie. Legitim, aber höchstes Reputationsrisiko. Tessera schliesst sie in v1
+bewusst von der Extraktion aus (`sources.yaml`). Die Registry ist zentral in
+`src/tessera/risk.py` (`HIGH_RISK_IDS`); berührt einer dieser Fälle die Pipeline, gilt
+erhöhter Review: jede bindende Reference muss wörtlich belegt sein (sonst Validator-
+**Fehler**, nicht Hinweis), und ein sichtbarer Hochrisiko-Disclaimer wird erwartet.
+
 ## Der Datenvertrag
 
 Tessera muss exakt das Format produzieren, das die Maschinerie erwartet. Der Vertrag

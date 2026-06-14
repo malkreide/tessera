@@ -105,6 +105,30 @@ optional. Ziel-Datei-Konventionen:
 - References, die nicht wörtlich belegt werden können: `status: "unverifiziert"`,
   `source_quote` leer, im PR als offen markieren
 
+## Hochrisiko-Rechtsfälle (erhöhter Review)
+
+Drei Leistungen tragen das höchste Reputationsrisiko und sind in v1 bewusst von der
+**automatischen** Extraktion ausgeschlossen (Ausschlussliste in `sources.yaml`):
+`baugesuch` (Baubewilligung), `sozialhilfe`, `veranstaltung`. Sie existieren bereits
+als **von Hand modellierte, menschlich reviewte** v0-Prozesse in der Maschinerie —
+das ist legitim, ändert aber nichts am Risiko einer falschen Frist/Gebühr.
+
+Die Registry liegt zentral in `src/tessera/risk.py` (`HIGH_RISK_IDS`). Berührt eine
+dieser Leistungen die Pipeline (z.B. ein Merge gegen eine bestehende Datei), greift
+erhöhter Review:
+
+- **Validator** (`scripts/validate_contract.py`): jede bindende Reference muss
+  `verifiziert` **und** wörtlich belegt (`source_quote`) sein — eine `unverifiziert`e
+  oder ungrounded Reference ist hier ein **Fehler** (im Normalfall nur ein Hinweis).
+  Zusätzlich ein gut sichtbarer `HOCHRISIKO`-Banner und die Empfehlung eines sichtbaren
+  Hochrisiko-Disclaimers (`disclaimer_key`, empfohlen `process.disclaimer.high_risk_legal`).
+- **PR-Body** (`src/tessera/pr.py`): eine prominente Hochrisiko-Reviewer-Warnung mit
+  verschärfter Kardinalregel-/Grounding-Checkliste und dem Hinweis, dass dieser Prozess
+  handmodellierter v0-Inhalt ist (nicht automatisch extrahiert).
+
+«v1 ist risikoarm» bezieht sich also auf den **automatischen** Output; die schweren
+Fälle bleiben menschlich kuratiert und werden hier nur strenger geprüft, nicht erzeugt.
+
 ## Eingangskontrolle (Gate)
 
 `scripts/validate_contract.py` ist die deterministische Eingangskontrolle: Struktur,
