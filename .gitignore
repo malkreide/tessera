@@ -3,3 +3,10 @@ __pycache__/
 reports/raw/
 out/
 .venv/
+
+# Lokale Secrets — NIEMALS committen (Credentials-Grenze, CLAUDE.md).
+# tessera laedt .env nicht automatisch; manuell sourcen:
+#   set -a; source .env; set +a
+.env
+.env.*
+!.env.example
