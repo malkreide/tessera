@@ -1,6 +1,6 @@
 # Abdeckung der kuratierten Leistungen in den Katalogen
 
-Stand: 2026-06-12 — erzeugt durch `tessera preflight` (Katalog wird
+Stand: 2026-06-27 — erzeugt durch `tessera preflight` (Katalog wird
 konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).
 
 - I14Y Public API (Behoerdenleistungen): 134 Eintraege

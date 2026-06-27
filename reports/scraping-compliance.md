@@ -1,6 +1,6 @@
 # Scraping-Compliance (robots.txt & Nutzungsbedingungen)
 
-Stand: 2026-06-12 — erzeugt durch `tessera preflight`.
+Stand: 2026-06-27 — erzeugt durch `tessera preflight`.
 
 ## Respekt-Regeln (fix)
 
