@@ -11,6 +11,8 @@ Geprueft wird:
     kein Selbstbezug, mindestens ein Start-Schritt, keine Zyklen (DAG).
   * Referenz-Integritaet: eindeutige reference_ids, reference_ids in Schritten
     verweisen auf existierende references.
+  * Actor-Paritaet: ist actors[] vorhanden, MUSS jeder steps[].actor eine
+    actors[].id sein (Fehler, nicht Warnung) — Gate-Paritaet zur Ziel-CI.
   * Grounding-Gate (statusabhaengig): status 'verifiziert' (Default) verlangt eine
     nicht-leere source_quote (Fehler); 'unverifiziert' darf leer sein (Hinweis).
   * KARDINALREGEL ("Link, don't assert"): kein gerenderter Text darf eine
@@ -621,8 +623,14 @@ def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> 
                 rep.error(f"Schritt {sid}: source_id {src!r} existiert nicht in sources.")
             actor = step.get("actor")
             if actor_ids and isinstance(actor, str) and actor not in actor_ids:
-                # Wenn actors[] vorhanden ist, sollte step.actor eine actors[].id sein.
-                rep.warn(f"Schritt {sid}: actor {actor!r} ist keine actors[].id.")
+                # Ist actors[] vorhanden, MUSS step.actor eine actors[].id sein.
+                # Das ist die kanonische Regel im Ziel-Repo (validate:prozesse) —
+                # darum Fehler, nicht Warnung (Gate-Paritaet, sonst rutscht eine
+                # Datei lokal durch, die die Ziel-CI ablehnt).
+                rep.error(
+                    f"Schritt {sid}: actor {actor!r} ist keine actors[].id "
+                    f"(vorhanden: {sorted(actor_ids)})."
+                )
             for t in step.get("loops_back_to", []) or []:
                 if isinstance(t, int) and t not in step_ids:
                     rep.error(f"Schritt {sid}: loops_back_to {t} existiert nicht.")

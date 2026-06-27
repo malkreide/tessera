@@ -26,6 +26,7 @@ laufen — wie `tests/test_grounding.py`.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 # Locale-Keys des Datenvertrags. 'ls' = Leichte Sprache (kanonisch).
@@ -55,10 +56,17 @@ class MergeReport:
     preserved: list[str] = field(default_factory=list)
     # Vom Merge ergaenzte Luecken / neue Schritte / neue References.
     added: list[str] = field(default_factory=list)
+    # Schritt-Actors, die (gender-neutral, exakt) auf eine bestehende
+    # actors[].id abgebildet wurden, z.B. "Halter:in" -> "halter".
+    remapped_actors: list[str] = field(default_factory=list)
+    # Schritt-Actors, die sich KEINER actors[].id zuordnen lassen — geflaggt,
+    # nicht geraten. Der Reviewer ergaenzt den fehlenden actors[]-Eintrag
+    # (inkl. type) von Hand. Solange offen: kanonische CI wuerde scheitern.
+    unmapped_actors: list[str] = field(default_factory=list)
 
     @property
     def touched_existing(self) -> bool:
-        return bool(self.preserved or self.added)
+        return bool(self.preserved or self.added or self.remapped_actors)
 
 
 def _is_blank(value: object) -> bool:
@@ -201,6 +209,76 @@ def _merge_preconditions(existing_list: list, incoming_list: list, *, report: Me
     return out
 
 
+_GENDER_SUFFIX = re.compile(r"(?::|/|\*|_)innen?$|(?::|/|\*|_)in$", re.IGNORECASE)
+
+
+def _norm_actor(value: object) -> str:
+    """Konservative, gender-neutrale Normalform fuer den Actor-Abgleich.
+
+    Entfernt Gender-Suffixe (:in, /in, *in, _in, :innen) und alles
+    Nicht-Alphanumerische, dann lowercase. KEIN Fuzzy-Matching — nur exakte
+    Gleichheit nach dieser Normalisierung gilt als Treffer ("Halter:in" und die
+    id "halter" werden beide zu "halter"). Bleibt etwas ungleich, wird geflaggt.
+    """
+    if not isinstance(value, str):
+        return ""
+    s = _GENDER_SUFFIX.sub("", value.strip())
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def _reconcile_step_actors(out: dict, report: MergeReport) -> None:
+    """Gleicht steps[].actor gegen actors[].id ab, wenn actors[] vorhanden ist.
+
+    Das Ziel-Repo verlangt, dass jeder steps[].actor eine actors[].id ist.
+    Die Extraktion liefert aber Freitext-Rollen ("Halter:in"). Hier werden
+    nur EXAKTE Normalform-Treffer (id ODER label.de) automatisch auf die id
+    umgeschrieben; alles andere wird geflaggt (unmapped_actors) — nie geraten,
+    nie ein neuer actors[]-Eintrag mit geschaetztem type erfunden.
+    """
+    actors = out.get("actors")
+    steps = out.get("steps")
+    if not isinstance(actors, list) or not actors or not isinstance(steps, list):
+        return
+
+    actor_ids = {a["id"] for a in actors if isinstance(a, dict) and isinstance(a.get("id"), str)}
+
+    # Normalform -> id. Mehrdeutige Normalformen (Kollision) werden ausgeschlossen,
+    # damit nie auf den falschen Akteur gemappt wird.
+    norm_to_id: dict[str, str] = {}
+    ambiguous: set[str] = set()
+    for a in actors:
+        if not isinstance(a, dict) or not isinstance(a.get("id"), str):
+            continue
+        keys = {_norm_actor(a["id"])}
+        label = a.get("label")
+        if isinstance(label, dict) and isinstance(label.get("de"), str):
+            keys.add(_norm_actor(label["de"]))
+        for k in keys:
+            if not k:
+                continue
+            if k in norm_to_id and norm_to_id[k] != a["id"]:
+                ambiguous.add(k)
+            norm_to_id[k] = a["id"]
+    for k in ambiguous:
+        norm_to_id.pop(k, None)
+
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        actor = step.get("actor")
+        if not isinstance(actor, str) or actor in actor_ids:
+            continue  # bereits eine gueltige id
+        mapped = norm_to_id.get(_norm_actor(actor))
+        sid = step.get("step_id")
+        if mapped is not None:
+            step["actor"] = mapped
+            report.remapped_actors.append(f"steps[{sid}].actor {actor!r} -> {mapped!r}")
+        else:
+            report.unmapped_actors.append(
+                f"steps[{sid}].actor {actor!r} (kein actors[]-Eintrag — bitte Akteur ergaenzen)"
+            )
+
+
 def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
     """Mergt die Extraktion (`incoming`) verlustfrei in die bestehende,
     handgepflegte Datei (`existing`). Bestehende Daten sind die Basis.
@@ -258,5 +336,9 @@ def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
             name="actors",
             report=report,
         )
+
+    # Freitext-Actors der Extraktion gegen actors[].id abgleichen (gender-neutral,
+    # exakt). Unbekannte werden geflaggt, nicht geraten.
+    _reconcile_step_actors(out, report)
 
     return out, report
