@@ -15,7 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Enforced as **abstinence** in the grounding gate (verbatim-but-wrong-type →
   downgraded to `unverifiziert`, quote dropped, flagged; a hard error for
   high-risk ids via the validator), and surfaced as a reviewer **hint** in the
-  contract validator (which has no corpus). The cardinal-rule lint now imports
+  contract validator (which has no corpus) — opt-in promotable to a hard **error**
+  via `--strict-label-value` or `TESSERA_STRICT_LABEL_VALUE` (the env var is
+  inherited by `tessera validate`/`pr`), useful for hand-curated/merged target
+  files that never pass through the grounding gate. The cardinal-rule lint now imports
   its `BINDING_VALUE` regex from `binding.py` (unchanged behaviour). Covered by
   `tests/test_binding.py` and a new grounding test (in CI).
 - `tessera verify` — re-verification of existing outputs (propose-only, never

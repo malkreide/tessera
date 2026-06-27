@@ -169,6 +169,37 @@ def test_label_value_abstinence() -> None:
     assert any("Reference 3" in f and "bindenden Wert" in f for f in flags), flags
 
 
+def test_strict_label_value_promotes_hint_to_error() -> None:
+    # Eine verifizierte Reference mit verbatim-Zitat, dessen Wert nicht zum Label
+    # passt (Gebuehr-Label, aber nur eine Frist im Zitat). Standard = Hinweis
+    # (gueltig); strenger Modus = Fehler.
+    process, _ = _process()
+    process["references"] = [
+        {
+            "reference_id": 1,
+            "label": {"de": "Bearbeitungsgebuehr", "en": "", "fr": "", "it": ""},
+            "source_url": "https://example.org/hunde",
+            "source_quote": "innert 30 Tagen zu bezahlen",  # Frist, keine Gebuehr
+            "status": "verifiziert",
+            "retrieved_at": "2026-06-11",
+        }
+    ]
+    # Die erfundenen Schritte/Bedingungen wuerden sonst Cross-Refs brechen; nur
+    # die belegten Schritte behalten.
+    process["steps"] = [process["steps"][0]]
+    process["steps"][0].pop("reference_ids", None)
+
+    lax = Report(Path("synthetic"))
+    validate(process, lax)
+    assert lax.ok, lax.errors  # Standard: nur ein Hinweis
+    assert any("Label<->Wert" in w for w in lax.warnings), lax.warnings
+
+    strict = Report(Path("synthetic"))
+    validate(process, strict, strict_label_value=True)
+    assert not strict.ok  # strenger Modus: Fehler
+    assert any("Label<->Wert" in e for e in strict.errors), strict.errors
+
+
 def test_gated_output_passes_contract_validator() -> None:
     process, quotes = _process()
     gated, _ = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
