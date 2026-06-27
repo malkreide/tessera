@@ -44,6 +44,7 @@ from pathlib import Path
 # Der Validator bleibt dependency-frei; wir bootstrappen nur den src-Pfad und
 # importieren reine stdlib-Konstanten (kein pydantic/httpx).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from tessera.binding import BINDING_VALUE, label_value_mismatch  # noqa: E402
 from tessera.risk import (  # noqa: E402
     HIGH_RISK_DISCLAIMER_KEY,
     HIGH_RISK_RATIONALE,
@@ -67,12 +68,7 @@ ISO = re.compile(
     r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$"
 )
 
-# Kardinalregel-Lint: Zahl in Verbindung mit einer bindenden Einheit.
-_UNIT = r"(?:CHF|Fr\.?|Franken|%|Prozent|Tag(?:e|en)?|Woche(?:n)?|Monat(?:e|en)?|Jahr(?:e|en)?|Werktag(?:e|en)?)"
-BINDING_VALUE = re.compile(
-    rf"(?:\d[\d'.,]*\s*{_UNIT}\b)|(?:(?:CHF|Fr\.?)\s*\d)",
-    re.IGNORECASE,
-)
+# Kardinalregel-Lint nutzt BINDING_VALUE aus tessera.binding (EINE Wahrheitsquelle).
 
 
 class Report:
@@ -367,6 +363,16 @@ def _check_references(rep: Report, refs: object) -> set[int]:
         elif status == "unverifiziert" and not has_quote:
             # Erlaubt: UI rendert nur Label + Link; fuer Reviewer markiert.
             rep.warn(f"{where}: status 'unverifiziert' ohne source_quote — fuer Review offen.")
+        # Label<->Wert-Hinweis: das Label benennt einen bindenden Werttyp, das
+        # Zitat belegt ihn aber nicht (plausibel-aber-falsch / falsche Seite).
+        # Bewusst nur ein Hinweis: der Validator sieht kein Korpus und kann die
+        # Mehrdeutigkeit nicht aufloesen. Die Abstinenz-Entscheidung trifft das
+        # Grounding-Gate (src/tessera/grounding.py) auf dem echten Quelltext.
+        if status == "verifiziert" and has_quote:
+            label_de = (ref.get("label") or {}).get("de") if isinstance(ref.get("label"), dict) else None
+            mismatch = label_value_mismatch(label_de or "", sq)
+            if mismatch:
+                rep.warn(f"{where}: {mismatch} — Label<->Wert pruefen (falsche Seite/falscher Wert?).")
         _check_iso(rep, f"{where}.retrieved_at", ref.get("retrieved_at"))
     return seen
 

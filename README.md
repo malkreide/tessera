@@ -105,6 +105,10 @@ tessera pr       --id hund-anmelden    # build / submit the draft-PR bundle
 
 # Or everything in order
 tessera run --id hund-anmelden
+
+# Re-verification (propose-only, never writes to out/): label↔value checks;
+# with --online also tri-state link-rot (dead/blocked/net-error) + quote drift
+tessera verify  --id hund-anmelden --online
 ```
 
 Without `GITHUB_TOKEN` no PR is submitted; the finished bundle (JSON +

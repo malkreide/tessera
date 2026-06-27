@@ -148,6 +148,27 @@ def test_transitive_rewire() -> None:
     assert step5["depends_on"] == [1], step5["depends_on"]  # 4 -> 2 -> 1 transitiv
 
 
+def test_label_value_abstinence() -> None:
+    # Zitat ist WOERTLICH im Korpus, aber das Label benennt eine Gebuehr, das
+    # Zitat belegt nur eine Frist -> Default = Abstinenz (downgrade, Flag).
+    process, quotes = _process()
+    process["references"].append(
+        {
+            "reference_id": 3,
+            "label": {"de": "Hundeabgabe", "en": "", "fr": "", "it": ""},
+            "source_url": "https://example.org/hunde",
+            "source_quote": "innert zehn Tagen nach Uebernahme",  # verbatim, aber Frist
+            "status": "verifiziert",
+            "retrieved_at": "2026-06-11",
+        }
+    )
+    gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    ref3 = next(r for r in gated["references"] if r["reference_id"] == 3)
+    assert ref3["status"] == "unverifiziert"
+    assert ref3["source_quote"] == ""
+    assert any("Reference 3" in f and "bindenden Wert" in f for f in flags), flags
+
+
 def test_gated_output_passes_contract_validator() -> None:
     process, quotes = _process()
     gated, _ = apply_gate(process, quotes, Corpus(CORPUS_TEXT))

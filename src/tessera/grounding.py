@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import re
 
+from .binding import label_value_mismatch
+
 # Typografische Varianten, die Extraktoren austauschbar liefern.
 _QUOTE_MAP = str.maketrans({
     "«": '"', "»": '"', "“": '"', "”": '"', "„": '"',
@@ -74,12 +76,22 @@ def apply_gate(
     for ref in process.get("references", []):
         ref = dict(ref)
         quote = ref.get("source_quote", "")
-        if quote and corpus.contains(quote):
+        label_de = (ref.get("label") or {}).get("de", "?") if isinstance(ref.get("label"), dict) else "?"
+        mismatch = label_value_mismatch(label_de, quote) if quote else None
+        if quote and corpus.contains(quote) and not mismatch:
             ref["status"] = "verifiziert"
         else:
-            reason = "kein Zitat angegeben" if not quote.strip() else "Zitat nicht woertlich im Korpus"
+            if not quote.strip():
+                reason = "kein Zitat angegeben"
+            elif not corpus.contains(quote):
+                reason = "Zitat nicht woertlich im Korpus"
+            else:
+                # Verbatim belegt, aber der falsche Werttyp: Default = Abstinenz.
+                # Plausibel-aber-falsch (richtige Seite, falscher Wert) ist
+                # gefaehrlicher als ein sichtbarer Fehlschlag.
+                reason = mismatch
             flags.append(
-                f"Reference {ref.get('reference_id')} «{ref.get('label', {}).get('de', '?')}»: "
+                f"Reference {ref.get('reference_id')} «{label_de}»: "
                 f"{reason} -> status 'unverifiziert', Zitat verworfen. OFFEN fuer Review."
             )
             ref["status"] = "unverifiziert"
