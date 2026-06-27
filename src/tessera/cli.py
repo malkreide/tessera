@@ -4,6 +4,9 @@
     tessera crawl     [--id ...]   Quellseiten -> Markdown-Snapshots
     tessera extract   [--id ...]   Snapshots -> Vertrags-JSON (LLM, Grounding-Gate)
     tessera validate  [--id ...]   Vertrags-Validator auf out/<id>.json
+    tessera verify    [--id ...] [--online]
+                                   Re-Verifikation: Label<->Wert (netzfrei) und
+                                   mit --online Link-Rot (tri-state) + Beleg-Drift
     tessera pr        [--id ...]   Draft-PR-Bundle bauen / einreichen
     tessera run       [--id ...]   alles oben in Reihenfolge
 """
@@ -104,6 +107,56 @@ def cmd_validate(cfg: SourcesConfig, ids: list[str] | None) -> int:
     return rc
 
 
+def cmd_verify(cfg: SourcesConfig, ids: list[str] | None, online: bool = False) -> int:
+    """Re-Verifikation bestehender Ausgaben (propose-only, schreibt nie in out/).
+
+    Netzfrei: Label<->Wert-Befunde. Mit --online zusaetzlich tri-state
+    Erreichbarkeit (tot/blockiert/netzfehler) und Beleg-Drift gegen die
+    Live-Seite. Exit 1 NUR bei echten Datenproblemen (toter Link / Drift);
+    Umgebungsbefunde (Block/Netzfehler/SPA) lassen den Lauf nicht scheitern.
+    """
+    from . import verify as verify_mod  # noqa: PLC0415
+
+    rc = 0
+    fetch = None
+    client = None
+    if online:
+        import httpx  # noqa: PLC0415 — nur im Online-Modus
+
+        ua = cfg.crawler.user_agent
+        client = httpx.Client(
+            headers={"User-Agent": ua}, timeout=30, follow_redirects=True
+        )
+        fetch = verify_mod.make_http_fetcher(client)
+    try:
+        for proc in _procs(cfg, ids):
+            out_json = OUT / f"{proc.id}.json"
+            if not out_json.exists():
+                print(f"  [{proc.id}] out/{proc.id}.json fehlt — zuerst `tessera extract`.", file=sys.stderr)
+                rc = 1
+                continue
+            process = json.loads(out_json.read_text(encoding="utf-8"))
+            rep = verify_mod.verify_process(process, fetch=fetch)
+            report_path = verify_mod.write_report(rep)
+            lv, dead, drift = len(rep.label_value), len(rep.dead_links), len(rep.drift_hits)
+            print(
+                f"  [{proc.id}] -> {report_path} "
+                f"(Label<->Wert: {lv}, tote Links: {dead}, Drift: {drift})"
+            )
+            for f in rep.label_value:
+                print(f"    ⚠ Reference {f.reference_id} «{f.label}»: {f.detail}")
+            for l in rep.dead_links:
+                print(f"    ❌ toter Link: {l.url} ({l.status})")
+            for d in rep.drift_hits:
+                print(f"    ❌ Drift: Reference {d.reference_id} «{d.label}» — {d.source_url}")
+            if rep.data_problem:
+                rc = 1
+    finally:
+        if client is not None:
+            client.close()
+    return rc
+
+
 def cmd_pr(cfg: SourcesConfig, ids: list[str] | None) -> int:
     from . import pr as pr_mod  # noqa: PLC0415
     from .crawl import RAW  # noqa: PLC0415
@@ -143,9 +196,11 @@ COMMANDS = {
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tessera", description=__doc__)
-    parser.add_argument("command", choices=[*COMMANDS, "run"])
+    parser.add_argument("command", choices=[*COMMANDS, "verify", "run"])
     parser.add_argument("--id", action="append", dest="ids", metavar="LEISTUNG",
                         help="nur diese Leistung(en) verarbeiten")
+    parser.add_argument("--online", action="store_true",
+                        help="nur fuer `verify`: Live-Erreichbarkeit + Beleg-Drift pruefen")
     args = parser.parse_args(argv)
 
     cfg = load_sources()
@@ -156,6 +211,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"Abbruch in Schritt {name!r} (Exit {rc}).", file=sys.stderr)
                 return rc
         return 0
+    if args.command == "verify":
+        return cmd_verify(cfg, args.ids, online=args.online)
     return COMMANDS[args.command](cfg, args.ids)
 
 

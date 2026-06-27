@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 reports/raw/
+reports/verify/
 out/
 .venv/
 
