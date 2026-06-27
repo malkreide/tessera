@@ -1,17 +1,23 @@
 """Crawl: offizielle Quellseiten -> sauberes Markdown (Snapshots).
 
-Primaer Crawl4AI (Headless-Browser); wenn das in der Umgebung nicht laeuft,
-faellt der Crawler auf httpx + Trafilatura zurueck und vermerkt das im
-Snapshot-Metadatensatz (der Fallback ist ein dokumentierter Befund, kein
-stilles Verhalten).
+Multi-modaler Fetch mit Auto-Erkennung, in der richtigen Reihenfolge:
+
+1. **SSR zuerst** (httpx + Trafilatura). Die meisten Quellseiten (stadt-zuerich.ch,
+   zh.ch) sind serverseitig gerendert — ein HTTP-Abruf genuegt und ist robust:
+   `curl`/httpx gehen durch Proxys, ein Headless-Browser oft nicht.
+2. **SPA nur als Fallback** (Crawl4AI/Headless). Erst wenn die Seite als echte
+   JS-SPA erkannt wird (App-Shell-Marker oder verdaechtig wenig Text), wird ein
+   Browser-Rendering versucht — und NUR fuer diese eine URL.
+3. **Ehrliche Degradation.** Ist der Browser in dieser Umgebung nicht verfuegbar
+   (kein Chromium, Proxy tunnelt ihn nicht), wird das im Snapshot vermerkt und die
+   App-Shell behalten — nie faken. Der Befund landet in meta.json.
 
 Jeder Snapshot landet unter reports/raw/<id>/ mit meta.json (URL, Abrufdatum,
-Extraktor, HTTP-Status). Diese Snapshots sind der EINZIGE Belegkorpus fuer
-das Grounding-Gate.
+Extraktor, HTTP-Status, tri-state Erreichbarkeit, SPA-Verdacht). Diese Snapshots
+sind der EINZIGE Belegkorpus fuer das Grounding-Gate.
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 import time
@@ -21,8 +27,9 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from . import preflight
+from . import preflight, reach
 from .config import ROOT, ProcessSource, SourcesConfig
+from .verify import looks_like_spa
 
 RAW = ROOT / "reports" / "raw"
 
@@ -33,40 +40,45 @@ def _slug(url: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", tail.lower()).strip("-") or "seite"
 
 
-async def _crawl4ai_fetch(urls: list[str], ua: str, delay: float) -> list[tuple[str, str, int]]:
-    from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig  # noqa: PLC0415
+def _ssr_fetch(client: httpx.Client, url: str) -> tuple[str, int, str, str]:
+    """Ein SSR-Abruf: (markdown, http_status, raw_html, tri_state).
 
-    out: list[tuple[str, str, int]] = []
-    browser = BrowserConfig(headless=True, user_agent=ua)
-    async with AsyncWebCrawler(config=browser) as crawler:
-        for u in urls:
-            result = await crawler.arun(u, config=CrawlerRunConfig())
-            md = str(result.markdown or "")
-            status = int(getattr(result, "status_code", 0) or 0)
-            out.append((u, md, status))
-            await asyncio.sleep(delay)
-    return out
-
-
-def _trafilatura_fetch(urls: list[str], ua: str, delay: float) -> list[tuple[str, str, int]]:
+    http_status 0 + state netzfehler, wenn der Request gar nicht durchkommt.
+    """
     import trafilatura  # noqa: PLC0415
 
-    out: list[tuple[str, str, int]] = []
-    with httpx.Client(headers={"User-Agent": ua}, timeout=30, follow_redirects=True) as client:
-        for u in urls:
-            r = client.get(u)
-            md = ""
-            if r.status_code == 200:
-                md = trafilatura.extract(
-                    r.text,
-                    url=u,
-                    output_format="markdown",
-                    include_links=True,
-                    include_tables=True,
-                ) or ""
-            out.append((u, md, r.status_code))
-            time.sleep(delay)
-    return out
+    try:
+        r = client.get(url)
+    except httpx.HTTPError:
+        return "", 0, "", reach.NETERROR
+    state = reach.classify_status(r.status_code)
+    md = ""
+    raw = ""
+    if state == reach.OK:
+        raw = r.text
+        md = trafilatura.extract(
+            raw, url=url, output_format="markdown", include_links=True, include_tables=True
+        ) or ""
+    return md, r.status_code, raw, state
+
+
+def _browser_fetch(url: str, ua: str) -> tuple[str, int] | None:
+    """Headless-Rendering einer SINGLE URL (SPA-Fallback). None, wenn der Browser
+    in dieser Umgebung nicht verfuegbar/funktionsfaehig ist (ehrliche Degradation)."""
+    import asyncio  # noqa: PLC0415
+
+    async def _run() -> tuple[str, int]:
+        from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig  # noqa: PLC0415
+
+        browser = BrowserConfig(headless=True, user_agent=ua)
+        async with AsyncWebCrawler(config=browser) as crawler:
+            result = await crawler.arun(url, config=CrawlerRunConfig())
+            return str(result.markdown or ""), int(getattr(result, "status_code", 0) or 0)
+
+    try:
+        return asyncio.run(_run())
+    except Exception:
+        return None
 
 
 def crawl_process(proc: ProcessSource, cfg: SourcesConfig) -> Path:
@@ -75,31 +87,43 @@ def crawl_process(proc: ProcessSource, cfg: SourcesConfig) -> Path:
 
     ua = cfg.crawler.user_agent
     delay = cfg.crawler.delay_seconds
-    extractor = "crawl4ai"
-    try:
-        results = asyncio.run(_crawl4ai_fetch(proc.official_urls, ua, delay))
-    except Exception as exc:
-        extractor = f"trafilatura-fallback (crawl4ai: {exc.__class__.__name__})"
-        results = _trafilatura_fetch(proc.official_urls, ua, delay)
 
     outdir = RAW / proc.id
     outdir.mkdir(parents=True, exist_ok=True)
     meta = []
-    for i, (url, md, status) in enumerate(results, start=1):
-        fname = f"{i:02d}-{_slug(url)}.md"
-        (outdir / fname).write_text(md, encoding="utf-8")
-        meta.append(
-            {
-                "url": url,
-                "file": fname,
-                "retrieved_at": date.today().isoformat(),
-                "http_status": status,
-                "extractor": extractor,
-                "chars": len(md),
-            }
-        )
-        ok = status == 200 and md.strip()
-        print(f"  [{proc.id}] {url} -> {fname} ({status}, {len(md)} Zeichen){'' if ok else '  !! leer/Fehler'}")
+    with httpx.Client(headers={"User-Agent": ua}, timeout=30, follow_redirects=True) as client:
+        for i, url in enumerate(proc.official_urls, start=1):
+            md, status, raw, state = _ssr_fetch(client, url)
+            extractor = "httpx+trafilatura"
+            spa = state == reach.OK and looks_like_spa(raw, md)
+            if spa:
+                # Echte SPA: SSR liefert nur die App-Shell -> Browser-Fallback.
+                browser = _browser_fetch(url, ua)
+                if browser and browser[0].strip():
+                    md, status = browser
+                    extractor = "crawl4ai (SPA-Fallback)"
+                    spa = False
+                else:
+                    extractor = "httpx+trafilatura (SPA — Browser n/v, App-Shell)"
+
+            fname = f"{i:02d}-{_slug(url)}.md"
+            (outdir / fname).write_text(md, encoding="utf-8")
+            meta.append(
+                {
+                    "url": url,
+                    "file": fname,
+                    "retrieved_at": date.today().isoformat(),
+                    "http_status": status,
+                    "state": state,
+                    "spa_suspected": spa,
+                    "extractor": extractor,
+                    "chars": len(md),
+                }
+            )
+            ok = state == reach.OK and md.strip() and not spa
+            note = "" if ok else f"  !! {state}" + (" / SPA-App-Shell" if spa else "")
+            print(f"  [{proc.id}] {url} -> {fname} ({status}/{state}, {len(md)} Zeichen){note}")
+            time.sleep(delay)
     (outdir / "meta.json").write_text(
         json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
     )
