@@ -1,9 +1,9 @@
 # v1-Pipeline: struktur-only-Extraktion
 
 > **Status: umgesetzt** in `src/tessera/` (CLI: `tessera preflight | crawl |
-> extract | validate | pr | run`). Der LLM-Schritt und der Cross-Repo-PR
+> extract | validate | verify | pr | run`). Der LLM-Schritt und der Cross-Repo-PR
 > brauchen eine key-fähige Session (siehe «Setup»); Preflight, Crawl,
-> Grounding-Gate und Validierung laufen ohne Keys.
+> Grounding-Gate, Validierung und Re-Verifikation laufen ohne Keys.
 
 ## Was v1 ist – und was nicht
 
@@ -53,7 +53,10 @@ sources.yaml  (kuratiert, von Hand — ein Eintrag pro Leistung)
       └─ robots.txt + ToU je Quelle prüfen            → reports/scraping-compliance.md
          (Disallow/ToU-Verbot → Leistung überspringen + flaggen + fragen)
       │
-[1] Crawl     Crawl4AI: HTML → sauberes Markdown (rate-limited, ident. User-Agent)
+[1] Crawl     SSR zuerst (httpx + Trafilatura: HTML → Markdown, rate-limited,
+      │       ident. User-Agent). SPA-Auto-Erkennung (App-Shell-Marker / wenig
+      │       Text) → Headless-Fallback (Crawl4AI) NUR für diese URL; ist der
+      │       Browser n/v, App-Shell behalten + ehrlich in meta.json vermerken.
       │
 [2] Extract   pydantic-ai → striktes Pydantic-Schema (struktur-only)
       │       Schritte, Akteure, Reihenfolge (depends_on/DAG), references
@@ -67,6 +70,10 @@ sources.yaml  (kuratiert, von Hand — ein Eintrag pro Leistung)
               Datei: stadt-zuerich-next/data/prozesse/zh/<id>.json
               existiert die Datei schon → feldweise mergen (s.u.), nicht ueberschreiben
               NIE mergen, NIE nach main pushen
+
+[*] Verify    (laufende Hygiene, propose-only) tessera verify [--online]
+              netzfrei: Label↔Wert-Befunde; --online: tri-state Erreichbarkeit
+              (tot/blockiert/netzfehler) + Beleg-Drift gegen die Live-Seite
 ```
 
 ### Merge gegen bestehende (handgepflegte) Zieldateien
@@ -135,6 +142,45 @@ Fälle bleiben menschlich kuratiert und werden hier nur strenger geprüft, nicht
 DAG, Referenz-Integrität, statusabhängiges Grounding-Gate und Kardinalregel-Lint.
 Eine Leistung wird **nur** ausgegeben, wenn der Validator Exit 0 liefert. Das
 Ziel-Repo prüft zusätzlich via eigener CI (`validate:prozesse`) — doppeltes Gate.
+
+## Label↔Wert-Gate (gegen «richtige Seite, falscher Wert»)
+
+Der gefährlichste Output ist nicht der sichtbare Fehlschlag, sondern der
+plausibel-aber-falsche Treffer: ein `Gebühr`-Label, dessen `source_quote` nur eine
+Frist belegt, oder eine `Meldefrist`, deren Zitat gar keine Dauer nennt. Deshalb
+prüft `src/tessera/binding.py` mechanisch, ob ein Zitat den **Werttyp** belegt, den
+sein Label benennt (Frist/Dauer/Datum vs. Betrag/Gebühr):
+
+- **Grounding-Gate** (`grounding.py`, Publish-Pfad mit Korpus): Ist ein Zitat zwar
+  wörtlich auffindbar, belegt aber den falschen Werttyp → **Abstinenz**: `status`
+  wird auf `unverifiziert` gesetzt, das Zitat verworfen, ein Flag erzeugt. Für
+  Hochrisiko-Fälle wird daraus über den Validator ein harter Fehler.
+- **Validator** (`validate_contract.py`, ohne Korpus): derselbe Abgleich als
+  **Hinweis** für Reviewer — der Validator sieht keine Quelle und entscheidet die
+  Mehrdeutigkeit nicht.
+
+Die Heuristik fängt den sauber entscheidbaren Teil («das Zitat belegt **keinen**
+Wert des richtigen Typs»). Ob eine *vorhandene* Zahl die *richtige* ist
+(Einsprache- vs. Zahlungsfrist), bleibt menschliches Urteil und wird bewusst nicht
+automatisiert.
+
+## Re-Verifikation: Link-Rot & Beleg-Drift (`tessera verify`)
+
+Gespeicherte URLs sind flüchtig (Quellseiten strukturieren um, Slugs ändern sich
+binnen Tagen), und schon verifizierte Zitate verrutschen still bei Seitenedits.
+`tessera verify` ist die laufende Hygiene dagegen — **propose-only**, schreibt nie
+in `out/`, Report nach `reports/verify/<id>.md`:
+
+- **Netzfrei** (`tessera verify`): die Label↔Wert-Befunde von oben.
+- **Online** (`tessera verify --online`): jede `source_url` **tri-state** prüfen —
+  `tot` (404/410) ≠ `blockiert` (403/Policy) ≠ `netzfehler`; und jedes verifizierte
+  Zitat gegen die Live-Seite (identische Normalisierung wie beim Speichern). Eine
+  erkannte JS-SPA wird als «ungeprüft — braucht Rendering» gemeldet, nicht als Drift.
+
+**Tri-State ist der Kern:** Nur `tot` und echter Drift sind **Datenprobleme**
+(Exit 1, harter Stopp). `blockiert`/`netzfehler`/SPA-`ungeprüft` sind
+**Umgebungsbefunde** und lassen den Lauf bewusst nicht scheitern — sonst sähen
+Netz-Policy oder fehlender Browser wie kaputte Daten aus.
 
 ## Definition of Done
 

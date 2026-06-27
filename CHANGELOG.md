@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Label↔value gate against the "right page, wrong value" failure mode
+  (`src/tessera/binding.py`, single source of truth for binding-value detection):
+  a reference whose label names a binding value type (deadline/duration vs.
+  fee/amount) must carry a `source_quote` that actually substantiates that type.
+  Enforced as **abstinence** in the grounding gate (verbatim-but-wrong-type →
+  downgraded to `unverifiziert`, quote dropped, flagged; a hard error for
+  high-risk ids via the validator), and surfaced as a reviewer **hint** in the
+  contract validator (which has no corpus). The cardinal-rule lint now imports
+  its `BINDING_VALUE` regex from `binding.py` (unchanged behaviour). Covered by
+  `tests/test_binding.py` and a new grounding test (in CI).
+- `tessera verify` — re-verification of existing outputs (propose-only, never
+  writes to `out/`; report to `reports/verify/<id>.md`). Offline: label↔value
+  findings. `--online`: **tri-state** reachability per `source_url`
+  (`tot` 404/410 ≠ `blockiert` 403/policy ≠ `netzfehler`) and verbatim **drift**
+  of each verified quote against the live page (identical normalization as on
+  save; a detected JS-SPA shell is reported as "ungeprüft — needs rendering", not
+  drift). Only dead links and real drift are data problems (exit 1); environment
+  findings never fail the run. Tri-state classification lives in
+  `src/tessera/reach.py`; the HTTP fetch is injectable so the offline path is
+  tested without httpx (`tests/test_verify.py`, in CI).
 - High-risk legal-case policy (`src/tessera/risk.py` as single source of truth):
   `baugesuch`, `sozialhilfe`, `veranstaltung` are reputation-critical and remain
   excluded from automated v1 extraction. Heightened review where they touch the
@@ -53,6 +73,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture (`docs/v1-pipeline.md`).
 
 ### Changed
+- Crawl fetch order reversed to SSR-first (`src/tessera/crawl.py`): try httpx +
+  Trafilatura first (most source pages are server-rendered and reachable via the
+  proxy), auto-detect a real JS-SPA (app-shell markers / suspiciously little
+  text) and only then fall back to a headless browser (Crawl4AI) — and only for
+  that one URL. If the browser is unavailable in the environment, the app-shell
+  is kept and the degradation is recorded honestly in `meta.json` (never faked).
+  Snapshot metadata gains tri-state `state` and `spa_suspected`.
 - Aligned the draft contract, JSON Schema, and validator to the canonical v0
   schema in `maschinerie-zuerich`: Leichte-Sprache locale key `leichte_sprache`
   → `ls`; `depends_on` now accepts `{step_id, condition?}` (condition is i18n) for
