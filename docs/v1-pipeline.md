@@ -157,7 +157,10 @@ sein Label benennt (Frist/Dauer/Datum vs. Betrag/Gebühr):
   Hochrisiko-Fälle wird daraus über den Validator ein harter Fehler.
 - **Validator** (`validate_contract.py`, ohne Korpus): derselbe Abgleich als
   **Hinweis** für Reviewer — der Validator sieht keine Quelle und entscheidet die
-  Mehrdeutigkeit nicht.
+  Mehrdeutigkeit nicht. Opt-in zum **Fehler** via `--strict-label-value` oder
+  `TESSERA_STRICT_LABEL_VALUE` (die ENV-Variable erbt `tessera validate`/`pr`):
+  sinnvoll für handgepflegte/gemergte Zieldateien, die nicht durch das
+  Grounding-Gate laufen.
 
 Die Heuristik fängt den sauber entscheidbaren Teil («das Zitat belegt **keinen**
 Wert des richtigen Typs»). Ob eine *vorhandene* Zahl die *richtige* ist

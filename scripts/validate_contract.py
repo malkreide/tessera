@@ -27,8 +27,15 @@ Hinweis: Dieser Check ist auf das kanonische v0-Schema in maschinerie-zuerich
 abgeglichen (Locale-Key 'ls', depends_on-Objektvariante, tagesgenaues Datum). Er
 ist nicht kanonisch; bei Abweichung gilt maschinerie-zuerich — stoppen und fragen.
 
+Label<->Wert: benennt ein Reference-Label einen bindenden Werttyp (Frist/Dauer
+vs. Gebuehr/Betrag), den sein source_quote nicht belegt, ist das standardmaessig
+ein Hinweis (der Validator sieht kein Korpus; die Abstinenz trifft das Grounding-
+Gate). Mit --strict-label-value (oder ENV TESSERA_STRICT_LABEL_VALUE) wird daraus
+ein Fehler — sinnvoll z.B. fuer handgepflegte/gemergte Zieldateien, die nicht
+durch das Grounding-Gate laufen.
+
 Aufruf:
-    python scripts/validate_contract.py [PFAD ...]
+    python scripts/validate_contract.py [--strict-label-value] [PFAD ...]
 Ohne Pfade werden examples/*.json geprueft.
 Exit-Code 0 = alles gueltig, 1 = mindestens ein Fehler.
 """
@@ -80,6 +87,8 @@ class Report:
         self.warnings: list[str] = []
         self.pending: list[str] = []  # i18n-Felder ohne Uebersetzung
         self.high_risk = False  # reputationskritischer Rechtsfall (erhoehter Review)
+        # Strenger Modus: Label<->Wert-Befunde sind Fehler statt Hinweise (opt-in).
+        self.strict_label_value = False
 
     def error(self, msg: str) -> None:
         self.errors.append(msg)
@@ -363,16 +372,20 @@ def _check_references(rep: Report, refs: object) -> set[int]:
         elif status == "unverifiziert" and not has_quote:
             # Erlaubt: UI rendert nur Label + Link; fuer Reviewer markiert.
             rep.warn(f"{where}: status 'unverifiziert' ohne source_quote — fuer Review offen.")
-        # Label<->Wert-Hinweis: das Label benennt einen bindenden Werttyp, das
-        # Zitat belegt ihn aber nicht (plausibel-aber-falsch / falsche Seite).
-        # Bewusst nur ein Hinweis: der Validator sieht kein Korpus und kann die
-        # Mehrdeutigkeit nicht aufloesen. Die Abstinenz-Entscheidung trifft das
-        # Grounding-Gate (src/tessera/grounding.py) auf dem echten Quelltext.
+        # Label<->Wert: das Label benennt einen bindenden Werttyp, das Zitat
+        # belegt ihn aber nicht (plausibel-aber-falsch / falsche Seite).
+        # Standardmaessig nur ein Hinweis — der Validator sieht kein Korpus und
+        # kann die Mehrdeutigkeit nicht aufloesen; die Abstinenz-Entscheidung
+        # trifft das Grounding-Gate (src/tessera/grounding.py) auf dem echten
+        # Quelltext. Im strengen Modus (rep.strict_label_value, opt-in) wird der
+        # Befund zum Fehler — z.B. fuer handgepflegte/gemergte Zieldateien, die
+        # nicht durch das Grounding-Gate laufen.
         if status == "verifiziert" and has_quote:
             label_de = (ref.get("label") or {}).get("de") if isinstance(ref.get("label"), dict) else None
             mismatch = label_value_mismatch(label_de or "", sq)
             if mismatch:
-                rep.warn(f"{where}: {mismatch} — Label<->Wert pruefen (falsche Seite/falscher Wert?).")
+                emit = rep.error if rep.strict_label_value else rep.warn
+                emit(f"{where}: {mismatch} — Label<->Wert pruefen (falsche Seite/falscher Wert?).")
         _check_iso(rep, f"{where}.retrieved_at", ref.get("retrieved_at"))
     return seen
 
@@ -510,7 +523,8 @@ def _check_high_risk(rep: Report, data: dict) -> None:
         )
 
 
-def validate(data: object, rep: Report) -> None:
+def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> None:
+    rep.strict_label_value = strict_label_value
     if not isinstance(data, dict):
         rep.error("Wurzel: muss ein Objekt sein.")
         return
@@ -618,7 +632,7 @@ def validate(data: object, rep: Report) -> None:
         _check_high_risk(rep, data)
 
 
-def validate_file(path: Path) -> Report:
+def validate_file(path: Path, *, strict_label_value: bool = False) -> Report:
     rep = Report(path)
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -628,23 +642,31 @@ def validate_file(path: Path) -> Report:
     except json.JSONDecodeError as exc:
         rep.error(f"Ungueltiges JSON: {exc}")
         return rep
-    validate(data, rep)
+    validate(data, rep, strict_label_value=strict_label_value)
     return rep
 
 
 def main(argv: list[str]) -> int:
     root = Path(__file__).resolve().parent.parent
-    if argv:
-        paths = [Path(a) for a in argv]
+    # Strenger Modus opt-in: per Flag oder ENV TESSERA_STRICT_LABEL_VALUE.
+    import os  # noqa: PLC0415
+    strict = bool(os.environ.get("TESSERA_STRICT_LABEL_VALUE"))
+    args = [a for a in argv if a not in ("--strict-label-value", "-s")]
+    if len(args) != len(argv):
+        strict = True
+    if args:
+        paths = [Path(a) for a in args]
     else:
         paths = sorted((root / "examples").glob("*.json"))
     if not paths:
         print("Keine Prozess-JSONs gefunden.", file=sys.stderr)
         return 1
+    if strict:
+        print("(strenger Modus: Label<->Wert-Befunde sind Fehler)")
 
     failed = 0
     for path in paths:
-        rep = validate_file(path)
+        rep = validate_file(path, strict_label_value=strict)
         status = "OK  " if rep.ok else "FAIL"
         print(f"[{status}] {path}")
         if rep.high_risk:
