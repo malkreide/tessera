@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Curated `parkplatz` (Anwohnerparkkarte) into the v1 set (`sources.yaml`): four
+  citizen-facing pages (Parkbewilligungen overview, Anwohnerparkkarte, the
+  private-person application form, and the AGB/legal page for fees + appeal), all
+  robots-allowed and HTTP 200 (verified 2026-06-28); pre-flight reports
+  regenerated. Parking fee and appeal deadline are references only (label without
+  the number + deep-link + verbatim quote). The canonical target file carries
+  `actors[]` (`halter`, `dav`, `stapo`, `statthalter`), so actor reconciliation
+  applies on merge. `parkplatz` is **not** a high-risk id (the appeal step
+  notwithstanding), unlike `baugesuch`/`sozialhilfe`.
 - Key-/network-free pipeline integration test (`tests/test_pipeline_integration.py`,
   wired into `contract-check.yml`): exercises the `extract -> to_contract ->
   grounding.apply_gate -> validate_contract` leg with a hard-wired extraction
