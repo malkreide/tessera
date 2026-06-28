@@ -210,20 +210,26 @@ def _merge_preconditions(existing_list: list, incoming_list: list, *, report: Me
 
 
 _GENDER_SUFFIX = re.compile(r"(?::|/|\*|_)innen?$|(?::|/|\*|_)in$", re.IGNORECASE)
+# Umlaut-/ß-Transliteration: die kanonischen actors[].id sind ASCII (z.B.
+# "fundbuero"), das LLM liefert die Originalschreibweise ("Fundbüro"). Ohne
+# Transliteration faellt das 'ü' beim Strippen weg ("fundbro") und matcht die id
+# nicht. Das ist Standard-CH-Deutsch-Aequivalenz (ue=ü), kein Fuzzy-Matching.
+_UMLAUT_MAP = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 
 
 def _norm_actor(value: object) -> str:
     """Konservative, gender-neutrale Normalform fuer den Actor-Abgleich.
 
-    Entfernt Gender-Suffixe (:in, /in, *in, _in, :innen) und alles
-    Nicht-Alphanumerische, dann lowercase. KEIN Fuzzy-Matching — nur exakte
-    Gleichheit nach dieser Normalisierung gilt als Treffer ("Halter:in" und die
-    id "halter" werden beide zu "halter"). Bleibt etwas ungleich, wird geflaggt.
+    Entfernt Gender-Suffixe (:in, /in, *in, _in, :innen), transliteriert Umlaute
+    (ü→ue, ä→ae, ö→oe, ß→ss) und wirft alles Nicht-Alphanumerische weg, lowercase.
+    KEIN Fuzzy-Matching — nur exakte Gleichheit nach dieser Normalisierung gilt
+    als Treffer ("Halter:in"/id "halter" → "halter"; "Fundbüro"/id "fundbuero" →
+    "fundbuero"). Bleibt etwas ungleich, wird geflaggt.
     """
     if not isinstance(value, str):
         return ""
-    s = _GENDER_SUFFIX.sub("", value.strip())
-    return re.sub(r"[^a-z0-9]", "", s.lower())
+    s = _GENDER_SUFFIX.sub("", value.strip()).lower().translate(_UMLAUT_MAP)
+    return re.sub(r"[^a-z0-9]", "", s)
 
 
 def _reconcile_step_actors(out: dict, report: MergeReport) -> None:

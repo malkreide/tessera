@@ -253,6 +253,41 @@ def test_e_actor_remapped_to_existing_id() -> None:
     assert any("steps[1].actor" in r and "'halter'" in r for r in report.remapped_actors)
 
 
+def test_e_actor_remapped_across_umlaut_transliteration() -> None:
+    """(e) Umlaut-Schreibweise des LLM ('Fundbüro') wird auf die ASCII-id
+    ('fundbuero') abgebildet — ue=ü-Aequivalenz, kein Fuzzy-Matching.
+    Realfall aus dem fundsache-Lauf (Schritt-actor 'Fundbüro')."""
+    existing = {
+        "schema_version": "0.1.0",
+        "id": "fundsache",
+        "lebenslage_ref": "fundsache",
+        "title": {"de": "Fundsache"},
+        "target_audience": "bevoelkerung",
+        "steps": [
+            {"step_id": 1, "actor": "fundbuero", "label": {"de": "Fund erfassen"}, "depends_on": []},
+        ],
+        "actors": [
+            {"id": "fundbuero", "label": {"de": "Fundbüro der Stadtpolizei Zürich"}, "type": "behoerde"},
+            {"id": "person", "label": {"de": "Findende oder verlierende Person"}, "type": "antragsteller"},
+        ],
+        "source_url": "https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero.html",
+        "retrieved_at": "2026-06-28",
+        "disclaimer_key": "Prozesse.disclaimer",
+    }
+    extraction = {
+        "id": "fundsache",
+        "steps": [
+            {"step_id": 2, "actor": "Fundbüro", "label": {"de": "Gegen Ausweis aushaendigen"}, "depends_on": [1]},
+        ],
+    }
+    merged, report = merge_process(existing, extraction)
+    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
+    assert s2["actor"] == "fundbuero", s2["actor"]
+    assert not report.unmapped_actors
+    rep = _contract_ok(merged)
+    assert rep.ok, rep.errors
+
+
 def test_e_unknown_actor_flagged_not_invented() -> None:
     """(e) Ein Actor ohne passenden actors[]-Eintrag wird GEFLAGGT, nicht
     geraten: kein neuer actors[]-Eintrag, der Wert bleibt unveraendert stehen."""
