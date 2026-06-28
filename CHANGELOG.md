@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Allowed the canonical additive top-level field `bewertung` in the contract
+  validator (`scripts/validate_contract.py`). It lives in hand-maintained target
+  files in `maschinerie-zuerich` and is preserved verbatim by the loss-free merge;
+  tessera never generates it. Without it on the allowlist, a merged `parkplatz`
+  state failed the contract validator (`Unbekanntes Feld: bewertung`) and no PR was
+  opened, even though the target CI accepts the file — a gate-parity gap. tessera
+  treats `bewertung`'s internal shape as opaque (validated canonically in the
+  target repo). New stdlib test `tests/test_contract_fields.py` (wired into
+  `contract-check.yml`): asserts `bewertung` is accepted and that a genuine foreign
+  field is still rejected.
 - Curated `parkplatz` (Anwohnerparkkarte) into the v1 set (`sources.yaml`): four
   citizen-facing pages (Parkbewilligungen overview, Anwohnerparkkarte, the
   private-person application form, and the AGB/legal page for fees + appeal), all

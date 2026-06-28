@@ -18,6 +18,8 @@ jobs:
           python-version: "3.11"
       - name: Vertrags-Check (Fixtures + Erwartungen)
         run: python tests/run_checks.py
+      - name: Vertrags-Feld-Allowlist-Tests (additive Felder, stdlib)
+        run: python tests/test_contract_fields.py
       - name: Grounding-Gate-Tests (stdlib)
         run: python tests/test_grounding.py
       - name: Pipeline-Integrationstest (extract->ground->validate, key-/netzfrei)
