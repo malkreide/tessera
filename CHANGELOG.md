@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   any element that is not verbatim-grounded, so recall rises without raising the
   hallucination risk. The pass is on by default; opt out with `TESSERA_REVIEW=0`.
 
+### Docs
+- README (en/de): a "Secrets via `.env`" section under Configuration — how to set
+  up `.env` from `.env.example` and load it per shell (bash `set -a; source` and a
+  PowerShell `Import-DotEnv` function), why it beats re-typing `$env:`/`export`
+  (single source on rotation, nothing in shell history/screenshots, gitignored),
+  and the key caveats (load per shell, reload after rotation or hit
+  `401 invalid x-api-key`, plaintext file). Notes that tessera reads `os.environ`
+  only and does not auto-load `.env`.
+
 ### Fixed
 - Grounding-gate normalization no longer drops *valid* verbatim quotes over
   invisible HTML→Markdown artifacts: zero-width characters (zero-width
