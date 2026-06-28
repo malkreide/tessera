@@ -1,0 +1,60 @@
+name: link-rot
+
+# Laufende Beleg-Hygiene: prueft die gespeicherten Quell-URLs und verifizierten
+# Zitate publizierter Ausgaben gegen die Live-Seiten (tessera verify --online).
+#
+# Tri-State (siehe docs/v1-pipeline.md): NUR ein toter Link (404/410) oder echter
+# Beleg-Drift sind Datenprobleme und lassen den Job rot werden (Exit 1). Ein
+# 403/Policy-Block, ein Netzfehler oder eine JS-SPA sind Umgebungsbefunde und
+# werden nur geloggt — sonst sieht eine geschlossene Netz-Policy wie kaputte
+# Daten aus.
+#
+# NETZ-POLICY: Dieser Job braucht ausgehendes HTTPS zu den Quelldomains
+# (stadt-zuerich.ch, zh.ch, amicus.ch, skos.ch, fedlex.admin.ch, zhlaw.ch — siehe
+# docs/v1-pipeline.md). Ist die Policy geschlossen, faellt alles als
+# 'netzfehler'/'blockiert' an (kein Fehlschlag), und der Lauf ist nur ein No-op.
+#
+# DATENGRUNDLAGE: geprueft werden die committeten Ausgaben in out/*.json. Solange
+# keine Leistung publiziert ist (out/ ist sonst git-ignoriert), ist der Lauf ein
+# sauberes No-op. Wird out/ befuellt (committete Referenzdaten oder ein
+# vorgeschalteter Restore-Schritt), prueft der Job sie automatisch mit.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # woechentlich, Montag 06:00 UTC
+  workflow_dispatch: {} # manueller Dry-Run (z.B. gegen eine bekannte Datei)
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Schlanke Installation: verify --online braucht httpx (Live-Fetch), pyyaml
+      # (sources.yaml laden) und pydantic (config-Modelle) — NICHT crawl4ai/
+      # playwright/pydantic-ai (die nur Crawl bzw. Extract benoetigen).
+      - name: Laufzeit-Deps (schlank)
+        run: python -m pip install --quiet httpx pyyaml "pydantic>=2"
+      - name: Link-Rot + Beleg-Drift (nur publizierte Ausgaben)
+        run: |
+          shopt -s nullglob
+          ids=()
+          for f in out/*.json; do
+            case "$f" in *.flags.json) continue ;; esac
+            ids+=( --id "$(basename "$f" .json)" )
+          done
+          if [ ${#ids[@]} -eq 0 ]; then
+            echo "Keine publizierten Ausgaben in out/ — nichts zu pruefen (kein Fehler)."
+            exit 0
+          fi
+          echo "Pruefe publizierte Leistungen: ${ids[*]}"
+          PYTHONPATH=src python -m tessera.cli verify --online "${ids[@]}"
+      - name: Verify-Reports als Artefakt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-reports
+          path: reports/verify/
+          if-no-files-found: ignore
