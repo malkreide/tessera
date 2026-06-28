@@ -10,13 +10,20 @@ Provider und Modell kommen AUSSCHLIESSLICH aus ENV-Variablen:
 Ohne Key bricht der Schritt mit einer klaren Meldung ab — es gibt keinen
 stillen Fallback und kein Raten.
 
-GENAUIGKEIT: Die Extraktion laeuft deterministisch (temperature=0, reproduzierbar
-fuer Diffs in v2) und in zwei Schritten — ein Entwurf und ein Review-/Repair-Pass,
-der den Entwurf gegen DENSELBEN Korpus prueft: belegbare fehlende Schritte
-ergaenzen, falsche Kanten korrigieren, Geratenes streichen. Der Review erfindet
-keine Belege — das nachgelagerte Grounding-Gate (grounding.py) verwirft danach
-ohnehin jedes nicht woertlich belegte Element. Der Review hebt also den Recall,
-ohne das Halluzinationsrisiko zu erhoehen.
+GENAUIGKEIT: Die Extraktion laeuft in zwei Schritten — ein Entwurf und ein
+Review-/Repair-Pass, der den Entwurf gegen DENSELBEN Korpus prueft: belegbare
+fehlende Schritte ergaenzen, falsche Kanten korrigieren, Geratenes streichen.
+Der Review erfindet keine Belege — das nachgelagerte Grounding-Gate
+(grounding.py) verwirft danach ohnehin jedes nicht woertlich belegte Element.
+Der Review hebt also den Recall, ohne das Halluzinationsrisiko zu erhoehen.
+
+SAMPLING: Wo der Provider es akzeptiert, laeuft die Extraktion mit temperature=0
+(reproduzierbarere Laeufe/Diffs). Aktuelle Anthropic-Modelle (Opus 4.7/4.8,
+Fable, Mythos) akzeptieren KEINE Sampling-Parameter mehr — ein gesetztes
+temperature wird dort verworfen (Warnung bzw. 400). Fuer diese Modelle lassen wir
+den Parameter bewusst weg (siehe `_supports_sampling`); Reproduzierbarkeit laeuft
+dort ueber Prompt und `effort`, nicht ueber Sampling. temperature=0 hat ohnehin
+nie bit-identische Outputs garantiert.
 """
 from __future__ import annotations
 
@@ -26,9 +33,20 @@ from .config import ProcessSource
 from .schema import XProcess
 
 DEFAULT_MODEL = "anthropic:claude-opus-4-8"
-# Deterministisch: gleiche Quelle -> gleiches Ergebnis (reproduzierbare Laeufe/Diffs).
+# Deterministisch, wo akzeptiert: gleiche Quelle -> moeglichst gleiches Ergebnis.
 TEMPERATURE = 0.0
 _REVIEW_OFF = {"0", "false", "no", "off"}
+
+# Anthropic-Modelle, die Sampling-Parameter (temperature/top_p/top_k) nicht mehr
+# akzeptieren. Ein gesetztes temperature wird dort verworfen (Warnung bzw. 400),
+# der gemeinte Determinismus verpufft also. Substring-Match auf den Modellnamen,
+# damit kuenftige Datums-/Alias-Varianten mitgreifen.
+_NO_SAMPLING_MODELS = (
+    "claude-opus-4-7",
+    "claude-opus-4-8",
+    "claude-fable",
+    "claude-mythos",
+)
 
 _KEY_ENV_BY_PREFIX = {
     "anthropic": "ANTHROPIC_API_KEY",
@@ -137,6 +155,16 @@ def _review_enabled() -> bool:
     return os.environ.get("TESSERA_REVIEW", "1").strip().lower() not in _REVIEW_OFF
 
 
+def _supports_sampling(model: str) -> bool:
+    """True, wenn das Modell Sampling-Parameter (temperature) akzeptiert.
+
+    Bei aktuellen Anthropic-Modellen (Opus 4.7/4.8, Fable, Mythos) wuerde ein
+    gesetztes temperature verworfen — dort geben wir keine ModelSettings mit.
+    """
+    name = model.split(":", 1)[-1].lower()
+    return not any(marker in name for marker in _NO_SAMPLING_MODELS)
+
+
 def _require_key(model: str) -> None:
     prefix = model.split(":", 1)[0].lower()
     env = _KEY_ENV_BY_PREFIX.get(prefix)
@@ -155,7 +183,8 @@ def extract_process(proc: ProcessSource, corpus: str) -> XProcess:
     from pydantic_ai import Agent  # noqa: PLC0415 — Import erst nach Key-Check
     from pydantic_ai.settings import ModelSettings  # noqa: PLC0415
 
-    settings = ModelSettings(temperature=TEMPERATURE)
+    # temperature nur setzen, wo der Provider es akzeptiert (siehe Docstring).
+    settings = ModelSettings(temperature=TEMPERATURE) if _supports_sampling(model) else None
 
     draft = Agent(
         model, output_type=XProcess, instructions=INSTRUCTIONS, model_settings=settings
