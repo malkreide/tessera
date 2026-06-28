@@ -121,6 +121,7 @@ Environment variables — keys are never committed and never logged:
 | Variable | Purpose |
 |---|---|
 | `TESSERA_MODEL` | pydantic-ai model string; default `anthropic:claude-opus-4-8` |
+| `TESSERA_REVIEW` | set `0`/`off` to skip the review/repair extraction pass (default: on) |
 | `ANTHROPIC_API_KEY` | LLM provider key (or the key matching your model) |
 | `GITHUB_TOKEN` | Write access to the target repo for PR creation (optional) |
 | `TARGET_REPO` | Default: `malkreide/maschinerie-zuerich` |
