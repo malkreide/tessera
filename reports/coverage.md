@@ -1,6 +1,6 @@
 # Abdeckung der kuratierten Leistungen in den Katalogen
 
-Stand: 2026-06-27 — erzeugt durch `tessera preflight` (Katalog wird
+Stand: 2026-06-28 — erzeugt durch `tessera preflight` (Katalog wird
 konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).
 
 - I14Y Public API (Behoerdenleistungen): 134 Eintraege
@@ -10,6 +10,7 @@ konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).
 |---|---|---|
 | `hund-anmelden` (Hund anmelden / Hundekontrolle) | —  (kommunale Leistung, kein Bundes-Eintrag) | Hundetaxe; Hundehaltung; Befreiung von der Hundetaxe; Ende der Hundehaltung (+3) |
 | `umzug-melden` (Umzug melden (Zuzug, Umzug, Wegzug)) | iGovPortal eUmzug; eUmzugCH | Adressänderung innerhalb einer Gemeinde; Führerausweis - Adressänderung; Schiffführerausweis - Adressänderung; Zivildienstpflichtige Personen - Änderungen von persönlichen (+8) |
+| `fundsache` (Fundsache / Fundbüro (etwas verloren oder gefunden)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Fundsachen; Fundsachen |
 
 Hinweis: Beide Kataloge sind auf Bundes-/Kantonsebene gepflegt; rein
 kommunale Leistungen der Stadt Zuerich koennen ohne Treffer bleiben.
