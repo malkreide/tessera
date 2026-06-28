@@ -130,6 +130,11 @@ Umgebungsvariablen — Keys werden nie committet und nie geloggt:
 | `GITHUB_TOKEN` | Schreibrecht auf das Ziel-Repo für die PR-Erstellung (optional) |
 | `TARGET_REPO` | Default: `malkreide/maschinerie-zuerich` |
 
+Ein lokales Modell statt eines API-Providers (z. B. Gemma via Ollama auf einem
+Raspberry Pi 5) wäre über `TESSERA_MODEL` grundsätzlich anbindbar, ist aber **nicht**
+der unterstützte Default — Hintergrund und Grenzen in
+[`docs/local-model.de.md`](docs/local-model.de.md).
+
 ## Projektstruktur
 
 ```
