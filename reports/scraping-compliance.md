@@ -32,6 +32,10 @@ Stand: 2026-06-28 — erzeugt durch `tessera preflight`.
 | `fundsache` | https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/gefunden.html | erlaubt |
 | `fundsache` | https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/versteigerung.html | erlaubt |
 | `fundsache` | https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/rechtsgrundlage.html | erlaubt |
+| `parkplatz` | https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen.html | erlaubt |
+| `parkplatz` | https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte.html | erlaubt |
+| `parkplatz` | https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte/antragsformular-ap-privatpersonen.html | erlaubt |
+| `parkplatz` | https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/rechtliche-grundlagen/agb.html | erlaubt |
 
 Verdikt-Logik: Eine Leistung wird nur gecrawlt, wenn ALLE ihre URLs
 fuer unseren User-Agent erlaubt sind. Bei Disallow: Leistung gesperrt,

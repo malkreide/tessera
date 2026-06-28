@@ -11,6 +11,7 @@ konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).
 | `hund-anmelden` (Hund anmelden / Hundekontrolle) | —  (kommunale Leistung, kein Bundes-Eintrag) | Hundetaxe; Hundehaltung; Befreiung von der Hundetaxe; Ende der Hundehaltung (+3) |
 | `umzug-melden` (Umzug melden (Zuzug, Umzug, Wegzug)) | iGovPortal eUmzug; eUmzugCH | Adressänderung innerhalb einer Gemeinde; Führerausweis - Adressänderung; Schiffführerausweis - Adressänderung; Zivildienstpflichtige Personen - Änderungen von persönlichen (+8) |
 | `fundsache` (Fundsache / Fundbüro (etwas verloren oder gefunden)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Fundsachen; Fundsachen |
+| `parkplatz` (Anwohnerparkkarte (Parkbewilligung in der blauen Zone)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Parkkarten für Anwohner/innen |
 
 Hinweis: Beide Kataloge sind auf Bundes-/Kantonsebene gepflegt; rein
 kommunale Leistungen der Stadt Zuerich koennen ohne Treffer bleiben.

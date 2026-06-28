@@ -71,7 +71,26 @@ processes:
       im Schritt-Label. Bestehende Zieldatei hat actors[] (person, fundbuero) ->
       Actor-Abgleich greift; unbekannte Rollen werden im PR geflaggt.
 
+  - id: parkplatz
+    service_name: "Anwohnerparkkarte (Parkbewilligung in der blauen Zone)"
+    target_audience: bevoelkerung
+    official_urls:
+      # Am 2026-06-28 manuell auf HTTP 200 geprueft. Kanonischer Prozess nutzt
+      # parkbewilligungen.html als source_url; Akteure dort: halter, dav, stapo,
+      # statthalter. Die AGB-Seite traegt Gebuehren + Rekurs-/Rechtsgrundlage.
+      - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen.html"
+      - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte.html"
+      - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte/antragsformular-ap-privatpersonen.html"
+      - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/rechtliche-grundlagen/agb.html"
+    catalog_keywords: ["park", "parkkarte", "parkbewilligung", "anwohner"]
+    notes: >-
+      Risikoarm, aber gebuehren- und rekursbehaftet: Parkkarten-Gebuehr und
+      Rekursfrist NUR als references (Label ohne Zahl + Deep-Link + woertliches
+      Zitat), nie als Wert im Schritt-Label. Bestehende Zieldatei hat actors[]
+      (halter, dav, stapo, statthalter) -> Actor-Abgleich greift; unbekannte
+      Rollen werden im PR geflaggt. Rekurs ist Teil des Prozesses, aber
+      parkplatz ist KEIN Hochrisiko-Fall (anders als baugesuch/sozialhilfe).
+
 # Weitere risikoarme Kandidaten fuer v1 (nach Rueckfrage):
-#   - id: parkplatz        # Anwohnerparkkarte (gebuehrenbehaftet)
 #   - id: kita-platz       # Betreuungsgutscheine (einkommensabhaengig — sensibler)
 # NICHT in v1: baugesuch (Baubewilligung), sozialhilfe, veranstaltung.
