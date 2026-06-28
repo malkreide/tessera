@@ -184,6 +184,13 @@ Hinweise:
   `.env` der übliche, ausreichende Weg.
 - Werte ohne Anführungszeichen schreiben (`ANTHROPIC_API_KEY=sk-ant-…`).
 
+### Lokales Modell statt eines API-Providers
+
+Ein lokales Modell statt eines API-Providers (z. B. Gemma via Ollama auf einem
+Raspberry Pi 5) wäre über `TESSERA_MODEL` grundsätzlich anbindbar, ist aber **nicht**
+der unterstützte Default — Hintergrund und Grenzen in
+[`docs/local-model.de.md`](docs/local-model.de.md).
+
 ## Projektstruktur
 
 ```

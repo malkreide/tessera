@@ -177,6 +177,13 @@ Notes:
   choice for local development.
 - Write values unquoted (`ANTHROPIC_API_KEY=sk-ant-…`).
 
+### Local model instead of an API provider
+
+Running a local model instead of an API provider (e.g. Gemma via Ollama on a
+Raspberry Pi 5) is in principle wireable through `TESSERA_MODEL`, but it is **not** the
+supported default — background and limits in
+[`docs/local-model.md`](docs/local-model.md).
+
 ## Project Structure
 
 ```
