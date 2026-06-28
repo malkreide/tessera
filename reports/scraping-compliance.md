@@ -1,6 +1,6 @@
 # Scraping-Compliance (robots.txt & Nutzungsbedingungen)
 
-Stand: 2026-06-27 — erzeugt durch `tessera preflight`.
+Stand: 2026-06-28 — erzeugt durch `tessera preflight`.
 
 ## Respekt-Regeln (fix)
 
@@ -27,6 +27,11 @@ Stand: 2026-06-27 — erzeugt durch `tessera preflight`.
 | `umzug-melden` | https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/zuzug.html | erlaubt |
 | `umzug-melden` | https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/umzug.html | erlaubt |
 | `umzug-melden` | https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/wegzug.html | erlaubt |
+| `fundsache` | https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero.html | erlaubt |
+| `fundsache` | https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/verloren.html | erlaubt |
+| `fundsache` | https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/gefunden.html | erlaubt |
+| `fundsache` | https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/versteigerung.html | erlaubt |
+| `fundsache` | https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/rechtsgrundlage.html | erlaubt |
 
 Verdikt-Logik: Eine Leistung wird nur gecrawlt, wenn ALLE ihre URLs
 fuer unseren User-Agent erlaubt sind. Bei Disallow: Leistung gesperrt,
