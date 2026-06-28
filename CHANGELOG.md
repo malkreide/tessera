@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Actor reconciliation now transliterates umlauts/ß before matching
+  (`src/tessera/merge.py`): the LLM emits the original spelling (`"Fundbüro"`)
+  while canonical `actors[].id`s are ASCII (`fundbuero`). Stripping non-alphanumerics
+  dropped the `ü` (`fundbro`) and the match failed, so a known actor was wrongly
+  flagged and `tessera pr` correctly refused the PR. `ü→ue`/`ä→ae`/`ö→oe`/`ß→ss`
+  is deterministic CH-German equivalence (not fuzzy matching). Covered by
+  `tests/test_merge.py` (real `fundsache` case: step actor `"Fundbüro"` → `fundbuero`).
+
 ### Changed
 - Extraction accuracy: the LLM step (`src/tessera/extract.py`) now runs
   **deterministically** (`temperature=0`, reproducible runs/diffs for v2) and in
