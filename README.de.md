@@ -126,9 +126,66 @@ Umgebungsvariablen — Keys werden nie committet und nie geloggt:
 | Variable | Zweck |
 |---|---|
 | `TESSERA_MODEL` | pydantic-ai-Modellstring; Default `anthropic:claude-opus-4-8` |
+| `TESSERA_REVIEW` | `0`/`off` deaktiviert den Review-/Repair-Pass der Extraktion (Default: an) |
 | `ANTHROPIC_API_KEY` | Key des LLM-Providers (bzw. der zum Modell passende Key) |
 | `GITHUB_TOKEN` | Schreibrecht auf das Ziel-Repo für die PR-Erstellung (optional) |
 | `TARGET_REPO` | Default: `malkreide/maschinerie-zuerich` |
+
+### Secrets über `.env`
+
+tessera liest Keys **ausschliesslich** aus der Prozess-Umgebung (`os.environ`) und
+lädt eine `.env`-Datei **nicht** automatisch. Der `.env`-Weg bedeutet: Secrets
+einmal in eine gitignorierte Datei schreiben und vor dem Lauf in die Shell laden.
+Das ist besser, als jede Sitzung `$env:`/`export` neu zu tippen — eine einzige
+Stelle, die du bei Rotation aktualisierst, nichts wird in die Konsole eingefügt
+(also kein Key in Shell-History, Screenshots oder Chat), und `.env` / `.env.*` sind
+gitignored, sodass ein Key nie committet werden kann (nur die nicht-geheime Vorlage
+`.env.example` ist eingecheckt).
+
+Einmalig einrichten:
+
+```bash
+cp .env.example .env      # danach .env oeffnen und Werte eintragen
+```
+
+Pro Shell laden, dann ausführen:
+
+```bash
+# macOS / Linux / WSL (bash, zsh)
+set -a; source .env; set +a
+tessera run --id hund-anmelden
+```
+
+```powershell
+# Windows PowerShell — tessera hat keinen Auto-Loader, also .env selbst importieren.
+# Diese Funktion ins Profil ($PROFILE) legen, dann ist sie wiederverwendbar:
+function Import-DotEnv {
+    param([string]$Path = ".env")
+    if (-not (Test-Path $Path)) { Write-Warning "$Path nicht gefunden"; return }
+    Get-Content $Path | Where-Object { $_ -match '^\s*[^#].+=' } | ForEach-Object {
+        $name, $value = $_ -split '=', 2
+        Set-Item -Path "Env:$($name.Trim())" -Value $value.Trim().Trim('"')
+    }
+}
+
+Import-DotEnv
+tessera run --id hund-anmelden
+```
+
+Hinweise:
+
+- **Pro Shell laden.** Ein geladener Wert gilt nur für die aktuelle Sitzung; ein
+  neues Fenster braucht den Lade-Schritt erneut.
+- **Nach einer Key-Rotation** `.env` aktualisieren und neu laden (`Import-DotEnv` /
+  erneut `source`) — beide überschreiben eine bereits gesetzte Variable, sodass ein
+  alter, widerrufener Key in der Sitzung ersetzt wird. Ein Lauf mit dem alten Key
+  scheitert mit `401 invalid x-api-key`.
+- `.env` ist Klartext — über normale Dateiberechtigungen schützen und nie teilen.
+  Für höhere Anforderungen einen Secret-Manager nutzen; für lokale Entwicklung ist
+  `.env` der übliche, ausreichende Weg.
+- Werte ohne Anführungszeichen schreiben (`ANTHROPIC_API_KEY=sk-ant-…`).
+
+### Lokales Modell statt eines API-Providers
 
 Ein lokales Modell statt eines API-Providers (z. B. Gemma via Ollama auf einem
 Raspberry Pi 5) wäre über `TESSERA_MODEL` grundsätzlich anbindbar, ist aber **nicht**

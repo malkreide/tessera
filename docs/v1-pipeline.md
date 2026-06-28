@@ -60,6 +60,7 @@ sources.yaml  (kuratiert, von Hand — ein Eintrag pro Leistung)
       │
 [2] Extract   pydantic-ai → striktes Pydantic-Schema (struktur-only)
       │       Schritte, Akteure, Reihenfolge (depends_on/DAG), references
+      │       deterministisch (temperature=0) + Review-/Repair-Pass (s.u.)
       │
 [3] Ground    jeder Schritt / jede Reference muss WÖRTLICH im Markdown auffindbar
       │       sein (source_quote). Nicht belegbar → verwerfen + flaggen, nie raten.
@@ -96,6 +97,27 @@ Der PR-Body enthält dann eine **Reviewer-Warnung** «überschreibt bestehende
 handgepflegte Datei» mit den erhaltenen und ergänzten Feldern. So besteht der PR
 den Ziel-Repo-Guard `npm run check:regression` (seit Ziel-PR #108) **ohne**
 `ALLOW_PROZESS_SHRINK` — die Escape-Hatch wird bewusst nicht genutzt.
+
+## Extraktions-Genauigkeit: Determinismus & Review-Pass
+
+Zwei Stellschrauben heben die Genauigkeit von Schritt [2], ohne den Output-Scope
+oder das Schema zu ändern:
+
+- **Determinismus** (`temperature=0`): gleiche Quell-Snapshots → gleiches Ergebnis.
+  Reproduzierbare Läufe sind Voraussetzung für sinnvolle Change-Diffs (v2) und für
+  belastbare Reviews.
+- **Review-/Repair-Pass** (Default an, Opt-out `TESSERA_REVIEW=0`): nach dem Entwurf
+  prüft ein zweiter Lauf den Entwurf gegen **denselben** Korpus und liefert eine
+  korrigierte, vollständige Fassung — belegbare **fehlende Schritte** ergänzen
+  (Recall), falsche `depends_on`-**Kanten** korrigieren, Geratenes streichen. Der
+  Review erfindet keine Belege: das nachgelagerte **Grounding-Gate** verwirft danach
+  ohnehin jedes nicht wörtlich belegte Element. Recall steigt, das
+  Halluzinationsrisiko nicht.
+
+Der gefährlichste Fehler ist nicht der sichtbare Fehlschlag, sondern der stille:
+ein im Quelltext belegter Schritt, der gar nicht erst extrahiert wurde. Das
+Grounding-Gate schützt gegen Erfundenes (Präzision), der Review-Pass gegen
+Übersehenes (Recall).
 
 ## Ausgabeformat
 

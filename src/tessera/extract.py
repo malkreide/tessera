@@ -5,9 +5,18 @@ Provider und Modell kommen AUSSCHLIESSLICH aus ENV-Variablen:
 * TESSERA_MODEL      pydantic-ai-Modellstring, Default "anthropic:claude-opus-4-8"
 * ANTHROPIC_API_KEY  (bzw. der zum Provider passende Key) — wird vom Provider-SDK
                      gelesen; tessera fasst den Key selbst nie an und loggt ihn nie.
+* TESSERA_REVIEW     "0"/"false"/"no"/"off" deaktiviert den Review-Pass (Default: an).
 
 Ohne Key bricht der Schritt mit einer klaren Meldung ab — es gibt keinen
 stillen Fallback und kein Raten.
+
+GENAUIGKEIT: Die Extraktion laeuft deterministisch (temperature=0, reproduzierbar
+fuer Diffs in v2) und in zwei Schritten — ein Entwurf und ein Review-/Repair-Pass,
+der den Entwurf gegen DENSELBEN Korpus prueft: belegbare fehlende Schritte
+ergaenzen, falsche Kanten korrigieren, Geratenes streichen. Der Review erfindet
+keine Belege — das nachgelagerte Grounding-Gate (grounding.py) verwirft danach
+ohnehin jedes nicht woertlich belegte Element. Der Review hebt also den Recall,
+ohne das Halluzinationsrisiko zu erhoehen.
 """
 from __future__ import annotations
 
@@ -17,6 +26,9 @@ from .config import ProcessSource
 from .schema import XProcess
 
 DEFAULT_MODEL = "anthropic:claude-opus-4-8"
+# Deterministisch: gleiche Quelle -> gleiches Ergebnis (reproduzierbare Laeufe/Diffs).
+TEMPERATURE = 0.0
+_REVIEW_OFF = {"0", "false", "no", "off"}
 
 _KEY_ENV_BY_PREFIX = {
     "anthropic": "ANTHROPIC_API_KEY",
@@ -64,6 +76,66 @@ REGELN (verbindlich):
    ebenfalls ohne bindende Zahlen.
 """
 
+REVIEW_INSTRUCTIONS = """\
+Du bist Reviewer:in einer bereits erstellten Extraktion derselben Schweizer
+Verwaltungsleistung. Du erhaeltst die Quell-Snapshots (Markdown) UND einen
+Extraktions-Entwurf (JSON). Deine Aufgabe ist NICHT, neu zu raten, sondern den
+Entwurf gegen die Quelle zu pruefen und eine KORRIGIERTE, VOLLSTAENDIGE Fassung
+im selben Schema auszugeben.
+
+Pruefe und korrigiere:
+
+1. VOLLSTAENDIGKEIT (Recall): Fehlt ein Schritt, den die Quelle WOERTLICH belegt
+   (z.B. eine Online-Anmeldung, eine behoerdliche Veranlagung, ein Schalter-Gang)?
+   Ergaenze ihn mit korrektem source_quote. Ergaenze NICHTS, was du nicht
+   woertlich belegen kannst.
+
+2. GRAPH-KORREKTHEIT: Stimmen depends_on-Kanten mit der in der Quelle
+   beschriebenen Reihenfolge ueberein? Korrigiere falsche/fehlende Abhaengigkeiten.
+   Der Graph bleibt ein DAG (keine Zyklen/Selbstbezug); genau die Start-Schritte
+   haben leeres depends_on.
+
+3. BELEGE: Jeder behaltene/ergaenzte Schritt und jede Reference traegt ein
+   source_quote, das ZEICHENGETREU im mitgelieferten Quelltext vorkommt. Streiche
+   Elemente, deren Beleg du nicht woertlich findest.
+
+4. KARDINALREGEL: weiterhin KEINE bindende Zahl (Frist/Betrag/Prozent) in Labels
+   oder Bedingungen — solche Werte nur als references (Label OHNE Zahl + URL +
+   woertliches Zitat).
+
+Behalte step_ids stabiler Schritte moeglichst bei. Sprache: Deutsch, Schweizer
+Rechtschreibung (kein ß). Gib NUR das korrigierte XProcess aus.
+"""
+
+
+def build_extract_prompt(proc: ProcessSource, corpus: str) -> str:
+    """Entwurfs-Prompt (rein, ohne LLM-Aufruf — testbar)."""
+    return (
+        f"Leistung: {proc.service_name} (id: {proc.id}, "
+        f"target_audience: {proc.target_audience}).\n"
+        f"Hinweise aus der kuratierten Liste: {proc.notes or '—'}\n\n"
+        "Extrahiere die Prozess-Struktur aus den folgenden Quell-Snapshots. "
+        "Jeder Snapshot beginnt mit <<<QUELLE url>>> — verwende fuer jede "
+        "Reference die URL des Snapshots, in dem ihr Zitat steht.\n"
+        f"{corpus}"
+    )
+
+
+def build_review_prompt(proc: ProcessSource, corpus: str, draft_json: str) -> str:
+    """Review-Prompt (rein, ohne LLM-Aufruf — testbar). Traegt Entwurf + Korpus."""
+    return (
+        f"Leistung: {proc.service_name} (id: {proc.id}, "
+        f"target_audience: {proc.target_audience}).\n\n"
+        "ENTWURF (zu pruefen und zu korrigieren):\n"
+        f"{draft_json}\n\n"
+        "QUELL-SNAPSHOTS (einzige Belegquelle; jeder beginnt mit <<<QUELLE url>>>):\n"
+        f"{corpus}"
+    )
+
+
+def _review_enabled() -> bool:
+    return os.environ.get("TESSERA_REVIEW", "1").strip().lower() not in _REVIEW_OFF
+
 
 def _require_key(model: str) -> None:
     prefix = model.split(":", 1)[0].lower()
@@ -81,16 +153,22 @@ def extract_process(proc: ProcessSource, corpus: str) -> XProcess:
     _require_key(model)
 
     from pydantic_ai import Agent  # noqa: PLC0415 — Import erst nach Key-Check
+    from pydantic_ai.settings import ModelSettings  # noqa: PLC0415
 
-    agent = Agent(model, output_type=XProcess, instructions=INSTRUCTIONS)
-    prompt = (
-        f"Leistung: {proc.service_name} (id: {proc.id}, "
-        f"target_audience: {proc.target_audience}).\n"
-        f"Hinweise aus der kuratierten Liste: {proc.notes or '—'}\n\n"
-        "Extrahiere die Prozess-Struktur aus den folgenden Quell-Snapshots. "
-        "Jeder Snapshot beginnt mit <<<QUELLE url>>> — verwende fuer jede "
-        "Reference die URL des Snapshots, in dem ihr Zitat steht.\n"
-        f"{corpus}"
-    )
-    result = agent.run_sync(prompt)
-    return result.output
+    settings = ModelSettings(temperature=TEMPERATURE)
+
+    draft = Agent(
+        model, output_type=XProcess, instructions=INSTRUCTIONS, model_settings=settings
+    ).run_sync(build_extract_prompt(proc, corpus)).output
+
+    if not _review_enabled():
+        return draft
+
+    # Review-/Repair-Pass: Entwurf gegen denselben Korpus pruefen. Das
+    # Grounding-Gate filtert danach ohnehin jedes nicht belegte Element.
+    reviewed = Agent(
+        model, output_type=XProcess, instructions=REVIEW_INSTRUCTIONS, model_settings=settings
+    ).run_sync(
+        build_review_prompt(proc, corpus, draft.model_dump_json(indent=2))
+    ).output
+    return reviewed

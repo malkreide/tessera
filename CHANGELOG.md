@@ -15,7 +15,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the number + deep-link + verbatim quote). The canonical target file carries
   `actors[]` (`person`, `fundbuero`), so actor reconciliation applies on merge.
 
+### Changed
+- Extraction accuracy: the LLM step (`src/tessera/extract.py`) now runs
+  **deterministically** (`temperature=0`, reproducible runs/diffs for v2) and in
+  **two passes** — a draft plus a review/repair pass that checks the draft against
+  the *same* corpus: it adds source-backed steps that were missed (recall),
+  corrects wrong `depends_on` edges, and drops guessed elements. The review never
+  invents evidence — the downstream grounding gate (`grounding.py`) still discards
+  any element that is not verbatim-grounded, so recall rises without raising the
+  hallucination risk. The pass is on by default; opt out with `TESSERA_REVIEW=0`.
+
+### Docs
+- README (en/de): a "Secrets via `.env`" section under Configuration — how to set
+  up `.env` from `.env.example` and load it per shell (bash `set -a; source` and a
+  PowerShell `Import-DotEnv` function), why it beats re-typing `$env:`/`export`
+  (single source on rotation, nothing in shell history/screenshots, gitignored),
+  and the key caveats (load per shell, reload after rotation or hit
+  `401 invalid x-api-key`, plaintext file). Notes that tessera reads `os.environ`
+  only and does not auto-load `.env`.
+
 ### Fixed
+- Grounding-gate normalization no longer drops *valid* verbatim quotes over
+  invisible HTML→Markdown artifacts: zero-width characters (zero-width
+  space/joiner, word-joiner U+2060, ZWNBSP/BOM U+FEFF — none of which `\s`
+  matches) are stripped, and the ellipsis character `…` is unified with `...`.
+  Previously a fee/deadline reference could be wrongly flagged `unverifiziert`
+  just because the source carried an invisible separator the quote did not
+  (`src/tessera/grounding.py`, covered by `tests/test_grounding.py`).
 - Actor parity to match the target repo's `validate:prozesse`: when a process
   carries `actors[]`, every `steps[].actor` must be an `actors[].id`. The
   contract validator now treats a mismatch as an **error** (was a warning) —
