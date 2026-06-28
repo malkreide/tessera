@@ -19,7 +19,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+sys.path.insert(0, str(ROOT / "scripts"))
+
 from tessera.merge import MergeConflict, merge_process, normalize_i18n  # noqa: E402
+from validate_contract import Report, validate  # noqa: E402
+
+
+def _contract_ok(doc: dict) -> Report:
+    rep = Report(Path("synthetic"))
+    validate(doc, rep)
+    return rep
 
 
 def _existing() -> dict:
@@ -233,6 +242,117 @@ def test_alias_fills_missing_ls_in_merge() -> None:
     extraction["title"]["leichte_sprache"] = "Einfacher Titel."
     merged, _ = merge_process(existing, extraction)
     assert merged["title"]["ls"] == "Einfacher Titel."
+
+
+def test_e_actor_remapped_to_existing_id() -> None:
+    """(e) Freitext-Actor der Extraktion wird gender-neutral auf die
+    bestehende actors[].id abgebildet ('Halter:in' -> 'halter')."""
+    merged, report = merge_process(_existing(), _extraction())
+    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
+    assert s1["actor"] == "halter", s1["actor"]
+    assert any("steps[1].actor" in r and "'halter'" in r for r in report.remapped_actors)
+
+
+def test_e_unknown_actor_flagged_not_invented() -> None:
+    """(e) Ein Actor ohne passenden actors[]-Eintrag wird GEFLAGGT, nicht
+    geraten: kein neuer actors[]-Eintrag, der Wert bleibt unveraendert stehen."""
+    existing = _existing()
+    extraction = _extraction()
+    extraction["steps"].append(
+        {
+            "step_id": 4,
+            "actor": "Hundeausbildner:in",  # kein actors[]-Eintrag
+            "label": {"de": "Praxiskurs in AMICUS eintragen", "en": "", "fr": "", "it": ""},
+            "depends_on": [3],
+        }
+    )
+    merged, report = merge_process(existing, extraction)
+    s4 = next(s for s in merged["steps"] if s["step_id"] == 4)
+    assert s4["actor"] == "Hundeausbildner:in"  # unveraendert
+    assert not any(a.get("id") == "hundeausbildner" for a in merged["actors"])  # nichts erfunden
+    assert any("steps[4].actor" in u and "Hundeausbildner" in u for u in report.unmapped_actors)
+
+
+def _existing_all_halter() -> dict:
+    """Minimale Zieldatei, deren Schritte alle die Rolle Halter:in tragen und
+    deren actors[] genau einen Eintrag `halter` hat (Freitext vs. id)."""
+    return {
+        "schema_version": "0.1.0",
+        "id": "hund-anmelden",
+        "lebenslage_ref": "hund-anmelden",
+        "title": {"de": "Hund anmelden"},
+        "target_audience": "bevoelkerung",
+        "steps": [
+            {"step_id": 1, "actor": "Halter:in", "label": {"de": "Anmelden"}, "depends_on": []},
+        ],
+        "actors": [{"id": "halter", "label": {"de": "Hundehalter:in"}, "type": "antragsteller"}],
+        "source_url": "https://www.stadt-zuerich.ch/hund",
+        "retrieved_at": "2026-01-01",
+        "disclaimer_key": "process.disclaimer.unofficial",
+    }
+
+
+def test_e_remapped_actor_passes_contract_validator() -> None:
+    """Kopplung Merge<->Validator: nach dem Remap ist jeder steps[].actor eine
+    actors[].id -> der Vertrags-Validator (Actor-Paritaet) ist gruen."""
+    extraction = {
+        "id": "hund-anmelden",
+        "steps": [
+            {"step_id": 1, "actor": "Halter:in", "label": {"de": "Anmelden"}, "depends_on": []},
+            {"step_id": 2, "actor": "Halter:in", "label": {"de": "Bezahlen"}, "depends_on": [1]},
+        ],
+    }
+    merged, report = merge_process(_existing_all_halter(), extraction)
+    assert not report.unmapped_actors
+    assert all(s["actor"] == "halter" for s in merged["steps"])
+    rep = _contract_ok(merged)
+    assert rep.ok, rep.errors
+
+
+def test_e_unmapped_actor_fails_contract_validator() -> None:
+    """Gate-Paritaet: ein unmapped Actor laesst den Vertrags-Validator scheitern
+    (genau der Fehler, den die Ziel-CI wirft) — kein stilles Durchrutschen."""
+    existing = _existing()
+    extraction = _extraction()
+    extraction["steps"].append(
+        {
+            "step_id": 4,
+            "actor": "Hundeausbildner:in",
+            "label": {"de": "Praxiskurs eintragen", "en": "", "fr": "", "it": ""},
+            "depends_on": [3],
+        }
+    )
+    merged, _ = merge_process(existing, extraction)
+    rep = _contract_ok(merged)
+    assert not rep.ok
+    assert any("actor" in e and "Hundeausbildner" in e for e in rep.errors), rep.errors
+
+
+def test_e_no_actors_leaves_free_text_actors() -> None:
+    """Ohne actors[] in der Zieldatei bleibt der Freitext-Actor unangetastet
+    (die kanonische Regel greift nur, wenn actors[] vorhanden ist)."""
+    existing = _existing()
+    del existing["actors"]
+    merged, report = merge_process(existing, _extraction())
+    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
+    assert s1["actor"] == "Halter:in"
+    assert not report.remapped_actors and not report.unmapped_actors
+
+
+def test_e_ambiguous_normform_not_mapped() -> None:
+    """Kollidieren zwei actors auf dieselbe Normalform, wird NICHT gemappt
+    (lieber flaggen als auf den falschen Akteur zeigen)."""
+    existing = _existing()
+    # Zwei Eintraege, deren Labels auf dieselbe Normalform "halter" fallen
+    # ("Halter:in" -> halter, "Halter" -> halter): mehrdeutig -> kein Mapping.
+    existing["actors"] = [
+        {"id": "halter-a", "label": {"de": "Halter:in"}, "type": "antragsteller"},
+        {"id": "halter-b", "label": {"de": "Halter"}, "type": "antragsteller"},
+    ]
+    merged, report = merge_process(existing, _extraction())
+    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
+    assert s1["actor"] == "Halter:in"  # nicht gemappt (mehrdeutig)
+    assert any("steps[1].actor" in u for u in report.unmapped_actors)
 
 
 def test_d_conflict_on_id_mismatch() -> None:

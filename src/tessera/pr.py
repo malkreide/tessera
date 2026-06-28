@@ -56,6 +56,24 @@ def build_merge_warning(report: MergeReport, path: str) -> str:
     lines.append(f"- Ergaenzte Felder / neue Schritte/References: **{len(report.added)}**")
     if report.added:
         lines += _bullets(report.added)
+    if report.remapped_actors:
+        lines.append(
+            f"- Actor-Rollen auf bestehende `actors[].id` abgebildet: "
+            f"**{len(report.remapped_actors)}**"
+        )
+        lines += _bullets(report.remapped_actors)
+    if report.unmapped_actors:
+        lines += [
+            "",
+            f"### ❌ Offen: {len(report.unmapped_actors)} Actor(en) ohne `actors[]`-Eintrag",
+            "",
+            "Diese Schritt-Actors liessen sich KEINER bestehenden `actors[].id`",
+            "zuordnen und wurden **nicht geraten**. Bitte den passenden",
+            "`actors[]`-Eintrag (inkl. `type`) ergaenzen und den Schritt darauf",
+            "verweisen lassen — sonst scheitert `npm run validate:prozesse`:",
+            "",
+        ]
+        lines += _bullets(report.unmapped_actors)
     lines += [
         "",
         "> Bitte den Diff gegen den Ziel-Branch genau pruefen: es darf **kein**",
@@ -166,6 +184,22 @@ def build_pr_body(
     return "\n".join(lines)
 
 
+def validate_merged(path: Path) -> tuple[bool, str]:
+    """Faehrt den Vertrags-Validator auf der TATSAECHLICH eingereichten (ggf.
+    gemergten) Datei. Der lokale `tessera validate` prueft nur die struktur-only
+    Extraktion (ohne actors[]); erst nach dem Merge gibt es actors[], und nur dann
+    greift die Actor-Paritaet. Gate-Paritaet zur Ziel-CI: faellt das durch, wird
+    KEIN PR geoeffnet."""
+    import subprocess  # noqa: PLC0415
+
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "validate_contract.py"), str(path)],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0, (result.stdout + result.stderr)
+
+
 def write_bundle(proc: ProcessSource, process: dict, body: str) -> Path:
     outdir = OUTBOX / proc.id
     outdir.mkdir(parents=True, exist_ok=True)
@@ -240,11 +274,27 @@ def open_draft_pr(
             print(
                 f"  [{proc.id}] Bestehende Datei gemerged: "
                 f"{len(report.preserved)} Felder erhalten, "
-                f"{len(report.added)} ergaenzt."
+                f"{len(report.added)} ergaenzt"
+                + (f", {len(report.remapped_actors)} Actor(en) abgebildet" if report.remapped_actors else "")
+                + (f", {len(report.unmapped_actors)} Actor(en) OFFEN" if report.unmapped_actors else "")
+                + "."
             )
 
         body = build_pr_body(proc, final_process, flags, crawl_meta, merge_note=merge_note)
-        write_bundle(proc, final_process, body)  # lokales Artefakt = eingereichter Stand
+        bundle_dir = write_bundle(proc, final_process, body)  # lokales Artefakt = eingereichter Stand
+
+        # Gate-Paritaet: den gemergten Stand gegen den Vertrags-Validator pruefen,
+        # BEVOR ein PR aufgemacht wird. Erst hier gibt es actors[] und damit die
+        # Actor-Paritaet, die die Ziel-CI ebenfalls erzwingt.
+        merged_ok, validator_out = validate_merged(bundle_dir / f"{proc.id}.json")
+        if not merged_ok:
+            print(
+                f"  [{proc.id}] Gemergter Stand besteht den Vertrags-Validator NICHT "
+                f"— KEIN PR. Bundle zur Korrektur: {bundle_dir}\n{validator_out.strip()}",
+                file=sys.stderr,
+            )
+            return None
+
         content = json.dumps(final_process, indent=2, ensure_ascii=False) + "\n"
 
         base_sha = (

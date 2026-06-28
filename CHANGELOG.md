@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Actor parity to match the target repo's `validate:prozesse`: when a process
+  carries `actors[]`, every `steps[].actor` must be an `actors[].id`. The
+  contract validator now treats a mismatch as an **error** (was a warning) —
+  closing a gate-parity gap where a merged file passed locally but the target CI
+  rejected it (PR #155). The field-wise merge (`src/tessera/merge.py`) now
+  reconciles free-text extraction actors against the target's `actors[]`:
+  exact, gender-neutral normalized matches are remapped to the id (e.g.
+  `"Halter:in"` → `halter`); anything unresolved is **flagged, not guessed**
+  (no invented `actors[]` entry with a guessed `type`) and surfaced in the PR
+  body. `tessera pr` re-validates the actually-submitted (merged) file before
+  opening a PR and refuses if the contract validator fails.
+
 ### Added
 - Label↔value gate against the "right page, wrong value" failure mode
   (`src/tessera/binding.py`, single source of truth for binding-value detection):
