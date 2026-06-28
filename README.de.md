@@ -126,6 +126,7 @@ Umgebungsvariablen — Keys werden nie committet und nie geloggt:
 | Variable | Zweck |
 |---|---|
 | `TESSERA_MODEL` | pydantic-ai-Modellstring; Default `anthropic:claude-opus-4-8` |
+| `TESSERA_REVIEW` | `0`/`off` deaktiviert den Review-/Repair-Pass der Extraktion (Default: an) |
 | `ANTHROPIC_API_KEY` | Key des LLM-Providers (bzw. der zum Modell passende Key) |
 | `GITHUB_TOKEN` | Schreibrecht auf das Ziel-Repo für die PR-Erstellung (optional) |
 | `TARGET_REPO` | Default: `malkreide/maschinerie-zuerich` |

@@ -90,6 +90,18 @@ def test_normalize_typography() -> None:
     assert Corpus(CORPUS_TEXT).contains("innert zehn Tagen nach Uebernahme")
 
 
+def test_normalize_zero_width_and_ellipsis() -> None:
+    # Unsichtbare Zeichen, die HTML->Markdown einstreut, das LLM-Zitat aber nicht
+    # mitkopiert: ein gueltiger Beleg darf daran NICHT scheitern. `\s` faengt
+    # diese gerade NICHT — deshalb der explizite Test.
+    zwsp, wj, bom = "​", "⁠", "﻿"
+    corpus = Corpus(f"CHF{wj} 175 pro{zwsp} Jahr.{bom}")
+    assert corpus.contains("CHF 175 pro Jahr")
+    # Ellipsis: Korpus traegt das Einzelzeichen, das Zitat die drei Punkte.
+    assert Corpus("Frist … beachten").contains("Frist ... beachten")
+    assert normalize("zehn­Tagen") == normalize("zehnTagen")  # Soft-Hyphen
+
+
 def test_normalize_markdown_links() -> None:
     # Linksyntax mitten im Satz darf den woertlichen Abgleich nicht brechen.
     corpus = Corpus(
