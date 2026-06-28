@@ -7,61 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- Draft-PR creation is now idempotent across re-runs (`src/tessera/pr.py`): the
-  branch name is day-stamped (`tessera/<id>-<date>`), so a second run the same day
-  used to crash with `422` on `POST /git/refs` ("reference already exists"). Now an
-  existing branch is reset to base (`PATCH /git/refs/heads/...`, force) instead of
-  aborting, and if a PR for that branch already exists the existing draft PR is
-  reported rather than failing on the duplicate. Re-running a service updates its
-  draft PR instead of erroring.
-- Actor reconciliation now transliterates umlauts/ß before matching
-  (`src/tessera/merge.py`): the LLM emits the original spelling (`"Fundbüro"`)
-  while canonical `actors[].id`s are ASCII (`fundbuero`). Stripping non-alphanumerics
-  dropped the `ü` (`fundbro`) and the match failed, so a known actor was wrongly
-  flagged and `tessera pr` correctly refused the PR. `ü→ue`/`ä→ae`/`ö→oe`/`ß→ss`
-  is deterministic CH-German equivalence (not fuzzy matching). Covered by
-  `tests/test_merge.py` (real `fundsache` case: step actor `"Fundbüro"` → `fundbuero`).
-
-### Changed
-- Extraction accuracy: the LLM step (`src/tessera/extract.py`) now runs
-  **deterministically** (`temperature=0`, reproducible runs/diffs for v2) and in
-  **two passes** — a draft plus a review/repair pass that checks the draft against
-  the *same* corpus: it adds source-backed steps that were missed (recall),
-  corrects wrong `depends_on` edges, and drops guessed elements. The review never
-  invents evidence — the downstream grounding gate (`grounding.py`) still discards
-  any element that is not verbatim-grounded, so recall rises without raising the
-  hallucination risk. The pass is on by default; opt out with `TESSERA_REVIEW=0`.
-
-### Docs
-- README (en/de): a "Secrets via `.env`" section under Configuration — how to set
-  up `.env` from `.env.example` and load it per shell (bash `set -a; source` and a
-  PowerShell `Import-DotEnv` function), why it beats re-typing `$env:`/`export`
-  (single source on rotation, nothing in shell history/screenshots, gitignored),
-  and the key caveats (load per shell, reload after rotation or hit
-  `401 invalid x-api-key`, plaintext file). Notes that tessera reads `os.environ`
-  only and does not auto-load `.env`.
-
-### Fixed
-- Grounding-gate normalization no longer drops *valid* verbatim quotes over
-  invisible HTML→Markdown artifacts: zero-width characters (zero-width
-  space/joiner, word-joiner U+2060, ZWNBSP/BOM U+FEFF — none of which `\s`
-  matches) are stripped, and the ellipsis character `…` is unified with `...`.
-  Previously a fee/deadline reference could be wrongly flagged `unverifiziert`
-  just because the source carried an invisible separator the quote did not
-  (`src/tessera/grounding.py`, covered by `tests/test_grounding.py`).
-- Actor parity to match the target repo's `validate:prozesse`: when a process
-  carries `actors[]`, every `steps[].actor` must be an `actors[].id`. The
-  contract validator now treats a mismatch as an **error** (was a warning) —
-  closing a gate-parity gap where a merged file passed locally but the target CI
-  rejected it (PR #155). The field-wise merge (`src/tessera/merge.py`) now
-  reconciles free-text extraction actors against the target's `actors[]`:
-  exact, gender-neutral normalized matches are remapped to the id (e.g.
-  `"Halter:in"` → `halter`); anything unresolved is **flagged, not guessed**
-  (no invented `actors[]` entry with a guessed `type`) and surfaced in the PR
-  body. `tessera pr` re-validates the actually-submitted (merged) file before
-  opening a PR and refuses if the contract validator fails.
-
 ### Added
 - Curated `fundsache` (Fundbüro) into the v1 set (`sources.yaml`): five
   citizen-facing VBZ Fundbüro pages, all robots-allowed and HTTP 200 (verified
@@ -137,6 +82,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture (`docs/v1-pipeline.md`).
 
 ### Changed
+- LLM sampling: `temperature=0` is no longer sent to Anthropic models that
+  reject sampling parameters (Opus 4.7/4.8, Fable, Mythos) — `src/tessera/extract.py`.
+  pydantic-ai / the Anthropic SDK discard a set `temperature` on those models
+  (warning, or a `400`), so the determinism it was meant to give silently
+  evaporated. For these models reproducibility now rides on the prompt (and
+  `effort`), not on sampling; `temperature=0` never guaranteed bit-identical
+  outputs anyway. Older models and non-Anthropic providers still get
+  `temperature=0` (gated by `_supports_sampling`).
+- Extraction accuracy: the LLM step (`src/tessera/extract.py`) now runs in
+  **two passes** — a draft plus a review/repair pass that checks the draft against
+  the *same* corpus: it adds source-backed steps that were missed (recall),
+  corrects wrong `depends_on` edges, and drops guessed elements. The review never
+  invents evidence — the downstream grounding gate (`grounding.py`) still discards
+  any element that is not verbatim-grounded, so recall rises without raising the
+  hallucination risk. The pass is on by default; opt out with `TESSERA_REVIEW=0`.
 - Crawl fetch order reversed to SSR-first (`src/tessera/crawl.py`): try httpx +
   Trafilatura first (most source pages are server-rendered and reachable via the
   proxy), auto-detect a real JS-SPA (app-shell markers / suspiciously little
@@ -157,6 +117,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Verified: all 8 live canonical process JSONs pass both the validator and the
   JSON Schema. New fixtures `extensions-showcase.json` and
   `invalid-grounding-verifiziert.json`.
+
+### Fixed
+- Draft-PR creation is now idempotent across re-runs (`src/tessera/pr.py`): the
+  branch name is day-stamped (`tessera/<id>-<date>`), so a second run the same day
+  used to crash with `422` on `POST /git/refs` ("reference already exists"). Now an
+  existing branch is reset to base (`PATCH /git/refs/heads/...`, force) instead of
+  aborting, and if a PR for that branch already exists the existing draft PR is
+  reported rather than failing on the duplicate. Re-running a service updates its
+  draft PR instead of erroring.
+- Actor reconciliation now transliterates umlauts/ß before matching
+  (`src/tessera/merge.py`): the LLM emits the original spelling (`"Fundbüro"`)
+  while canonical `actors[].id`s are ASCII (`fundbuero`). Stripping non-alphanumerics
+  dropped the `ü` (`fundbro`) and the match failed, so a known actor was wrongly
+  flagged and `tessera pr` correctly refused the PR. `ü→ue`/`ä→ae`/`ö→oe`/`ß→ss`
+  is deterministic CH-German equivalence (not fuzzy matching). Covered by
+  `tests/test_merge.py` (real `fundsache` case: step actor `"Fundbüro"` → `fundbuero`).
+- Grounding-gate normalization no longer drops *valid* verbatim quotes over
+  invisible HTML→Markdown artifacts: zero-width characters (zero-width
+  space/joiner, word-joiner U+2060, ZWNBSP/BOM U+FEFF — none of which `\s`
+  matches) are stripped, and the ellipsis character `…` is unified with `...`.
+  Previously a fee/deadline reference could be wrongly flagged `unverifiziert`
+  just because the source carried an invisible separator the quote did not
+  (`src/tessera/grounding.py`, covered by `tests/test_grounding.py`).
+- Actor parity to match the target repo's `validate:prozesse`: when a process
+  carries `actors[]`, every `steps[].actor` must be an `actors[].id`. The
+  contract validator now treats a mismatch as an **error** (was a warning) —
+  closing a gate-parity gap where a merged file passed locally but the target CI
+  rejected it (PR #155). The field-wise merge (`src/tessera/merge.py`) now
+  reconciles free-text extraction actors against the target's `actors[]`:
+  exact, gender-neutral normalized matches are remapped to the id (e.g.
+  `"Halter:in"` → `halter`); anything unresolved is **flagged, not guessed**
+  (no invented `actors[]` entry with a guessed `type`) and surfaced in the PR
+  body. `tessera pr` re-validates the actually-submitted (merged) file before
+  opening a PR and refuses if the contract validator fails.
+
+### Docs
+- README (en/de): a "Secrets via `.env`" section under Configuration — how to set
+  up `.env` from `.env.example` and load it per shell (bash `set -a; source` and a
+  PowerShell `Import-DotEnv` function), why it beats re-typing `$env:`/`export`
+  (single source on rotation, nothing in shell history/screenshots, gitignored),
+  and the key caveats (load per shell, reload after rotation or hit
+  `401 invalid x-api-key`, plaintext file). Notes that tessera reads `os.environ`
+  only and does not auto-load `.env`.
 
 ### Planned
 - v1: first extraction runs + draft PRs into Maschinerie (pipeline is built;
