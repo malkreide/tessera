@@ -10,8 +10,8 @@ Quelltext belegbar sein. Nicht belegbar heisst:
 
 Es gibt bewusst keinen Score und keine Heuristik: ein Zitat ist im Korpus
 auffindbar oder nicht. Normalisiert werden nur typografische Artefakte des
-HTML->Markdown-Wegs (Anfuehrungszeichen, Whitespace, weiche Trennstriche) —
-keine inhaltliche Angleichung.
+HTML->Markdown-Wegs (Anfuehrungszeichen, Whitespace, weiche Trennstriche,
+unsichtbare Zero-Width-Zeichen, Ellipsis) — keine inhaltliche Angleichung.
 """
 from __future__ import annotations
 
@@ -26,8 +26,13 @@ _QUOTE_MAP = str.maketrans({
     " ": " ",   # geschuetztes Leerzeichen
     "‑": "-",   # non-breaking hyphen
     "–": "-", "—": "-",
+    "…": "...",  # Ellipsis: HTML rendert oft das Einzelzeichen, das LLM kopiert "..."
 })
-_SOFT_HYPHEN = "­"
+# Unsichtbare Zeichen, die HTML->Markdown einstreut und die ein verbatim kopiertes
+# Zitat NICHT enthaelt (oder umgekehrt): Soft-Hyphen, Zero-Width-Space/Joiner,
+# Word-Joiner und ZWNBSP/BOM. `\s` faengt diese NICHT — also explizit entfernen,
+# sonst faellt ein gueltiger Beleg faelschlich durchs Gate.
+_ZERO_WIDTH = re.compile("[­​‌‍⁠﻿]")
 _MD_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")  # [Text](url) -> Text
 _URL = re.compile(r"https?://\S+")
 # Accessibility-Labels, die Extraktoren in Anker-Texte einbetten (kein Inhalt).
@@ -38,7 +43,7 @@ _WS = re.compile(r"\s+")
 
 def normalize(text: str) -> str:
     text = _MD_LINK.sub(r"\1", text)
-    text = text.translate(_QUOTE_MAP).replace(_SOFT_HYPHEN, "")
+    text = _ZERO_WIDTH.sub("", text.translate(_QUOTE_MAP))
     text = _A11Y_LABEL.sub("", text)
     text = _URL.sub(" ", text)
     text = _MD_NOISE.sub(" ", text)
