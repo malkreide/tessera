@@ -278,7 +278,11 @@ print({k:v['allowed'] for k,v in g.items()})"   # beide True erwartet
 
 ## Phase 8 — Härtung (Code-Deliverables vor Skalierung)
 
-### Schritt 8.1 — Golden-/Integrationstest (key-frei)
+### Schritt 8.1 — Golden-/Integrationstest (key-frei) — ✅ erledigt
+> Umgesetzt in `tests/test_pipeline_integration.py`, in `contract-check.yml`
+> verdrahtet (reine stdlib; der `to_contract`-Pfad wird zusaetzlich geprueft, wenn
+> `pydantic` vorhanden ist, sonst sauber uebersprungen).
+
 - **Ziel:** `extract→ground→to_contract→validate` ohne Netz/Keys testen (Vertrauen vor
   Skalierung), indem der LLM-Schritt durch eine fixierte XProcess-Antwort ersetzt wird.
 - **Aktion (Entwicklung):** Test-Fixture = (Mini-Korpus-Markdown + gemockte
@@ -295,7 +299,13 @@ print({k:v['allowed'] for k,v in g.items()})"   # beide True erwartet
   > unbelegter wird verworfen mit Rewiring, Label↔Wert-Mismatch führt zu Abstinenz.
   > Verdrahte den Test in die CI. Kleiner Commit, Draft-PR.
 
-### Schritt 8.2 — Link-Rot-Cron (laufende Hygiene)
+### Schritt 8.2 — Link-Rot-Cron (laufende Hygiene) — ✅ erledigt
+> Umgesetzt in `.github/workflows/link-rot.yml` (woechentlich + manueller
+> Dispatch): `tessera verify --online` ueber `out/*.json`; Exit 1 nur bei
+> Datenproblemen (tot/Drift), Umgebungsbefunde nur Log; schlanke Installation
+> ohne Crawl4AI/Playwright; No-op solange nichts publiziert ist. Online-Dry-Run
+> gegen eine bekannte Datei bestaetigt: Tri-State + Drift korrekt.
+
 - **Ziel:** gespeicherte Belege regelmässig gegen die Live-Quellen prüfen.
 - **Aktion (Entwicklung):** GitHub-Action `link-rot.yml` (zeitgesteuert) ruft
   `tessera verify --online` über die publizierten Leistungen; Exit 1 nur bei
