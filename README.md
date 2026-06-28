@@ -1,6 +1,6 @@
 # Tessera
 
-![Status](https://img.shields.io/badge/status-early%20scaffold-orange)
+![Status](https://img.shields.io/badge/status-v1%20pipeline%20built-green)
 ![Version](https://img.shields.io/badge/version-0.0.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
@@ -17,9 +17,12 @@ verifiable, machine-readable tiles that snap into the [Maschinerie Zürich](http
 visualization. The Maschinerie shows *structures* (who is responsible); Tessera adds
 *processes* (how a procedure runs).
 
-**Status: scaffold only.** There is no functional pipeline yet. The system is built
-in deliberate stages (see *Roadmap*), and the extraction layer is gated behind a
-proof-of-value step that lives in the Maschinerie repo, not here.
+**Status: v1 pipeline built.** The extraction pipeline — crawl → extract → ground →
+validate → draft PR — is implemented and covered by tests; the first *live*
+extraction runs only need a session with `ANTHROPIC_API_KEY` / `GITHUB_TOKEN` set by
+the maintainer (see *Roadmap* and the CHANGELOG). The system is built in deliberate
+stages, and the extraction layer stays gated behind the proof-of-value step that
+lives in the Maschinerie repo, not here.
 
 > **Not an official source.** Tessera is an independent open-source project. Its
 > output is an *unofficial* aid to understanding administrative processes. The
@@ -164,6 +167,15 @@ function Import-DotEnv {
 
 Import-DotEnv
 tessera run --id hund-anmelden
+```
+
+Prefer not to touch your `$PROFILE`? The repo ships the same loader as a tracked
+helper, [`scripts/tessera.ps1`](scripts/tessera.ps1): it imports `.env` (resolved
+relative to the repo root, so the working directory doesn't matter) and forwards all
+arguments to `tessera`. One checked-in place instead of a per-machine profile edit:
+
+```powershell
+./scripts/tessera.ps1 run --id hund-anmelden
 ```
 
 Notes:

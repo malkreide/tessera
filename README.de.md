@@ -1,6 +1,6 @@
 # Tessera
 
-![Status](https://img.shields.io/badge/status-early%20scaffold-orange)
+![Status](https://img.shields.io/badge/status-v1%20pipeline%20built-green)
 ![Version](https://img.shields.io/badge/version-0.0.1-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
@@ -18,9 +18,12 @@ sich in die Visualisierung [Maschinerie Zürich](https://github.com/malkreide/ma
 einfügen. Die Maschinerie zeigt *Strukturen* (wer ist zuständig); Tessera ergänzt
 *Prozesse* (wie ein Verfahren abläuft).
 
-**Status: nur Grundgerüst.** Es gibt noch keine funktionsfähige Pipeline. Das System
-wird bewusst in Stufen gebaut (siehe *Roadmap*), und die Extraktions-Schicht ist
-hinter einen Nutzen-Nachweis gehängt, der im Maschinerie-Repo liegt, nicht hier.
+**Status: v1-Pipeline gebaut.** Die Extraktions-Pipeline — crawl → extract → ground →
+validate → Draft-PR — ist implementiert und durch Tests abgedeckt; die ersten
+*echten* Extraktionslaeufe brauchen nur noch eine Session mit `ANTHROPIC_API_KEY` /
+`GITHUB_TOKEN`, die der Maintainer setzt (siehe *Roadmap* und CHANGELOG). Das System
+wird bewusst in Stufen gebaut, und die Extraktions-Schicht bleibt hinter den
+Nutzen-Nachweis gehängt, der im Maschinerie-Repo liegt, nicht hier.
 
 > **Keine amtliche Quelle.** Tessera ist ein unabhängiges Open-Source-Projekt. Der
 > Output ist eine *inoffizielle* Verständnishilfe zu Verwaltungsprozessen.
@@ -170,6 +173,16 @@ function Import-DotEnv {
 
 Import-DotEnv
 tessera run --id hund-anmelden
+```
+
+Das `$PROFILE` lieber nicht anfassen? Das Repo liefert denselben Loader als
+eingecheckten Helfer, [`scripts/tessera.ps1`](scripts/tessera.ps1): er importiert
+`.env` (relativ zur Repo-Wurzel aufgeloest, das Arbeitsverzeichnis ist also egal) und
+reicht alle Argumente an `tessera` weiter. Eine eingecheckte Stelle statt einer
+Profil-Aenderung pro Maschine:
+
+```powershell
+./scripts/tessera.ps1 run --id hund-anmelden
 ```
 
 Hinweise:
