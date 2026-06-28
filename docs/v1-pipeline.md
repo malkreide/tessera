@@ -1,223 +1,236 @@
-# v1-Pipeline: struktur-only-Extraktion
+# v1 — Plan ab hier: von der gebauten Mechanik zur Definition of Done
 
-> **Status: umgesetzt** in `src/tessera/` (CLI: `tessera preflight | crawl |
-> extract | validate | verify | pr | run`). Der LLM-Schritt und der Cross-Repo-PR
-> brauchen eine key-fähige Session (siehe «Setup»); Preflight, Crawl,
-> Grounding-Gate, Validierung und Re-Verifikation laufen ohne Keys.
+> **Stand: 2026-06-28.** Die Pipeline-Mechanik ist vollstaendig gebaut, getestet
+> und in CI; die Haertung (key-/netzfreier Integrationstest + Link-Rot-Cron) ist
+> gemergt. Dieses Dokument enthaelt **nur noch, was von hier an zu tun ist**: die
+> offenen Gates, die exakten Schritte pro Leistung bis zur Definition of Done und
+> den Ausblick danach. Die ausfuehrliche History bereits erledigter Phasen steht
+> im Git-Verlauf und im `CHANGELOG.md`.
 
-## Was v1 ist – und was nicht
+## Was schon steht (Kontext — nicht mehr zu tun)
 
-v1 extrahiert die **Struktur** (Akteure, Schritte, Reihenfolge, Abhängigkeiten) von
-2–3 kuratierten Verwaltungsleistungen und liefert pro Leistung einen **Draft-PR**
-gegen `maschinerie-zuerich`. Bindende Werte (Fristen, Gebühren, Rekursfristen)
-erscheinen **nur** als `references` (Label + Deep-Link + wörtliche `source_quote`),
-nie als Zahl in einem Schritt-Label («Link, don't assert»).
+- **CLI / Mechanik:** `tessera preflight | crawl | extract | validate | verify |
+  pr | run` (`src/tessera/`, schlichte Schleife, kein Orchestrierungs-Framework).
+- **Gates im Code:** Grounding-Gate (`grounding.py`), Label↔Wert-Gate
+  (`binding.py`), feldweiser Merge gegen Handdaten (`merge.py`),
+  Hochrisiko-Registry (`risk.py`), tri-state Re-Verifikation (`verify.py`,
+  `reach.py`) — alle mit stdlib-Tests in CI (`.github/workflows/contract-check.yml`).
+- **Datenvertrag** auf das kanonische v0-Schema in `maschinerie-zuerich`
+  abgeglichen (alle live kanonischen JSONs bestehen `scripts/validate_contract.py`).
+- **Pre-Flight-Reports** aus echten Abrufen vorhanden:
+  `reports/coverage.md`, `reports/scraping-compliance.md` (hund-anmelden,
+  umzug-melden, fundsache — alle robots-erlaubt).
+- **Haertung gemergt:** `tests/test_pipeline_integration.py` (Strecke
+  extract→to_contract→ground→validate, key-/netzfrei) und
+  `.github/workflows/link-rot.yml` (woechentliche Beleg-Hygiene).
 
-**Nicht in v1:** Discovery-Agent, PDF/Vision-Parsing, RAG-Gesetzesabgleich,
-BPMN/eCH-0096-Export, Cron, automatische Leichte-Sprache/Übersetzung.
+## Zwei nicht verhandelbare Gates (vor jedem Echtlauf)
 
-## Setup (Voraussetzungen)
+1. **Baureihenfolge:** kein echter Extraktions-/PR-Lauf, bevor v0 im Maschinerie-
+   Repo gemergt **und** im Vercel-Preview als nuetzlich bestaetigt ist.
+2. **Credentials-Grenze:** Keys/Tokens setzt ausschliesslich der Maintainer im
+   ENV; nie in Code/Commit/Log.
 
-**Netz-Policy** (ausgehend HTTPS):
+---
 
-```
-i14y.admin.ch          # Pre-Flight-Katalog (ohne Auth)
-www.stadt-zuerich.ch   www.zh.ch   www.amicus.ch   skos.ch
-www.fedlex.admin.ch    www.zhlaw.ch
-pypi.org   files.pythonhosted.org
-```
+## Phase A — Freigabe & Umgebung (Maintainer)
 
-**LLM-Provider** ausschliesslich über ENV (kein Key in Code/Commit/Log):
+Alles in Phase A ist Voraussetzung fuer die Echtlaeufe und liegt beim Maintainer
+(Credentials-Grenze). Ohne A.1 → **Stopp**, kein echter Lauf.
 
-```
-TESSERA_MODEL=anthropic:claude-opus-4-8     # pydantic-ai-Modellstring (Default)
-ANTHROPIC_API_KEY=…                         # setzt der Maintainer (nie in Code/Log)
-GITHUB_TOKEN=…                              # nur fuer den Cross-Repo-Draft-PR
-TARGET_REPO=malkreide/maschinerie-zuerich   # Default
-```
+### A.1 — v0-Baureihenfolge-Gate bestaetigen
+- **Aktion:** Link zum gemergten v0-PR + Vercel-Preview bereitstellen; als kurze
+  Notiz in `reports/` festhalten (z.B. `reports/v0-freigabe.md`).
+- **Erwartetes Resultat:** dokumentierte Freigabe. Ohne sie kein Echtlauf.
+- **Prompt (Maintainer):** «v0 ist gemergt: <PR-Link>, Preview nuetzlich
+  bestaetigt: <Vercel-Link>. Freigabe fuer tessera-Echtlaeufe erteilt.»
 
-Ohne `GITHUB_TOKEN` landet das fertige PR-Bundle in `out/outbox/<id>/`.
+### A.2 — Keys & Netz-Policy bereitstellen
+- **LLM-/PR-Keys (ENV, nie im Code):**
+  ```
+  TESSERA_MODEL=anthropic:claude-opus-4-8     # pydantic-ai-Modellstring (Default)
+  ANTHROPIC_API_KEY=…                         # setzt der Maintainer
+  GITHUB_TOKEN=…                              # nur fuer den Cross-Repo-Draft-PR
+  TARGET_REPO=malkreide/maschinerie-zuerich   # Default
+  ```
+  Ohne `GITHUB_TOKEN` landet das fertige PR-Bundle in `out/outbox/<id>/`.
+- **Netz-Policy (ausgehend HTTPS):**
+  ```
+  i14y.admin.ch          # Pre-Flight-Katalog (ohne Auth)
+  www.stadt-zuerich.ch   www.zh.ch   www.amicus.ch   skos.ch
+  www.fedlex.admin.ch    www.zhlaw.ch
+  pypi.org   files.pythonhosted.org
+  ```
+- **Test-Setting:** `tessera verify --id hund-anmelden --online` gegen eine
+  vorhandene Datei zeigt `ok`/`blockiert` statt `netzfehler` (Erreichbarkeit ohne
+  Keys). Key-Praesenz prueft der Extract-Schritt selbst (`extract._require_key`).
 
-**Runtime-Deps** (in `pyproject.toml` als „intended" vermerkt — Installation nach
-Rückfrage): `crawl4ai`, `pydantic>=2`, `pydantic-ai`, `httpx`, `pyyaml`, `openpyxl`.
-`crawl4ai` benötigt Chromium (`playwright install chromium`); ist das nicht möglich,
-Fallback auf `httpx` + Trafilatura/Readability (HTML→Markdown) und Rückfrage.
+### A.3 — Runtime-Deps installieren + Smoke-Test
+- **Aktion:** venv anlegen, `pip install -e .` (zieht `crawl4ai`, `pydantic`,
+  `pydantic-ai`, `httpx`, `pyyaml`, `openpyxl`); optional `playwright install chromium`.
+- **Test-Setting:**
+  ```bash
+  python -m venv .venv && . .venv/bin/activate
+  pip install -e .
+  tessera --help                 # preflight|crawl|extract|validate|verify|pr|run
+  python -c "import tessera.crawl, tessera.extract, tessera.verify"   # Import-Smoke
+  python tests/run_checks.py && python tests/test_grounding.py \
+    && python tests/test_pipeline_integration.py && python tests/test_binding.py \
+    && python tests/test_verify.py && python tests/test_merge.py \
+    && python tests/test_risk.py        # stdlib-Suite gruen
+  ```
+- **Erwartetes Resultat:** alles gruen. Ist Chromium n/v: nur der SSR-Pfad laeuft
+  (httpx + Trafilatura) — ehrlich dokumentieren, nicht faken.
 
-## Ablauf (schlichte Schleife – kein LangGraph)
+---
 
-```
-sources.yaml  (kuratiert, von Hand — ein Eintrag pro Leistung)
-      │
-[0] Pre-Flight
-      ├─ I14Y-Katalog + eCH-0070-Inventar konsumieren → reports/coverage.md
-      └─ robots.txt + ToU je Quelle prüfen            → reports/scraping-compliance.md
-         (Disallow/ToU-Verbot → Leistung überspringen + flaggen + fragen)
-      │
-[1] Crawl     SSR zuerst (httpx + Trafilatura: HTML → Markdown, rate-limited,
-      │       ident. User-Agent). SPA-Auto-Erkennung (App-Shell-Marker / wenig
-      │       Text) → Headless-Fallback (Crawl4AI) NUR für diese URL; ist der
-      │       Browser n/v, App-Shell behalten + ehrlich in meta.json vermerken.
-      │
-[2] Extract   pydantic-ai → striktes Pydantic-Schema (struktur-only)
-      │       Schritte, Akteure, Reihenfolge (depends_on/DAG), references
-      │       deterministisch (temperature=0) + Review-/Repair-Pass (s.u.)
-      │
-[3] Ground    jeder Schritt / jede Reference muss WÖRTLICH im Markdown auffindbar
-      │       sein (source_quote). Nicht belegbar → verwerfen + flaggen, nie raten.
-      │
-[4] Validate  python scripts/validate_contract.py <id>.json  → Exit 0 = Pflicht
-      │
-[5] Emit PR   ein Draft-PR pro Leistung gegen TARGET_REPO
-              Datei: stadt-zuerich-next/data/prozesse/zh/<id>.json
-              existiert die Datei schon → feldweise mergen (s.u.), nicht ueberschreiben
-              NIE mergen, NIE nach main pushen
+## Phase B — Echtlaeufe pro Leistung (bis zur Definition of Done)
 
-[*] Verify    (laufende Hygiene, propose-only) tessera verify [--online]
-              netzfrei: Label↔Wert-Befunde; --online: tri-state Erreichbarkeit
-              (tot/blockiert/netzfehler) + Beleg-Drift gegen die Live-Seite
-```
+Schlichte Schleife je Leistung: `preflight → crawl → extract → validate → verify
+→ pr`, mit menschlichem Review an den markierten Stellen. **Pilot:**
+`hund-anmelden` (rein kommunal, risikoarm, SSR-Quelle stadt-zuerich.ch, klar
+belegbare Frist/Abgabe). **Dann:** `umzug-melden` (zh.ch SSR, eUmzug beachten)
+und `fundsache` (VBZ Fundbuero, `actors[]` → Actor-Abgleich beim Merge).
 
-### Merge gegen bestehende (handgepflegte) Zieldateien
+Cardinal Rule durchgehend: keine bindende Zahl in einem Label — Fristen/Gebuehren
+nur als `references` (Label ohne Zahl + Deep-Link + woertliche `source_quote`).
 
-Für mehrere Leistungen existieren im Ziel-Repo bereits **von Hand angereicherte**
-Dateien mit vollständigen Übersetzungen (`de/en/fr/it/ls`) und `description`-Blöcken.
-tessera liefert struktur-only (de plus leere `en/fr/it`). Ein blindes `PUT`-mit-`sha`
-würde die reicheren Handdaten durch die ärmere Extraktion ersetzen — Übersetzungs-
-und Beschreibungs-Regression. Deshalb merged `src/tessera/merge.py` **feldweise**:
+### B.1 — Pre-Flight (Gate je Leistung)
+- **Aktion:** `tessera preflight --id <id>`.
+- **Erwartetes Resultat:** `reports/coverage.md`, `reports/scraping-compliance.md`
+  und `reports/raw/preflight-gate.json` mit `allowed: true`.
+- **Test-Setting:**
+  ```bash
+  tessera preflight --id hund-anmelden
+  python -c "import json;g=json.load(open('reports/raw/preflight-gate.json'));\
+print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
+  ```
+- **Stop-Bedingung:** `DISALLOW` (robots) oder ToU-Verbot → nicht crawlen,
+  flaggen, Maintainer fragen.
 
-- Bestehende, nicht-leere i18n-Locale-Werte (`de/en/fr/it/ls`) und `description`-
-  Blöcke bleiben **immer** erhalten; die Extraktion füllt nur Lücken (leer/None/fehlend).
-- Gemerged wird über **fachliche Schlüssel** (`step_id`, `reference_id`, `actor.id`),
-  nicht über Array-Index — Reihenfolgeänderungen zerstören nichts.
-- Neue Schritte/References/Felder werden ergänzt; bestehende Reihenfolge bleibt.
-- Ist ein Fall nicht sauber mergebar (kaputtes JSON, `id`-Mismatch, doppelte
-  Schlüssel) → Datei **überspringen** statt verarmen, klar geloggt, kein PR.
+### B.2 — Crawl (Snapshots)
+- **Aktion:** `tessera crawl --id <id>`.
+- **Erwartetes Resultat:** `reports/raw/<id>/NN-*.md` + `meta.json` mit pro URL
+  `http_status`, `state` (`ok`), `spa_suspected` (stadt-zuerich.ch/zh.ch sind
+  SSR → `false`), `chars > 0`.
+- **Test-Setting:**
+  ```bash
+  tessera crawl --id hund-anmelden
+  python -c "import json;m=json.load(open('reports/raw/hund-anmelden/meta.json'));\
+[print(x['url'],x['state'],x['spa_suspected'],x['chars']) for x in m]"
+  ```
+- **Ehrliche Degradation:** wird eine Quelle als SPA erkannt und kein Browser ist
+  da, App-Shell behalten + in `meta.json` vermerken; Crawl in einer Chromium-
+  Umgebung wiederholen — keinen Inhalt faken.
 
-Der PR-Body enthält dann eine **Reviewer-Warnung** «überschreibt bestehende
-handgepflegte Datei» mit den erhaltenen und ergänzten Feldern. So besteht der PR
-den Ziel-Repo-Guard `npm run check:regression` (seit Ziel-PR #108) **ohne**
-`ALLOW_PROZESS_SHRINK` — die Escape-Hatch wird bewusst nicht genutzt.
+### B.3 — Extract + Grounding
+- **Vorbedingung:** `ANTHROPIC_API_KEY` gesetzt; brauchbare Snapshots.
+- **Aktion:** `tessera extract --id <id>` (deterministisch wo akzeptiert;
+  Review-/Repair-Pass an, Opt-out `TESSERA_REVIEW=0`).
+- **Erwartetes Resultat:** `out/<id>.json` (struktur-only, kardinalregel-konform)
+  + `out/<id>.flags.json`. Nicht belegte References → `unverifiziert`; Label↔Wert-
+  Mismatch → Abstinenz-Flag. Das Grounding-Gate verwirft jedes nicht woertlich
+  belegte Element.
+- **Test-Setting:**
+  ```bash
+  tessera extract --id hund-anmelden
+  cat out/hund-anmelden.flags.json
+  python scripts/validate_contract.py out/hund-anmelden.json   # Exit 0
+  ```
+- **Review (Mensch):** Schritte/Reihenfolge gegen die Originalseite; Geflaggtes
+  bleibt offen, nicht von Hand „reparieren".
 
-## Extraktions-Genauigkeit: Determinismus & Review-Pass
+### B.4 — Validate (Eingangs-Gate)
+- **Aktion:** `python scripts/validate_contract.py out/<id>.json`; optional
+  `--strict-label-value` fuer gemergte/handnahe Dateien.
+- **Erwartetes Resultat:** Exit 0 = Publikations-Voraussetzung. Hinweise
+  (i18n-ausstehend, Label↔Wert) bewusst ok.
+  ```bash
+  python scripts/validate_contract.py out/hund-anmelden.json; echo "exit=$?"
+  TESSERA_STRICT_LABEL_VALUE=1 python scripts/validate_contract.py out/hund-anmelden.json
+  ```
 
-Zwei Stellschrauben heben die Genauigkeit von Schritt [2], ohne den Output-Scope
-oder das Schema zu ändern:
+### B.5 — Re-Verifikation (online, vor dem PR)
+- **Aktion:** `tessera verify --id <id> --online` (propose-only, schreibt nie in
+  `out/`; Report nach `reports/verify/<id>.md`).
+- **Tri-State (Kern):** nur **`tot`** (404/410) und echter **Drift** sind
+  Datenprobleme (Exit 1, Stopp). `blockiert`/`netzfehler`/SPA-`ungeprueft` sind
+  **Umgebungsbefunde** und lassen den Lauf bewusst nicht scheitern.
+  ```bash
+  tessera verify --id hund-anmelden --online; echo "exit=$?"   # 0 erwartet
+  ```
+- **Bei `tot`:** neue offizielle URL vorschlagen (nicht still ersetzen). **Bei
+  Drift:** altes vs. aktuelles Zitat zeigen.
 
-- **Determinismus** (`temperature=0`): gleiche Quell-Snapshots → gleiches Ergebnis.
-  Reproduzierbare Läufe sind Voraussetzung für sinnvolle Change-Diffs (v2) und für
-  belastbare Reviews.
-- **Review-/Repair-Pass** (Default an, Opt-out `TESSERA_REVIEW=0`): nach dem Entwurf
-  prüft ein zweiter Lauf den Entwurf gegen **denselben** Korpus und liefert eine
-  korrigierte, vollständige Fassung — belegbare **fehlende Schritte** ergänzen
-  (Recall), falsche `depends_on`-**Kanten** korrigieren, Geratenes streichen. Der
-  Review erfindet keine Belege: das nachgelagerte **Grounding-Gate** verwirft danach
-  ohnehin jedes nicht wörtlich belegte Element. Recall steigt, das
-  Halluzinationsrisiko nicht.
+### B.6 — Draft-PR emittieren
+- **Vorbedingung:** `GITHUB_TOKEN`; Validator Exit 0.
+- **Aktion:** `tessera pr --id <id>`. (Ohne Token: Bundle in `out/outbox/<id>/`.)
+- **Feldweiser Merge:** existiert die Zieldatei
+  (`stadt-zuerich-next/data/prozesse/zh/<id>.json`), wird ueber fachliche
+  Schluessel (`step_id`/`reference_id`/`actor.id`) gemergt — bestehende i18n-/
+  `description`-Bloecke bleiben erhalten, die Extraktion fuellt nur Luecken. Nicht
+  sauber mergebar → Datei ueberspringen statt verarmen (kein PR). Der PR-Body
+  traegt die Merge-Warnung mit erhaltenen/ergaenzten Feldern; so besteht der PR
+  den Ziel-Guard `check:regression` ohne `ALLOW_PROZESS_SHRINK`.
+- **Erwartetes Resultat:** Draft-PR (`draft: true`, Branch
+  `tessera/<id>-<datum>`) mit Reviewer-Checkliste; Ziel-CI `validate:prozesse`,
+  `check:regression`, `check:links` gruen.
+- **Regel:** tessera merged **nie** und pusht **nie** nach `main` (hier wie im Ziel-Repo).
 
-Der gefährlichste Fehler ist nicht der sichtbare Fehlschlag, sondern der stille:
-ein im Quelltext belegter Schritt, der gar nicht erst extrahiert wurde. Das
-Grounding-Gate schützt gegen Erfundenes (Präzision), der Review-Pass gegen
-Übersehenes (Recall).
+### Hochrisiko (erhoehter Review, falls beruehrt)
+`baugesuch`, `sozialhilfe`, `veranstaltung` (Registry `src/tessera/risk.py`) sind
+von der **automatischen** Extraktion ausgeschlossen. Beruehrt einer dieser Faelle
+die Pipeline (z.B. Merge gegen eine bestehende Datei): jede bindende Reference
+muss `verifiziert` **und** woertlich belegt sein (sonst Validator-**Fehler**),
+plus sichtbarer Hochrisiko-Disclaimer und verschaerfte PR-Checkliste.
 
-## Ausgabeformat
+---
 
-Konform zu `docs/data-contract.md` (auf das kanonische Schema von
-`maschinerie-zuerich` abgeglichen). Kernfelder verpflichtend; additive Felder
-(`city`, `actors`, `legal_basis`, `sources`, Step-`type`, Reference-`status` …)
-optional. Ziel-Datei-Konventionen:
+## Definition of Done (v1)
 
-- `"$schema": "../../../schemas/opengov-process-schema.json"`, `"city": "zh"`
-- `id == lebenslage_ref` (kebab-case, identisch zur bestehenden Lebenslage)
-- `meta.lizenz: "CC-BY-4.0"`; `disclaimer_key` = i18n-Key des Ziel-Repos
-- DE + Leichte Sprache (`ls`) füllen, soweit belegbar; `en/fr/it` leer
-  («Übersetzung ausstehend», nicht maschinell raten)
-- References, die nicht wörtlich belegt werden können: `status: "unverifiziert"`,
-  `source_quote` leer, im PR als offen markieren
-
-## Hochrisiko-Rechtsfälle (erhöhter Review)
-
-Drei Leistungen tragen das höchste Reputationsrisiko und sind in v1 bewusst von der
-**automatischen** Extraktion ausgeschlossen (Ausschlussliste in `sources.yaml`):
-`baugesuch` (Baubewilligung), `sozialhilfe`, `veranstaltung`. Sie existieren bereits
-als **von Hand modellierte, menschlich reviewte** v0-Prozesse in der Maschinerie —
-das ist legitim, ändert aber nichts am Risiko einer falschen Frist/Gebühr.
-
-Die Registry liegt zentral in `src/tessera/risk.py` (`HIGH_RISK_IDS`). Berührt eine
-dieser Leistungen die Pipeline (z.B. ein Merge gegen eine bestehende Datei), greift
-erhöhter Review:
-
-- **Validator** (`scripts/validate_contract.py`): jede bindende Reference muss
-  `verifiziert` **und** wörtlich belegt (`source_quote`) sein — eine `unverifiziert`e
-  oder ungrounded Reference ist hier ein **Fehler** (im Normalfall nur ein Hinweis).
-  Zusätzlich ein gut sichtbarer `HOCHRISIKO`-Banner und die Empfehlung eines sichtbaren
-  Hochrisiko-Disclaimers (`disclaimer_key`, empfohlen `process.disclaimer.high_risk_legal`).
-- **PR-Body** (`src/tessera/pr.py`): eine prominente Hochrisiko-Reviewer-Warnung mit
-  verschärfter Kardinalregel-/Grounding-Checkliste und dem Hinweis, dass dieser Prozess
-  handmodellierter v0-Inhalt ist (nicht automatisch extrahiert).
-
-«v1 ist risikoarm» bezieht sich also auf den **automatischen** Output; die schweren
-Fälle bleiben menschlich kuratiert und werden hier nur strenger geprüft, nicht erzeugt.
-
-## Eingangskontrolle (Gate)
-
-`scripts/validate_contract.py` ist die deterministische Eingangskontrolle: Struktur,
-DAG, Referenz-Integrität, statusabhängiges Grounding-Gate und Kardinalregel-Lint.
-Eine Leistung wird **nur** ausgegeben, wenn der Validator Exit 0 liefert. Das
-Ziel-Repo prüft zusätzlich via eigener CI (`validate:prozesse`) — doppeltes Gate.
-
-## Label↔Wert-Gate (gegen «richtige Seite, falscher Wert»)
-
-Der gefährlichste Output ist nicht der sichtbare Fehlschlag, sondern der
-plausibel-aber-falsche Treffer: ein `Gebühr`-Label, dessen `source_quote` nur eine
-Frist belegt, oder eine `Meldefrist`, deren Zitat gar keine Dauer nennt. Deshalb
-prüft `src/tessera/binding.py` mechanisch, ob ein Zitat den **Werttyp** belegt, den
-sein Label benennt (Frist/Dauer/Datum vs. Betrag/Gebühr):
-
-- **Grounding-Gate** (`grounding.py`, Publish-Pfad mit Korpus): Ist ein Zitat zwar
-  wörtlich auffindbar, belegt aber den falschen Werttyp → **Abstinenz**: `status`
-  wird auf `unverifiziert` gesetzt, das Zitat verworfen, ein Flag erzeugt. Für
-  Hochrisiko-Fälle wird daraus über den Validator ein harter Fehler.
-- **Validator** (`validate_contract.py`, ohne Korpus): derselbe Abgleich als
-  **Hinweis** für Reviewer — der Validator sieht keine Quelle und entscheidet die
-  Mehrdeutigkeit nicht. Opt-in zum **Fehler** via `--strict-label-value` oder
-  `TESSERA_STRICT_LABEL_VALUE` (die ENV-Variable erbt `tessera validate`/`pr`):
-  sinnvoll für handgepflegte/gemergte Zieldateien, die nicht durch das
-  Grounding-Gate laufen.
-
-Die Heuristik fängt den sauber entscheidbaren Teil («das Zitat belegt **keinen**
-Wert des richtigen Typs»). Ob eine *vorhandene* Zahl die *richtige* ist
-(Einsprache- vs. Zahlungsfrist), bleibt menschliches Urteil und wird bewusst nicht
-automatisiert.
-
-## Re-Verifikation: Link-Rot & Beleg-Drift (`tessera verify`)
-
-Gespeicherte URLs sind flüchtig (Quellseiten strukturieren um, Slugs ändern sich
-binnen Tagen), und schon verifizierte Zitate verrutschen still bei Seitenedits.
-`tessera verify` ist die laufende Hygiene dagegen — **propose-only**, schreibt nie
-in `out/`, Report nach `reports/verify/<id>.md`:
-
-- **Netzfrei** (`tessera verify`): die Label↔Wert-Befunde von oben.
-- **Online** (`tessera verify --online`): jede `source_url` **tri-state** prüfen —
-  `tot` (404/410) ≠ `blockiert` (403/Policy) ≠ `netzfehler`; und jedes verifizierte
-  Zitat gegen die Live-Seite (identische Normalisierung wie beim Speichern). Eine
-  erkannte JS-SPA wird als «ungeprüft — braucht Rendering» gemeldet, nicht als Drift.
-
-**Tri-State ist der Kern:** Nur `tot` und echter Drift sind **Datenprobleme**
-(Exit 1, harter Stopp). `blockiert`/`netzfehler`/SPA-`ungeprüft` sind
-**Umgebungsbefunde** und lassen den Lauf bewusst nicht scheitern — sonst sähen
-Netz-Policy oder fehlender Browser wie kaputte Daten aus.
-
-## Definition of Done
-
-- [ ] `reports/coverage.md` + `reports/scraping-compliance.md` aus echten Abrufen gefüllt
+- [ ] `reports/coverage.md` + `reports/scraping-compliance.md` aus echten Abrufen ✅ (vorhanden)
 - [ ] 2–3 Leistungen extrahiert, jede besteht `validate_contract.py` (Exit 0)
 - [ ] jeder rechtlich relevante Wert ist belegter Link (`source_quote`), keine Zahl im Label
 - [ ] ein Draft-PR pro Leistung gegen `maschinerie-zuerich`, mit Reviewer-Checkliste
-- [ ] kein Merge / kein main-Push; keine Keys in Code/Commits/Logs; neue Deps bestätigt
+- [ ] kein Merge / kein main-Push; keine Keys in Code/Commits/Logs; neue Deps bestaetigt
+
+---
+
+## Phase C — Kuratiertes Set erweitern (~10 Leistungen)
+- **Aktion:** `sources.yaml` um gepruefte, risikoarme, kommunale Leistungen (SSR-
+  Quellen bevorzugt) ergaenzen; Kandidaten-URLs vorab auf HTTP 200 pruefen
+  (tri-state, Subagent-Fan-out moeglich); je Leistung Phase B.
+- **Akzeptanz:** wie B (Validator Exit 0, `verify` sauber, Ziel-CI gruen).
+  **Hochrisiko-IDs bleiben ausgeschlossen** (`risk.py`).
+- **Vorgehen:** Auswahl begruenden, mit dem Crawl auf Maintainer-Freigabe warten.
+
+## Phase D — v2-Ausblick (nur bei Bedarf, nach Rueckfrage)
+Bewusst **nicht** in v1 (`CLAUDE.md`):
+1. **Struktur-Artikel-Fetcher fuer Recht** (Erlass + §/Art-Nummer/Anker,
+   Akoma-Ntoso/PDF) statt Bag-of-Words.
+2. **Tabellarische Bindewerte** (Gebuehren-Widgets) mit explizitem Feld→Label-
+   Mapping, sonst Abstinenz — ggf. Datenvertrag erweitern.
+3. **Discovery-Agent / RAG-Gesetzesabgleich / BPMN-Export** — nur bei belegtem Nutzen.
+
+---
 
 ## Stop-Bedingungen (sofort fragen)
-
 - robots.txt/ToU verbietet eine Quelle
 - Schema-Konflikt mit dem kanonischen Vertrag
-- eine Reference lässt sich nicht wörtlich belegen
+- eine Reference laesst sich nicht woertlich belegen
 - `crawl4ai`/Chromium nicht installierbar
+
+## Test-Setting (Uebersicht)
+
+| Ebene | Wann | Werkzeug | Erfolgskriterium |
+|---|---|---|---|
+| Unit (stdlib, key-frei) | jeder Commit / CI | `tests/*.py`, `run_checks.py` | alle gruen |
+| Integration (key-frei) | jeder Commit / CI | `test_pipeline_integration.py` | Gate-Verhalten korrekt |
+| Vertrags-Gate | vor jedem PR | `validate_contract.py` (Exit 0) | gueltig |
+| Beleg-Hygiene | vor PR + woechentlich (`link-rot.yml`) | `tessera verify --online` | keine tot/Drift |
+| Ziel-Repo-CI | im Draft-PR | `validate:prozesse`, `check:regression`, `check:links` | gruen |
+| Mensch | vor Merge | Reviewer-Checkliste im PR-Body | freigegeben |
+
+**Leitprinzipien (gelten fuer jeden Schritt):** propose-don't-write, Default =
+Abstinenz bei bindenden Werten, Tri-State (Umgebung ≠ Daten), kleine Commits +
+frueher Draft-PR, bei Unsicherheit ueber Schema/Quelle/Recht stoppen und fragen.
