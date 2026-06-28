@@ -300,9 +300,18 @@ def open_draft_pr(
         base_sha = (
             client.get(f"{api}/git/ref/heads/{default_branch}").raise_for_status().json()
         )["object"]["sha"]
-        client.post(
+        # Branch anlegen — oder, wenn er aus einem frueheren (Teil-)Lauf schon
+        # existiert (der Name ist tagesdatiert), idempotent auf base zuruecksetzen,
+        # statt mit 422 abzubrechen.
+        created = client.post(
             f"{api}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": base_sha}
-        ).raise_for_status()
+        )
+        if created.status_code == 422:
+            client.patch(
+                f"{api}/git/refs/heads/{branch}", json={"sha": base_sha, "force": True}
+            ).raise_for_status()
+        else:
+            created.raise_for_status()
 
         msg = f"feat(prozesse): {proc.id} — struktur-only Extraktion (tessera v1)"
         if existing_sha:
@@ -316,7 +325,7 @@ def open_draft_pr(
             put["sha"] = existing_sha
         client.put(f"{api}/contents/{path}", json=put).raise_for_status()
 
-        pr = client.post(
+        created_pr = client.post(
             f"{api}/pulls",
             json={
                 "title": f"tessera v1: {final_process['title']['de']} ({proc.id})",
@@ -325,6 +334,20 @@ def open_draft_pr(
                 "body": body,
                 "draft": True,
             },
-        ).raise_for_status().json()
+        )
+        if created_pr.status_code == 422:
+            # Fuer diesen Branch existiert bereits ein PR (Re-Run) — den Branch
+            # haben wir oben aktualisiert, also den bestehenden PR melden statt
+            # abzubrechen.
+            owner = target.split("/", 1)[0]
+            existing = client.get(
+                f"{api}/pulls", params={"head": f"{owner}:{branch}", "state": "open"}
+            ).raise_for_status().json()
+            if existing:
+                url = existing[0]["html_url"]
+                print(f"  [{proc.id}] Bestehender Draft-PR aktualisiert: {url}")
+                return url
+            created_pr.raise_for_status()  # 422 aus anderem Grund -> echter Fehler
+        pr = created_pr.raise_for_status().json()
     print(f"  [{proc.id}] Draft-PR erstellt: {pr['html_url']}")
     return pr["html_url"]

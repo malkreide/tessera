@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Draft-PR creation is now idempotent across re-runs (`src/tessera/pr.py`): the
+  branch name is day-stamped (`tessera/<id>-<date>`), so a second run the same day
+  used to crash with `422` on `POST /git/refs` ("reference already exists"). Now an
+  existing branch is reset to base (`PATCH /git/refs/heads/...`, force) instead of
+  aborting, and if a PR for that branch already exists the existing draft PR is
+  reported rather than failing on the duplicate. Re-running a service updates its
+  draft PR instead of erroring.
 - Actor reconciliation now transliterates umlauts/ß before matching
   (`src/tessera/merge.py`): the LLM emits the original spelling (`"Fundbüro"`)
   while canonical `actors[].id`s are ASCII (`fundbuero`). Stripping non-alphanumerics
