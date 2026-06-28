@@ -125,6 +125,60 @@ Environment variables — keys are never committed and never logged:
 | `GITHUB_TOKEN` | Write access to the target repo for PR creation (optional) |
 | `TARGET_REPO` | Default: `malkreide/maschinerie-zuerich` |
 
+### Secrets via `.env`
+
+tessera reads keys **only** from the process environment (`os.environ`); it does
+**not** auto-load a `.env` file. The `.env` workflow means: keep your secrets in a
+gitignored file you fill in once, then load them into the shell before a run. This
+beats re-typing `$env:`/`export` every session — one place to update on rotation,
+nothing pasted into the terminal (so no key in shell history, screenshots, or chat),
+and `.env` / `.env.*` are gitignored so a key can never be committed (only the
+non-secret `.env.example` template is tracked).
+
+Set it up once:
+
+```bash
+cp .env.example .env      # then edit .env and fill in the values
+```
+
+Load it per shell, then run:
+
+```bash
+# macOS / Linux / WSL (bash, zsh)
+set -a; source .env; set +a
+tessera run --id hund-anmelden
+```
+
+```powershell
+# Windows PowerShell — tessera has no auto-loader, so import .env yourself.
+# Add this function to your profile ($PROFILE) to reuse it:
+function Import-DotEnv {
+    param([string]$Path = ".env")
+    if (-not (Test-Path $Path)) { Write-Warning "$Path not found"; return }
+    Get-Content $Path | Where-Object { $_ -match '^\s*[^#].+=' } | ForEach-Object {
+        $name, $value = $_ -split '=', 2
+        Set-Item -Path "Env:$($name.Trim())" -Value $value.Trim().Trim('"')
+    }
+}
+
+Import-DotEnv
+tessera run --id hund-anmelden
+```
+
+Notes:
+
+- **Load per shell.** A loaded value lives only in the current session; a new
+  terminal needs the load step again.
+- **After rotating a key**, update `.env` and reload (`Import-DotEnv` / re-`source`)
+  — both overwrite an already-set variable, so a stale revoked key in the session is
+  replaced. A run that still uses the old key fails with `401 invalid x-api-key`.
+- `.env` is plaintext — protect it with normal file permissions and never share it.
+  For stronger guarantees use a secrets manager; `.env` is the standard, sufficient
+  choice for local development.
+- Write values unquoted (`ANTHROPIC_API_KEY=sk-ant-…`).
+
+### Local model instead of an API provider
+
 Running a local model instead of an API provider (e.g. Gemma via Ollama on a
 Raspberry Pi 5) is in principle wireable through `TESSERA_MODEL`, but it is **not** the
 supported default — background and limits in
