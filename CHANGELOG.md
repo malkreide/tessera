@@ -7,14 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Curated `fundsache` (Fundbüro) into the v1 set (`sources.yaml`): five
-  citizen-facing VBZ Fundbüro pages, all robots-allowed and HTTP 200 (verified
-  2026-06-28); pre-flight reports regenerated for all three services. Fees,
-  deadlines, and finder's-reward are expected as references only (label without
-  the number + deep-link + verbatim quote). The canonical target file carries
-  `actors[]` (`person`, `fundbuero`), so actor reconciliation applies on merge.
-
 ### Changed
 - Extraction accuracy: the LLM step (`src/tessera/extract.py`) now runs
   **deterministically** (`temperature=0`, reproducible runs/diffs for v2) and in
@@ -55,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   opening a PR and refuses if the contract validator fails.
 
 ### Added
+- Curated `fundsache` (Fundbüro) into the v1 set (`sources.yaml`): five
+  citizen-facing VBZ Fundbüro pages, all robots-allowed and HTTP 200 (verified
+  2026-06-28); pre-flight reports regenerated for all three services. Fees,
+  deadlines, and finder's-reward are expected as references only (label without
+  the number + deep-link + verbatim quote). The canonical target file carries
+  `actors[]` (`person`, `fundbuero`), so actor reconciliation applies on merge.
 - Label↔value gate against the "right page, wrong value" failure mode
   (`src/tessera/binding.py`, single source of truth for binding-value detection):
   a reference whose label names a binding value type (deadline/duration vs.
