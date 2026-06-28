@@ -125,6 +125,11 @@ Environment variables — keys are never committed and never logged:
 | `GITHUB_TOKEN` | Write access to the target repo for PR creation (optional) |
 | `TARGET_REPO` | Default: `malkreide/maschinerie-zuerich` |
 
+Running a local model instead of an API provider (e.g. Gemma via Ollama on a
+Raspberry Pi 5) is in principle wireable through `TESSERA_MODEL`, but it is **not** the
+supported default — background and limits in
+[`docs/local-model.md`](docs/local-model.md).
+
 ## Project Structure
 
 ```
