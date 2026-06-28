@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Key-/network-free pipeline integration test (`tests/test_pipeline_integration.py`,
+  wired into `contract-check.yml`): exercises the `extract -> to_contract ->
+  grounding.apply_gate -> validate_contract` leg with a hard-wired extraction
+  answer (no LLM call), asserting that a source-backed step survives, an invented
+  (ungrounded) step is dropped with transitive DAG rewiring, a verbatim-but-wrong-
+  value-type reference is downgraded to abstinence, an unverifiable reference
+  becomes `unverifiziert`, and the gated result passes the contract validator.
+  Pure stdlib so it runs in CI without dependencies; when `pydantic` is present it
+  additionally verifies that `to_contract` produces exactly the fixture (otherwise
+  that one leg self-skips, logged — never silently passes).
+- `.github/workflows/link-rot.yml` (scheduled weekly + manual dispatch): ongoing
+  evidence hygiene — runs `tessera verify --online` over the published outputs
+  (`out/*.json`). Tri-state holds: only a dead link (404/410) or real quote drift
+  fails the job; a 403/policy block, network error, or JS-SPA is an environment
+  finding and only logged. Lean install (`httpx`, `pyyaml`, `pydantic`) — no
+  Crawl4AI/Playwright/pydantic-ai. No-op (exit 0) while no service is published;
+  needs the outbound HTTPS net policy for the source domains (documented inline).
 - Curated `fundsache` (Fundbüro) into the v1 set (`sources.yaml`): five
   citizen-facing VBZ Fundbüro pages, all robots-allowed and HTTP 200 (verified
   2026-06-28); pre-flight reports regenerated for all three services. Fees,
