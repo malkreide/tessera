@@ -542,6 +542,12 @@ def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> 
         "$schema", "preconditions", "references",
         # additive kanonische Erweiterungen (maschinerie-zuerich):
         "city", "description", "actors", "legal_basis", "sources", "reife", "meta",
+        # 'bewertung' ist ein kanonisches additives Feld im Ziel-Repo. tessera
+        # erzeugt es nie selbst; es stammt aus handgepflegten Zieldateien und
+        # bleibt beim feldweisen Merge erhalten. Hier nur erlauben (Gate-Paritaet,
+        # sonst lehnt der Merge-Validator eine Datei ab, die die Ziel-CI akzeptiert).
+        # Die interne Form wird kanonisch im Ziel-Repo validiert, nicht hier.
+        "bewertung",
     }
     for field in sorted(set(data) - allowed):
         rep.error(f"Unbekanntes Feld: {field}")
