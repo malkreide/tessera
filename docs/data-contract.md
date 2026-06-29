@@ -122,7 +122,12 @@ Kern-Angleichungen:
 
 Diese Felder existieren im kanonischen Schema und werden hier akzeptiert/validiert,
 damit Tessera reale kanonische Dateien 1:1 prüfen kann. Tessera **produziert** in v1
-weiterhin primär die Kernfelder; diese Felder sind für reine Konsumenten ignorierbar.
+primär die Kernfelder; zusätzlich werden – soweit **wörtlich belegbar** – Step-`type`
+und Step-`documents` extrahiert (sie speisen im Ziel-Dashboard Indikatoren wie
+Medienbruch, Online-Schritt und benötigte Unterlagen). `documents` durchlaufen
+dasselbe Grounding-Gate wie Schritte: ohne wörtlichen Beleg werden sie verworfen und
+geflaggt, nie geraten. Die übrigen additiven Felder bleiben für reine Konsumenten
+ignorierbar.
 
 | Ebene | Feld | Typ / Werte |
 |---|---|---|

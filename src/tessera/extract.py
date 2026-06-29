@@ -88,10 +88,24 @@ REGELN (verbindlich):
    lassen. KEINE Uebersetzungen in andere Sprachen.
 
 5. actor: kurze, konsistente Rollenbezeichnung (z.B. «Halter:in»,
-   «Steueramt», «Kreisbuero») — so, wie die Quelle die Stelle nennt.
+   «Steueramt», «Kreisbuero») — so, wie die Quelle die Stelle nennt. Verwende
+   fuer DENSELBEN Akteur durchgehend DIESELBE Bezeichnung (das macht spaeter
+   Akteurswechsel/Medienbrueche im Graphen auswertbar).
 
 6. preconditions: nur Voraussetzungen, die die Quelle explizit nennt,
-   ebenfalls ohne bindende Zahlen.
+   ebenfalls ohne bindende Zahlen. Fuelle sie, wo die Quelle sie belegt — leer
+   lassen, wenn nichts dasteht.
+
+7. type (optional, je Schritt): strukturelle Einordnung, NUR wenn eindeutig —
+   eines von start | input (Eingabe/Antrag durch Buerger:in) | prozess
+   (behoerdliche Bearbeitung) | entscheidung | loop | warten | ende. Im Zweifel
+   weglassen (None), nicht raten.
+
+8. documents (optional, je Schritt): Unterlagen, die der Schritt verlangt. Jedes
+   Dokument braucht ein source_quote, das ZEICHENGETREU im Quelltext vorkommt
+   (gleiche Regel wie fuer Schritte); ohne woertlichen Beleg KEIN Dokument
+   ausgeben. `required` nur setzen, wenn die Quelle zwingend/optional klar sagt.
+   Dokument-Labels tragen keine bindenden Zahlen.
 """
 
 REVIEW_INSTRUCTIONS = """\
@@ -120,6 +134,10 @@ Pruefe und korrigiere:
 4. KARDINALREGEL: weiterhin KEINE bindende Zahl (Frist/Betrag/Prozent) in Labels
    oder Bedingungen — solche Werte nur als references (Label OHNE Zahl + URL +
    woertliches Zitat).
+
+5. ZUSATZFELDER: Ergaenze fehlende, belegbare `documents` (mit woertlichem
+   source_quote) und setze `type` je Schritt, wo eindeutig — beides nur belegt
+   bzw. eindeutig, sonst weglassen. `preconditions`/`ls` fuellen, soweit belegt.
 
 Behalte step_ids stabiler Schritte moeglichst bei. Sprache: Deutsch, Schweizer
 Rechtschreibung (kein ß). Gib NUR das korrigierte XProcess aus.

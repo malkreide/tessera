@@ -128,9 +128,11 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
 - **Aktion:** `tessera extract --id <id>` (deterministisch wo akzeptiert;
   Review-/Repair-Pass an, Opt-out `TESSERA_REVIEW=0`).
 - **Erwartetes Resultat:** `out/<id>.json` (struktur-only, kardinalregel-konform)
-  + `out/<id>.flags.json`. Nicht belegte References → `unverifiziert`; Label↔Wert-
-  Mismatch → Abstinenz-Flag. Das Grounding-Gate verwirft jedes nicht woertlich
-  belegte Element.
+  + `out/<id>.flags.json`. Soweit belegbar zusätzlich Step-`type` und `documents`
+  (speisen Ziel-Indikatoren wie Medienbruch/Online-Schritt/benötigte Unterlagen);
+  `documents` durchlaufen dasselbe Grounding-Gate wie Schritte. Nicht belegte
+  References → `unverifiziert`; Label↔Wert-Mismatch → Abstinenz-Flag. Das
+  Grounding-Gate verwirft jedes nicht woertlich belegte Element.
 - **Test-Setting:**
   ```bash
   tessera extract --id hund-anmelden

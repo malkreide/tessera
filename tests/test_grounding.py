@@ -160,6 +160,38 @@ def test_transitive_rewire() -> None:
     assert step5["depends_on"] == [1], step5["depends_on"]  # 4 -> 2 -> 1 transitiv
 
 
+def test_document_grounding() -> None:
+    # Dokumente sind faktische Behauptungen -> wie Schritte belegbar. Belegtes
+    # Dokument bleibt, unbelegtes wird verworfen + geflaggt; der Graph (Schritt 1
+    # bleibt) ist unberuehrt.
+    process, quotes = _process()
+    process["steps"][0]["documents"] = [
+        {"label": {"de": "Ausweis"}, "required": True},        # belegt
+        {"label": {"de": "Erfundenes Formular"}},               # unbelegt
+    ]
+    doc_quotes = {
+        (1, 0): "Die Anmeldung ist online oder am Schalter moeglich.",  # im Korpus
+        (1, 1): "Dieses Dokument steht nirgends im Korpus.",            # nicht im Korpus
+    }
+    gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT), doc_quotes)
+    step1 = next(s for s in gated["steps"] if s["step_id"] == 1)
+    assert [d["label"]["de"] for d in step1["documents"]] == ["Ausweis"], step1["documents"]
+    assert any("Dokument" in f and "Erfundenes Formular" in f for f in flags), flags
+    # Gegated muss der Vertrags-Validator gruen sein (inkl. Dokument-Form).
+    rep = Report(Path("synthetic"))
+    validate(gated, rep)
+    assert rep.ok, rep.errors
+
+
+def test_document_gate_backward_compatible() -> None:
+    # Ohne doc_quotes werden Dokumente nicht gegated (Rueckwaertskompatibilitaet).
+    process, quotes = _process()
+    process["steps"][0]["documents"] = [{"label": {"de": "Ausweis"}}]
+    gated, _ = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    step1 = next(s for s in gated["steps"] if s["step_id"] == 1)
+    assert step1.get("documents") == [{"label": {"de": "Ausweis"}}]
+
+
 def test_label_value_abstinence() -> None:
     # Zitat ist WOERTLICH im Korpus, aber das Label benennt eine Gebuehr, das
     # Zitat belegt nur eine Frist -> Default = Abstinenz (downgrade, Flag).

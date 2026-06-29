@@ -69,12 +69,19 @@ def apply_gate(
     process: dict,
     step_quotes: dict[int, str],
     corpus: Corpus,
+    doc_quotes: dict[tuple[int, int], str] | None = None,
 ) -> tuple[dict, list[str]]:
     """Wendet das Gate auf ein Vertrags-JSON an. Gibt (Prozess, Flags) zurueck.
 
     `process` wird nicht mutiert; es wird eine bereinigte Kopie gebaut.
+    `doc_quotes` (optional) traegt die internen Belegstellen der Dokumente je
+    (step_id, Dokument-Index); fehlt es, werden Dokumente nicht gegated.
     """
     flags: list[str] = []
+    # None = Aufrufer verwaltet Dokument-Grounding nicht -> Dokumente unberuehrt.
+    # Dict (auch leer) = gaten; ein Dokument ohne bekanntes Zitat wird verworfen.
+    gate_documents = doc_quotes is not None
+    doc_quotes = doc_quotes or {}
 
     # --- References: nicht belegbar -> unverifiziert + leeres Zitat ----------
     references = []
@@ -155,6 +162,26 @@ def apply_gate(
                 step["reference_ids"] = valid
             else:
                 step.pop("reference_ids")
+        # Dokumente: faktische Behauptungen -> wie Schritte/References belegbar.
+        # Nicht woertlich belegt -> verwerfen + flaggen (nie raten).
+        if gate_documents and step.get("documents"):
+            sid = step["step_id"]
+            kept_docs: list[dict] = []
+            for i, doc in enumerate(step["documents"]):
+                quote = doc_quotes.get((sid, i), "")
+                if quote and corpus.contains(quote):
+                    kept_docs.append(doc)
+                else:
+                    label_de = (doc.get("label") or {}).get("de", "?") if isinstance(doc.get("label"), dict) else "?"
+                    reason = "ohne Belegstelle" if not quote.strip() else "Belegstelle nicht woertlich im Korpus"
+                    flags.append(
+                        f"Dokument «{label_de}» bei Schritt {sid} {reason} "
+                        "-> VERWORFEN (Grounding-Gate)."
+                    )
+            if kept_docs:
+                step["documents"] = kept_docs
+            else:
+                step.pop("documents")
 
     out = dict(process)
     out["steps"] = kept

@@ -68,7 +68,7 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
 
         x = extract.extract_process(proc, corpus_text)
         retrieved_at = max(m["retrieved_at"] for m in ok_meta)
-        process, step_quotes = schema.to_contract(
+        process, step_quotes, doc_quotes = schema.to_contract(
             x,
             proc_id=proc.id,
             target_audience=proc.target_audience,  # kuratiert, nie LLM-inferiert
@@ -76,7 +76,7 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
             retrieved_at=retrieved_at,
         )
         process, flags = grounding.apply_gate(
-            process, step_quotes, grounding.Corpus(corpus_text)
+            process, step_quotes, grounding.Corpus(corpus_text), doc_quotes
         )
         out_json = OUT / f"{proc.id}.json"
         out_json.write_text(
