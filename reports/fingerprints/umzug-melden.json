@@ -1,0 +1,26 @@
+{
+  "id": "umzug-melden",
+  "retrieved_at": "2026-06-29",
+  "urls": [
+    {
+      "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden.html",
+      "sha256": "ade4e03a4eed85be6196ef64bee6a248300da60cc50b8259e5d18c22aefd518f",
+      "chars": 52
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/zuzug.html",
+      "sha256": "d49fa61c37fcaebf772c0809c1a7b4e35f5dc8fd57fd25c6abb3231a0608b852",
+      "chars": 3194
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/umzug.html",
+      "sha256": "8d4c4386e0a3261c19f15629ce73527470a7ba2340737903332b4a937900c361",
+      "chars": 2141
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/wegzug.html",
+      "sha256": "de6f7738e240ffb68f2ec5aae2b55aaa3f7f1723db47a5258b4e1beb89bd0cab",
+      "chars": 2117
+    }
+  ]
+}

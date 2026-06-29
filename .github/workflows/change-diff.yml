@@ -1,0 +1,56 @@
+name: change-diff
+
+# v2 Aenderungs-Erkennung: re-crawlt die kuratierten Quellseiten und vergleicht
+# sie gegen die committete Fingerprint-Baseline (reports/fingerprints/<id>.json).
+# Aendert sich eine Seite INHALTLICH (normalisiert, also nicht nur kosmetisch),
+# ist das ein Hinweis, dass eine Re-Extraktion der Leistung noetig sein koennte.
+#
+# Ergaenzt link-rot.yml: jener Job prueft Link-Rot und Drift der EINZELNEN
+# verifizierten Zitate; dieser hier erkennt JEDE inhaltliche Seitenaenderung —
+# auch eine, die (noch) kein zitiertes Element beruehrt (z.B. ein neuer Schritt).
+#
+# EXIT-LOGIK (tri-state, siehe docs/v1-pipeline.md): ein toter Link (404/410)
+# laesst den Job immer rot werden; mit --fail-on-change zusaetzlich jede
+# inhaltliche Aenderung (so wird der Maintainer aktiv alarmiert). Ein
+# 403/Policy-Block, Netzfehler oder eine JS-SPA ist ein Umgebungsbefund und wird
+# nur geloggt — sonst sieht eine geschlossene Netz-Policy wie geaenderte Daten aus.
+#
+# NETZ-POLICY: braucht ausgehendes HTTPS zu den Quelldomains (stadt-zuerich.ch,
+# zh.ch, … — siehe docs/v1-pipeline.md). Ist die Policy zu, faellt alles als
+# 'netzfehler'/'blockiert' an (kein Fehlschlag) und der Lauf ist ein No-op.
+#
+# DATENGRUNDLAGE: nur Leistungen mit committeter Baseline in reports/fingerprints/
+# werden geprueft. Ohne Baseline (neue Leistung) ist der Lauf fuer sie ein No-op,
+# bis jemand `tessera fingerprint --id <leistung>` ausfuehrt und committet.
+
+on:
+  schedule:
+    - cron: "0 7 * * 1" # woechentlich, Montag 07:00 UTC (nach link-rot)
+  workflow_dispatch: {} # manueller Lauf
+
+jobs:
+  change-diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Schlank: diff braucht httpx + trafilatura (SSR-Fetch wie der Crawl),
+      # pyyaml (sources.yaml) und pydantic (config-Modelle) — NICHT crawl4ai/
+      # playwright (kein Browser; diff nutzt nur den SSR-Pfad) oder pydantic-ai.
+      - name: Laufzeit-Deps (schlank)
+        run: python -m pip install --quiet httpx trafilatura pyyaml "pydantic>=2"
+      - name: Aenderungs-Diff (nur Leistungen mit Baseline)
+        run: |
+          shopt -s nullglob
+          ids=()
+          for f in reports/fingerprints/*.json; do
+            ids+=( --id "$(basename "$f" .json)" )
+          done
+          if [ ${#ids[@]} -eq 0 ]; then
+            echo "Keine Baselines in reports/fingerprints/ — nichts zu pruefen (kein Fehler)."
+            exit 0
+          fi
+          echo "Diffe Leistungen: ${ids[*]}"
+          PYTHONPATH=src python -m tessera.cli diff --fail-on-change "${ids[@]}"
