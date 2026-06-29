@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Richer grounded extraction to feed the target dashboard's indicators
+  (digitalization & user-orientation) and reduce "unknown" cells: the extractor
+  now also produces the additive canonical step fields **`type`**
+  (start/input/prozess/entscheidung/loop/warten/ende, only when unambiguous) and
+  **`documents`** (required papers per step). Documents are factual claims, so
+  they pass the **same grounding gate** as steps — each carries an internal
+  verbatim `source_quote` (stripped before output); an unverifiable document is
+  dropped and flagged, never guessed (`src/tessera/schema.py`,
+  `src/tessera/grounding.py`; `apply_gate` takes an optional `doc_quotes` map and
+  stays backward compatible). Extraction instructions now also nudge consistent
+  actor labels (so actor handoffs/media breaks are derivable) and filling
+  `preconditions`/`ls` where source-backed. Covered by `tests/test_grounding.py`.
 - Allowed the canonical additive top-level field `bewertung` in the contract
   validator (`scripts/validate_contract.py`). It lives in hand-maintained target
   files in `maschinerie-zuerich` and is preserved verbatim by the loss-free merge;

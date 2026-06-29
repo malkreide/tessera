@@ -14,7 +14,14 @@ bindenden Zahlen tragen; Fristen/Gebuehren existieren nur als Reference.
 """
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
+# Additive kanonische Step-Typen (maschinerie-zuerich, vom Vertrags-Validator
+# geprueft). Strukturelle Klassifikation eines ohnehin belegten Schritts —
+# speist im Ziel-Dashboard die Indikatoren (z.B. Medienbruch, Online-Schritt).
+StepType = Literal["start", "input", "prozess", "entscheidung", "loop", "warten", "ende"]
 
 
 class XText(BaseModel):
@@ -48,16 +55,38 @@ class XReference(BaseModel):
     )
 
 
+class XDocument(BaseModel):
+    """Ein vom Schritt benoetigtes Dokument. Wie ein Schritt belegbar: das
+    source_quote ist intern (Grounding-Gate) und wird NICHT publiziert."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: XText = Field(description="Dokument-Bezeichnung OHNE bindende Zahlen (z.B. 'Ausweis').")
+    required: bool | None = Field(
+        default=None, description="True = zwingend, False = optional, None = unklar aus der Quelle."
+    )
+    source_quote: str = Field(
+        description="WOERTLICHE Belegstelle aus dem Quelltext (intern, wird nicht publiziert). Leer lassen, wenn nicht woertlich belegbar."
+    )
+
+
 class XStep(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     step_id: int = Field(ge=1)
     actor: str = Field(min_length=1, description="Handelnde Rolle (Buerger:in oder Behoerde).")
     label: XText = Field(description="Schritt-Bezeichnung OHNE bindende Zahlen.")
+    type: StepType | None = Field(
+        default=None,
+        description="Strukturtyp des Schritts (start/input/prozess/entscheidung/loop/warten/ende); None, wenn nicht eindeutig.",
+    )
     depends_on: list[int | XCondDep] = Field(
         default_factory=list, description="Vorgaenger-step_ids; leer = Start-Schritt."
     )
     reference_ids: list[int] = Field(default_factory=list)
+    documents: list[XDocument] = Field(
+        default_factory=list, description="Benoetigte Dokumente (jeweils woertlich belegt)."
+    )
     source_quote: str = Field(
         description="WOERTLICHE Stelle im Quelltext, die diesen Schritt belegt (intern, wird nicht publiziert)."
     )
@@ -93,11 +122,13 @@ def to_contract(
     target_audience: str,
     source_url: str,
     retrieved_at: str,
-) -> tuple[dict, dict[int, str]]:
-    """Baut das Vertrags-JSON (Kernfelder) und liefert die internen
-    Schritt-Belegstellen separat zurueck (fuer das Grounding-Gate)."""
+) -> tuple[dict, dict[int, str], dict[tuple[int, int], str]]:
+    """Baut das Vertrags-JSON (Kernfelder) und liefert die internen Belegstellen
+    separat zurueck (fuer das Grounding-Gate): Schritt-Zitate je step_id und
+    Dokument-Zitate je (step_id, Dokument-Index)."""
     steps = []
     step_quotes: dict[int, str] = {}
+    doc_quotes: dict[tuple[int, int], str] = {}
     for s in x.steps:
         step_quotes[s.step_id] = s.source_quote
         dep: list = []
@@ -112,8 +143,19 @@ def to_contract(
             "label": _i18n(s.label),
             "depends_on": dep,
         }
+        if s.type:
+            entry["type"] = s.type
         if s.reference_ids:
             entry["reference_ids"] = s.reference_ids
+        if s.documents:
+            docs = []
+            for i, d in enumerate(s.documents):
+                doc_quotes[(s.step_id, i)] = d.source_quote
+                doc: dict = {"label": _i18n(d.label, with_empty=False)}
+                if d.required is not None:
+                    doc["required"] = d.required
+                docs.append(doc)
+            entry["documents"] = docs
         steps.append(entry)
 
     references = []
@@ -146,4 +188,4 @@ def to_contract(
         process["preconditions"] = [_i18n(p, with_empty=False) for p in x.preconditions]
     if references:
         process["references"] = references
-    return process, step_quotes
+    return process, step_quotes, doc_quotes
