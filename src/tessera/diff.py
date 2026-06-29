@@ -26,11 +26,16 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import reach
-from .config import ROOT, ProcessSource
 from .grounding import normalize
 
+if TYPE_CHECKING:  # nur fuer Typhinweise — kein Laufzeit-Import von config (pydantic),
+    from .config import ProcessSource  # damit diff/Tests dependency-frei laufen (stdlib-CI).
+
+# Repo-Wurzel ohne config-Import ableiten (src/tessera/diff.py -> parents[2]).
+ROOT = Path(__file__).resolve().parents[2]
 FINGERPRINTS = ROOT / "reports" / "fingerprints"
 
 
