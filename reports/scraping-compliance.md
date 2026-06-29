@@ -1,6 +1,6 @@
 # Scraping-Compliance (robots.txt & Nutzungsbedingungen)
 
-Stand: 2026-06-28 — erzeugt durch `tessera preflight`.
+Stand: 2026-06-29 — erzeugt durch `tessera preflight`.
 
 ## Respekt-Regeln (fix)
 
@@ -36,6 +36,9 @@ Stand: 2026-06-28 — erzeugt durch `tessera preflight`.
 | `parkplatz` | https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte.html | erlaubt |
 | `parkplatz` | https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte/antragsformular-ap-privatpersonen.html | erlaubt |
 | `parkplatz` | https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/rechtliche-grundlagen/agb.html | erlaubt |
+| `kita-platz` | https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/betreuungskosten-und-subventionen.html | erlaubt |
+| `kita-platz` | https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/kitaplatz-finden.html | erlaubt |
+| `kita-platz` | https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/faq.html | erlaubt |
 
 Verdikt-Logik: Eine Leistung wird nur gecrawlt, wenn ALLE ihre URLs
 fuer unseren User-Agent erlaubt sind. Bei Disallow: Leistung gesperrt,

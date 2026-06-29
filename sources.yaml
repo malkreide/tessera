@@ -91,6 +91,26 @@ processes:
       Rollen werden im PR geflaggt. Rekurs ist Teil des Prozesses, aber
       parkplatz ist KEIN Hochrisiko-Fall (anders als baugesuch/sozialhilfe).
 
-# Weitere risikoarme Kandidaten fuer v1 (nach Rueckfrage):
-#   - id: kita-platz       # Betreuungsgutscheine (einkommensabhaengig — sensibler)
-# NICHT in v1: baugesuch (Baubewilligung), sozialhilfe, veranstaltung.
+  - id: kita-platz
+    service_name: "Kita-Platz / Betreuungsgutschein (subventionierte Kinderbetreuung)"
+    target_audience: bevoelkerung
+    official_urls:
+      # Am 2026-06-28 manuell auf HTTP 200 geprueft. Kanonischer Prozess nutzt
+      # betreuungskosten-und-subventionen.html als source_url; Akteure dort:
+      # eltern, kita, schulamt, sozialdept, bezirksrat.
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/betreuungskosten-und-subventionen.html"
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/kitaplatz-finden.html"
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/faq.html"
+    catalog_keywords: ["kita", "betreuung", "betreuungsgutschein", "kinderbetreuung"]
+    notes: >-
+      Einkommensabhaengig -> SENSIBEL. Struktur-only bleibt zwingend: keine
+      personenbezogenen Daten, keine Einkommensgrenzen/Subventionsbetraege als
+      Wert im Label — Betraege/Anspruchsgrenzen NUR als references (Label ohne
+      Zahl + Deep-Link + woertliches Zitat). Bestehende Zieldatei hat actors[]
+      (eltern, kita, schulamt, sozialdept, bezirksrat) -> Actor-Abgleich greift.
+      Rekurs (Bezirksrat) ist Teil des Prozesses; kita-platz ist KEIN
+      Hochrisiko-Fall im Sinne der Registry (anders als sozialhilfe), aber beim
+      Review besonders auf die Kardinalregel und Belegbarkeit achten.
+
+# NICHT in v1: baugesuch (Baubewilligung), sozialhilfe, veranstaltung (Hochrisiko).
+# Damit ist das risikoarme v1-Set ausgeschoepft; weitere Leistungen nach Rueckfrage.
