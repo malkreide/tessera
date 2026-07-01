@@ -8,6 +8,10 @@
                                    Re-Verifikation: Label<->Wert (netzfrei) und
                                    mit --online Link-Rot (tri-state) + Beleg-Drift
     tessera pr        [--id ...]   Draft-PR-Bundle bauen / einreichen
+    tessera fingerprint [--id ...] Aenderungs-Baseline schreiben (reports/fingerprints/)
+    tessera diff      [--id ...] [--fail-on-change]
+                                   Live-Quellseiten gegen die Baseline diffen
+                                   (v2 Aenderungs-Erkennung; ergaenzt `verify`)
     tessera run       [--id ...]   alles oben in Reihenfolge
 """
 from __future__ import annotations
@@ -157,6 +161,91 @@ def cmd_verify(cfg: SourcesConfig, ids: list[str] | None, online: bool = False) 
     return rc
 
 
+def _make_ssr_fetcher(cfg: SourcesConfig):
+    """Online-Fetcher fuer fingerprint/diff: (fetch, client). fetch(url) ->
+    (markdown, tri_state), gleicher SSR-Pfad wie der Crawl (httpx+Trafilatura),
+    damit Hashes zwischen Fingerprint- und Diff-Zeit vergleichbar sind."""
+    import httpx  # noqa: PLC0415
+
+    from . import crawl  # noqa: PLC0415
+
+    client = httpx.Client(
+        headers={"User-Agent": cfg.crawler.user_agent}, timeout=30, follow_redirects=True
+    )
+
+    def fetch(url: str):
+        md, _status, _raw, state = crawl._ssr_fetch(client, url)
+        return md, state
+
+    return fetch, client
+
+
+def cmd_fingerprint(cfg: SourcesConfig, ids: list[str] | None) -> int:
+    """Schreibt/aktualisiert die Aenderungs-Baseline reports/fingerprints/<id>.json
+    (SHA-256 ueber den normalisierten Seitentext je Quell-URL). Nach einem Lauf
+    ausfuehren und das Ergebnis committen — `tessera diff` vergleicht dagegen."""
+    from datetime import date  # noqa: PLC0415
+
+    from . import diff as diff_mod  # noqa: PLC0415
+
+    today = date.today().isoformat()
+    fetch, client = _make_ssr_fetcher(cfg)
+    try:
+        for proc in _procs(cfg, ids):
+            entries = diff_mod.build_entries(proc, fetch, today)
+            path = diff_mod.write_fingerprints(proc.id, entries, today)
+            usable = [e for e in entries if "sha256" in e]
+            print(f"  [{proc.id}] Fingerprint -> {path} ({len(usable)}/{len(entries)} URLs erfasst)")
+            for e in entries:
+                if "sha256" not in e:
+                    print(f"    ⚠ nicht erfasst (Umgebungsbefund): {e['url']} ({e['state']})")
+    finally:
+        client.close()
+    return 0
+
+
+def cmd_diff(cfg: SourcesConfig, ids: list[str] | None, fail_on_change: bool = False) -> int:
+    """Vergleicht die Live-Quellseiten gegen die committete Fingerprint-Baseline
+    und meldet inhaltliche Aenderungen (Re-Extraktion pruefen). Exit 1 bei totem
+    Link immer; bei inhaltlicher Aenderung nur mit --fail-on-change. Block/
+    Netzfehler/SPA und neu/entfernt sind Hinweise (nicht-fatal)."""
+    from . import diff as diff_mod  # noqa: PLC0415
+
+    rc = 0
+    fetch, client = _make_ssr_fetcher(cfg)
+    try:
+        for proc in _procs(cfg, ids):
+            rep = diff_mod.diff_process(proc, fetch)
+            if rep.no_baseline:
+                print(
+                    f"  [{proc.id}] keine Baseline (reports/fingerprints/{proc.id}.json) "
+                    "— uebersprungen. Erst `tessera fingerprint` ausfuehren + committen."
+                )
+                continue
+            print(
+                f"  [{proc.id}] geaendert: {len(rep.changed)}, tot: {len(rep.dead)}, "
+                f"env: {len(rep.env)}, neu: {len(rep.new)}, entfernt: {len(rep.removed)}, "
+                f"unveraendert: {len(rep.unchanged)}"
+            )
+            for u in rep.changed:
+                print(f"    ✏ geaendert — Re-Extraktion pruefen: {u}")
+            for u in rep.dead:
+                print(f"    ❌ toter Link: {u}")
+            for u in rep.new:
+                print(f"    + neu in sources, noch keine Baseline: {u}")
+            for u in rep.removed:
+                print(f"    - in Baseline, nicht mehr in sources: {u}")
+            for e in rep.env:
+                print(f"    · Umgebungsbefund (nicht-fatal): {e}")
+            if rep.dead:
+                rc = 1  # toter Link ist immer ein Datenproblem
+            if fail_on_change and rep.changed:
+                rc = 1
+    finally:
+        client.close()
+    return rc
+
+
 def cmd_pr(cfg: SourcesConfig, ids: list[str] | None) -> int:
     from . import pr as pr_mod  # noqa: PLC0415
     from .crawl import RAW  # noqa: PLC0415
@@ -196,11 +285,13 @@ COMMANDS = {
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tessera", description=__doc__)
-    parser.add_argument("command", choices=[*COMMANDS, "verify", "run"])
+    parser.add_argument("command", choices=[*COMMANDS, "verify", "fingerprint", "diff", "run"])
     parser.add_argument("--id", action="append", dest="ids", metavar="LEISTUNG",
                         help="nur diese Leistung(en) verarbeiten")
     parser.add_argument("--online", action="store_true",
                         help="nur fuer `verify`: Live-Erreichbarkeit + Beleg-Drift pruefen")
+    parser.add_argument("--fail-on-change", action="store_true",
+                        help="nur fuer `diff`: Exit 1 auch bei inhaltlicher Seitenaenderung")
     args = parser.parse_args(argv)
 
     cfg = load_sources()
@@ -213,6 +304,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "verify":
         return cmd_verify(cfg, args.ids, online=args.online)
+    if args.command == "fingerprint":
+        return cmd_fingerprint(cfg, args.ids)
+    if args.command == "diff":
+        return cmd_diff(cfg, args.ids, fail_on_change=args.fail_on_change)
     return COMMANDS[args.command](cfg, args.ids)
 
 
