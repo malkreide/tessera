@@ -19,7 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the registry (unlike `sozialhilfe`), but flagged for extra cardinal-rule care on
   review. This exhausts the risk-light v1 set (`hund-anmelden`, `umzug-melden`,
   `fundsache`, `parkplatz`, `kita-platz`).
-=======
 - v2 change-detection: `tessera fingerprint` + `tessera diff` and the weekly
   `change-diff.yml` cron (`src/tessera/diff.py`). Fingerprint writes a committed
   baseline `reports/fingerprints/<id>.json` — per source URL a SHA-256 over the
