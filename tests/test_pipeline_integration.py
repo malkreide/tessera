@@ -250,7 +250,7 @@ def test_to_contract_matches_fixture() -> None:
             ),
         ],
     )
-    process, step_quotes = to_contract(
+    process, step_quotes, _doc_quotes = to_contract(
         x,
         proc_id=PROC_ID,
         target_audience="bevoelkerung",

@@ -19,6 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the registry (unlike `sozialhilfe`), but flagged for extra cardinal-rule care on
   review. This exhausts the risk-light v1 set (`hund-anmelden`, `umzug-melden`,
   `fundsache`, `parkplatz`, `kita-platz`).
+=======
+- v2 change-detection: `tessera fingerprint` + `tessera diff` and the weekly
+  `change-diff.yml` cron (`src/tessera/diff.py`). Fingerprint writes a committed
+  baseline `reports/fingerprints/<id>.json` — per source URL a SHA-256 over the
+  **normalized** page text (`grounding.normalize`), so cosmetic changes
+  (whitespace/typography/markdown) do **not** trigger, only content changes. Diff
+  re-crawls the live pages (same SSR path as crawl) and reports per URL:
+  `geaendert` / `tot` / env (`blockiert`/`netzfehler`) / `neu` / `entfernt` /
+  unchanged. Exit 1 on a dead link always; with `--fail-on-change` also on a
+  content change (so the cron goes red and the maintainer re-extracts). Complements
+  `tessera verify`: verify drifts the individual *cited quotes*, diff catches *any*
+  page change (incl. a not-yet-cited new step). Fetch is injectable → tested
+  without httpx (`tests/test_diff.py`, in CI). Seeded baselines committed for the
+  current services (hund-anmelden, umzug-melden, fundsache, parkplatz).
 - Richer grounded extraction to feed the target dashboard's indicators
   (digitalization & user-orientation) and reduce "unknown" cells: the extractor
   now also produces the additive canonical step fields **`type`**

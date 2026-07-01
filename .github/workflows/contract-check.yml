@@ -32,3 +32,5 @@ jobs:
         run: python tests/test_merge.py
       - name: Hochrisiko-Tests (erhoehter Review, stdlib)
         run: python tests/test_risk.py
+      - name: Aenderungs-Diff-Tests (Fingerprint/Diff, stdlib)
+        run: python tests/test_diff.py

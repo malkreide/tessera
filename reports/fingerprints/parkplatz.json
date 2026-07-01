@@ -1,0 +1,26 @@
+{
+  "id": "parkplatz",
+  "retrieved_at": "2026-06-29",
+  "urls": [
+    {
+      "url": "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen.html",
+      "sha256": "c497e9b68dcda69f16d5c3132dfe20066ceabc52b54e6884763750cea9dc2318",
+      "chars": 852
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte.html",
+      "sha256": "6fce2f1c8ddec43c12e92bd351a1799211679669300a6e217a6b4e2ca3055dac",
+      "chars": 1923
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte/antragsformular-ap-privatpersonen.html",
+      "sha256": "ade4e03a4eed85be6196ef64bee6a248300da60cc50b8259e5d18c22aefd518f",
+      "chars": 52
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/rechtliche-grundlagen/agb.html",
+      "sha256": "4773ece699e26ff1a968f40d31584f4536e97a10c9182ac3b853ddc82eb641dd",
+      "chars": 1311
+    }
+  ]
+}

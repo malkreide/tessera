@@ -230,8 +230,23 @@ Bewusst **nicht** in v1 (`CLAUDE.md`):
 | Integration (key-frei) | jeder Commit / CI | `test_pipeline_integration.py` | Gate-Verhalten korrekt |
 | Vertrags-Gate | vor jedem PR | `validate_contract.py` (Exit 0) | gueltig |
 | Beleg-Hygiene | vor PR + woechentlich (`link-rot.yml`) | `tessera verify --online` | keine tot/Drift |
+| Aenderungs-Diff (v2) | woechentlich (`change-diff.yml`) | `tessera diff` vs. `reports/fingerprints/<id>.json` | keine inhaltliche Aenderung |
 | Ziel-Repo-CI | im Draft-PR | `validate:prozesse`, `check:regression`, `check:links` | gruen |
 | Mensch | vor Merge | Reviewer-Checkliste im PR-Body | freigegeben |
+
+### v2 Aenderungs-Diff (re-crawlen + diffen)
+
+`tessera fingerprint` schreibt nach einem Lauf eine committete Baseline
+(`reports/fingerprints/<id>.json`): je Quell-URL ein SHA-256 ueber den
+**normalisierten** Seitentext (`grounding.normalize`). `tessera diff` re-crawlt
+die Live-Seiten und vergleicht: rein kosmetische Aenderungen (Whitespace,
+Typografie) loesen NICHTS aus, nur inhaltliche. Der woechentliche
+`change-diff.yml`-Cron faehrt `tessera diff --fail-on-change` ueber alle
+Leistungen mit Baseline und wird rot, wenn sich eine Quellseite inhaltlich
+geaendert hat (Re-Extraktion pruefen) oder ein Link tot ist; Block/Netzfehler/SPA
+und neu/entfernt sind Hinweise (nicht-fatal). Ergaenzt `verify`: jenes prueft
+Drift einzelner zitierter Belege, dieses jede Seitenaenderung (auch noch nicht
+zitierte, z.B. ein neuer Schritt).
 
 **Leitprinzipien (gelten fuer jeden Schritt):** propose-don't-write, Default =
 Abstinenz bei bindenden Werten, Tri-State (Umgebung ≠ Daten), kleine Commits +
