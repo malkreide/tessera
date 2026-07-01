@@ -1,6 +1,6 @@
 # Abdeckung der kuratierten Leistungen in den Katalogen
 
-Stand: 2026-06-28 — erzeugt durch `tessera preflight` (Katalog wird
+Stand: 2026-06-29 — erzeugt durch `tessera preflight` (Katalog wird
 konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).
 
 - I14Y Public API (Behoerdenleistungen): 134 Eintraege
@@ -12,6 +12,7 @@ konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).
 | `umzug-melden` (Umzug melden (Zuzug, Umzug, Wegzug)) | iGovPortal eUmzug; eUmzugCH | Adressänderung innerhalb einer Gemeinde; Führerausweis - Adressänderung; Schiffführerausweis - Adressänderung; Zivildienstpflichtige Personen - Änderungen von persönlichen (+8) |
 | `fundsache` (Fundsache / Fundbüro (etwas verloren oder gefunden)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Fundsachen; Fundsachen |
 | `parkplatz` (Anwohnerparkkarte (Parkbewilligung in der blauen Zone)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Parkkarten für Anwohner/innen |
+| `kita-platz` (Kita-Platz / Betreuungsgutschein (subventionierte Kinderbetreuung)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Voranmeldung eines Kindes bei einer Einrichtung für die schu; Beitragsgesuch für schulergänzende Betreuung |
 
 Hinweis: Beide Kataloge sind auf Bundes-/Kantonsebene gepflegt; rein
 kommunale Leistungen der Stadt Zuerich koennen ohne Treffer bleiben.

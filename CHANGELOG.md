@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Curated `kita-platz` (Betreuungsgutschein / subsidised childcare) into the v1
+  set (`sources.yaml`): three citizen-facing pages (costs & subsidies, finding a
+  place, FAQ), all robots-allowed and HTTP 200 (verified 2026-06-28); pre-flight
+  reports regenerated. **Income-dependent → sensitive**: structure-only stays
+  mandatory (no personal data; income thresholds / subsidy amounts only as
+  references — label without the number + deep-link + verbatim quote). Canonical
+  target file carries `actors[]` (`eltern`, `kita`, `schulamt`, `sozialdept`,
+  `bezirksrat`), so actor reconciliation applies on merge. Not a high-risk id per
+  the registry (unlike `sozialhilfe`), but flagged for extra cardinal-rule care on
+  review. This exhausts the risk-light v1 set (`hund-anmelden`, `umzug-melden`,
+  `fundsache`, `parkplatz`, `kita-platz`).
 - v2 change-detection: `tessera fingerprint` + `tessera diff` and the weekly
   `change-diff.yml` cron (`src/tessera/diff.py`). Fingerprint writes a committed
   baseline `reports/fingerprints/<id>.json` — per source URL a SHA-256 over the
