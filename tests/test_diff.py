@@ -132,6 +132,21 @@ def test_new_and_removed_urls() -> None:
     _with_tmp_fingerprints(body)
 
 
+def test_report_to_dict_shape() -> None:
+    def body() -> None:
+        proc = _Proc("svc", [URL_A])
+        diff_mod.write_fingerprints(
+            "svc", diff_mod.build_entries(proc, _fetcher({URL_A: ("A", reach.OK)}), "2026-06-29"), "2026-06-29"
+        )
+        rep = diff_mod.diff_process(proc, _fetcher({URL_A: ("A geaendert", reach.OK)}))
+        d = diff_mod.report_to_dict(rep)
+        assert d["id"] == "svc"
+        assert d["changed"] == [URL_A]
+        assert d["data_problem"] is True
+        assert set(d) >= {"id", "no_baseline", "changed", "dead", "env", "new", "removed", "unchanged", "data_problem"}
+    _with_tmp_fingerprints(body)
+
+
 def test_no_baseline() -> None:
     def body() -> None:
         proc = _Proc("svc-ohne-baseline", [URL_A])

@@ -18,6 +18,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .contract import SCHEMA_VERSION
+
 # Additive kanonische Step-Typen (maschinerie-zuerich, vom Vertrags-Validator
 # geprueft). Strukturelle Klassifikation eines ohnehin belegten Schritts —
 # speist im Ziel-Dashboard die Indikatoren (z.B. Medienbruch, Online-Schritt).
@@ -173,7 +175,7 @@ def to_contract(
 
     process: dict = {
         "$schema": "../../../schemas/opengov-process-schema.json",
-        "schema_version": "0.1.0",
+        "schema_version": SCHEMA_VERSION,
         "id": proc_id,
         "lebenslage_ref": proc_id,
         "city": "zh",
