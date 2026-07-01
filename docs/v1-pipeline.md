@@ -240,13 +240,31 @@ Bewusst **nicht** in v1 (`CLAUDE.md`):
 (`reports/fingerprints/<id>.json`): je Quell-URL ein SHA-256 ueber den
 **normalisierten** Seitentext (`grounding.normalize`). `tessera diff` re-crawlt
 die Live-Seiten und vergleicht: rein kosmetische Aenderungen (Whitespace,
-Typografie) loesen NICHTS aus, nur inhaltliche. Der woechentliche
-`change-diff.yml`-Cron faehrt `tessera diff --fail-on-change` ueber alle
-Leistungen mit Baseline und wird rot, wenn sich eine Quellseite inhaltlich
-geaendert hat (Re-Extraktion pruefen) oder ein Link tot ist; Block/Netzfehler/SPA
-und neu/entfernt sind Hinweise (nicht-fatal). Ergaenzt `verify`: jenes prueft
+Typografie) loesen NICHTS aus, nur inhaltliche. `tessera diff --json` gibt eine
+maschinenlesbare Zusammenfassung aus (menschliche Zeilen dann nach stderr).
+
+Der woechentliche `change-diff.yml`-Cron faehrt `tessera diff --json` ueber alle
+Leistungen mit Baseline und **oeffnet/aktualisiert daraus EIN rollendes
+GitHub-Issue** (Label `source-change`), statt nur einen roten Job zu
+hinterlassen — so bleibt die Aenderung sichtbar und nachverfolgbar. Sind beim
+naechsten Lauf keine Befunde mehr offen, schliesst sich das Issue selbst. Nur
+inhaltliche Aenderung oder toter Link erzeugen einen Befund; Block/Netzfehler/SPA
+und neu/entfernt sind Hinweise (kein Issue). Ergaenzt `verify`: jenes prueft
 Drift einzelner zitierter Belege, dieses jede Seitenaenderung (auch noch nicht
 zitierte, z.B. ein neuer Schritt).
+
+### Schema-Versionierung
+
+`SCHEMA_VERSION` liegt zentral in `src/tessera/contract.py` (eine Wahrheitsquelle)
+und wird von `schema.to_contract` (Ausgabe) und `validate_contract.py` (Pruefung)
+gemeinsam genutzt. Der Validator behandelt eine **abweichende** (aber SemVer-
+gueltige) `schema_version` als **Hinweis**, nicht als Fehler — eine kanonische
+Datei aus dem Ziel-Repo darf einer anderen Contract-Generation angehoeren, ohne
+faelschlich abgelehnt zu werden (Gate-Paritaet). Ein nicht-SemVer-Wert bleibt ein
+Fehler. Bump-Prozess (wenn das Ziel-Repo die Version anhebt): `SCHEMA_VERSION`
+nachziehen, betroffene Felder in `schema.py`/`validate_contract.py` anpassen,
+Fixtures/Doku abgleichen; bei Unsicherheit ueber die kanonische Bedeutung stoppen
+und fragen (Cross-Repo-Grenze).
 
 **Leitprinzipien (gelten fuer jeden Schritt):** propose-don't-write, Default =
 Abstinenz bei bindenden Werten, Tri-State (Umgebung ≠ Daten), kleine Commits +
