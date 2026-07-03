@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- v2 change-diff now files a GitHub issue instead of just going red: the weekly
+  `change-diff.yml` runs `tessera diff --json` and an `actions/github-script` step
+  opens/updates **one rolling issue** (label `source-change`) listing the changed
+  pages / dead links per service, and auto-closes it when the next run is clean.
+  `tessera diff --json` prints a machine-readable summary to stdout (human lines to
+  stderr) via `diff.report_to_dict`; covered by `tests/test_diff.py`.
+- Schema versioning: `SCHEMA_VERSION` is now a single source of truth in
+  `src/tessera/contract.py`, shared by `schema.to_contract` (output) and the
+  contract validator (check). A **differing** but SemVer-valid `schema_version` is
+  a hint, not an error (a canonical file may belong to another contract
+  generation — gate parity); a non-SemVer value stays a hard error. Bump procedure
+  documented in `contract.py` and `docs/v1-pipeline.md`. Covered by
+  `tests/test_contract_fields.py`.
 - Curated `kita-platz` (Betreuungsgutschein / subsidised childcare) into the v1
   set (`sources.yaml`): three citizen-facing pages (costs & subsidies, finding a
   place, FAQ), all robots-allowed and HTTP 200 (verified 2026-06-28); pre-flight

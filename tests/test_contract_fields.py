@@ -78,6 +78,40 @@ def test_unknown_field_still_rejected() -> None:
     assert any("Unbekanntes Feld: quatsch" in e for e in rep.errors)
 
 
+def test_schema_version_matches_single_source() -> None:
+    """Das Fixture nutzt die erwartete Vertragsversion (eine Wahrheitsquelle)."""
+    sys.path.insert(0, str(ROOT / "src"))
+    from tessera.contract import SCHEMA_VERSION  # noqa: PLC0415
+
+    assert _minimal_process()["schema_version"] == SCHEMA_VERSION
+    rep = Report(Path("synthetic"))
+    validate(_minimal_process(), rep)
+    assert rep.ok, rep.errors  # erwartete Version -> kein Fehler, kein Hinweis
+    assert not any("schema_version" in w for w in rep.warnings), rep.warnings
+
+
+def test_schema_version_mismatch_is_hint_not_error() -> None:
+    """Eine abweichende (aber SemVer-gueltige) schema_version ist ein Hinweis,
+    kein Fehler — eine kanonische Datei darf einer anderen Contract-Generation
+    angehoeren, ohne faelschlich abgelehnt zu werden (Gate-Paritaet)."""
+    proc = _minimal_process()
+    proc["schema_version"] = "0.2.0"
+    rep = Report(Path("synthetic"))
+    validate(proc, rep)
+    assert rep.ok, rep.errors  # KEIN Fehler
+    assert any("schema_version" in w and "0.2.0" in w for w in rep.warnings), rep.warnings
+
+
+def test_schema_version_non_semver_is_error() -> None:
+    """Ein nicht-SemVer schema_version bleibt ein harter Fehler."""
+    proc = _minimal_process()
+    proc["schema_version"] = "v1"
+    rep = Report(Path("synthetic"))
+    validate(proc, rep)
+    assert not rep.ok
+    assert any("kein SemVer" in e for e in rep.errors)
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

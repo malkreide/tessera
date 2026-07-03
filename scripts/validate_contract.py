@@ -54,6 +54,7 @@ from pathlib import Path
 # importieren reine stdlib-Konstanten (kein pydantic/httpx).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from tessera.binding import BINDING_VALUE, label_value_mismatch  # noqa: E402
+from tessera.contract import SCHEMA_VERSION  # noqa: E402
 from tessera.risk import (  # noqa: E402
     HIGH_RISK_DISCLAIMER_KEY,
     HIGH_RISK_RATIONALE,
@@ -552,8 +553,18 @@ def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> 
     for field in sorted(set(data) - allowed):
         rep.error(f"Unbekanntes Feld: {field}")
 
-    if "schema_version" in data and not SEMVER.match(str(data["schema_version"])):
-        rep.error(f"schema_version: kein SemVer ({data['schema_version']!r}).")
+    if "schema_version" in data:
+        sv = str(data["schema_version"])
+        if not SEMVER.match(sv):
+            rep.error(f"schema_version: kein SemVer ({data['schema_version']!r}).")
+        elif sv != SCHEMA_VERSION:
+            # Abweichung ist ein Hinweis, kein Fehler: eine kanonische Datei kann
+            # einer anderen Contract-Generation angehoeren; tessera ist dann ggf.
+            # nachzuziehen (src/tessera/contract.py). Cross-Repo-Grenze — nicht raten.
+            rep.warn(
+                f"schema_version {sv!r} weicht von tessera-Erwartung {SCHEMA_VERSION!r} ab "
+                "— Contract-Bump im Ziel-Repo? tessera/contract.py abgleichen."
+            )
 
     pid = data.get("id")
     if not isinstance(pid, str) or not KEBAB.match(pid):

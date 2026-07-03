@@ -5,28 +5,28 @@ name: change-diff
 # Aendert sich eine Seite INHALTLICH (normalisiert, also nicht nur kosmetisch),
 # ist das ein Hinweis, dass eine Re-Extraktion der Leistung noetig sein koennte.
 #
-# Ergaenzt link-rot.yml: jener Job prueft Link-Rot und Drift der EINZELNEN
-# verifizierten Zitate; dieser hier erkennt JEDE inhaltliche Seitenaenderung —
-# auch eine, die (noch) kein zitiertes Element beruehrt (z.B. ein neuer Schritt).
+# Statt den Job nur rot zu faerben, oeffnet/aktualisiert dieser Workflow EIN
+# rollendes GitHub-Issue (dedupe ueber das Label "source-change") mit der
+# Befundliste — so bleibt die Aenderung sichtbar und nachverfolgbar, ohne die
+# Actions-Historie mit roten Laeufen zu fluten. Schliesst sich das Issue selbst,
+# wenn beim naechsten Lauf nichts mehr offen ist.
 #
-# EXIT-LOGIK (tri-state, siehe docs/v1-pipeline.md): ein toter Link (404/410)
-# laesst den Job immer rot werden; mit --fail-on-change zusaetzlich jede
-# inhaltliche Aenderung (so wird der Maintainer aktiv alarmiert). Ein
-# 403/Policy-Block, Netzfehler oder eine JS-SPA ist ein Umgebungsbefund und wird
-# nur geloggt — sonst sieht eine geschlossene Netz-Policy wie geaenderte Daten aus.
+# Tri-state (siehe docs/v1-pipeline.md): ein toter Link (404/410) oder eine
+# inhaltliche Aenderung ist ein Befund; Block/Netzfehler/SPA sind Umgebung und
+# werden nur geloggt (kein Issue). Ergaenzt link-rot.yml (Zitat-Drift) um die
+# Erkennung JEDER Seitenaenderung (auch noch nicht zitierter, z.B. neuer Schritt).
 #
-# NETZ-POLICY: braucht ausgehendes HTTPS zu den Quelldomains (stadt-zuerich.ch,
-# zh.ch, … — siehe docs/v1-pipeline.md). Ist die Policy zu, faellt alles als
-# 'netzfehler'/'blockiert' an (kein Fehlschlag) und der Lauf ist ein No-op.
-#
-# DATENGRUNDLAGE: nur Leistungen mit committeter Baseline in reports/fingerprints/
-# werden geprueft. Ohne Baseline (neue Leistung) ist der Lauf fuer sie ein No-op,
-# bis jemand `tessera fingerprint --id <leistung>` ausfuehrt und committet.
+# NETZ-POLICY: braucht ausgehendes HTTPS zu den Quelldomains. Ist die Policy zu,
+# faellt alles als 'netzfehler'/'blockiert' an (kein Issue) und der Lauf ist No-op.
 
 on:
   schedule:
     - cron: "0 7 * * 1" # woechentlich, Montag 07:00 UTC (nach link-rot)
   workflow_dispatch: {} # manueller Lauf
+
+permissions:
+  contents: read
+  issues: write # fuer das Anlegen/Aktualisieren/Schliessen des Befund-Issues
 
 jobs:
   change-diff:
@@ -37,11 +37,12 @@ jobs:
         with:
           python-version: "3.11"
       # Schlank: diff braucht httpx + trafilatura (SSR-Fetch wie der Crawl),
-      # pyyaml (sources.yaml) und pydantic (config-Modelle) — NICHT crawl4ai/
+      # pyyaml (sources.yaml) und pydantic (config-Modelle) — kein crawl4ai/
       # playwright (kein Browser; diff nutzt nur den SSR-Pfad) oder pydantic-ai.
       - name: Laufzeit-Deps (schlank)
         run: python -m pip install --quiet httpx trafilatura pyyaml "pydantic>=2"
-      - name: Aenderungs-Diff (nur Leistungen mit Baseline)
+      - name: Aenderungs-Diff (JSON, nur Leistungen mit Baseline)
+        id: diff
         run: |
           shopt -s nullglob
           ids=()
@@ -49,8 +50,93 @@ jobs:
             ids+=( --id "$(basename "$f" .json)" )
           done
           if [ ${#ids[@]} -eq 0 ]; then
-            echo "Keine Baselines in reports/fingerprints/ — nichts zu pruefen (kein Fehler)."
+            echo "Keine Baselines in reports/fingerprints/ — nichts zu pruefen."
+            echo "[]" > diff.json
             exit 0
           fi
           echo "Diffe Leistungen: ${ids[*]}"
-          PYTHONPATH=src python -m tessera.cli diff --fail-on-change "${ids[@]}"
+          # --json -> stdout (maschinenlesbar); menschliche Zeilen -> stderr (Log).
+          # Exit-Code (tot/Aenderung) NICHT den Step scheitern lassen — das Issue
+          # ist der Kanal; der Report wird immer geschrieben.
+          PYTHONPATH=src python -m tessera.cli diff --json "${ids[@]}" > diff.json || true
+          echo "--- diff.json ---"; cat diff.json
+      - name: Befund-Issue oeffnen / aktualisieren / schliessen
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let reports = [];
+            try { reports = JSON.parse(fs.readFileSync('diff.json', 'utf8')); } catch (e) {}
+            const LABEL = 'source-change';
+            const TITLE = 'Quelländerung erkannt — Re-Extraktion prüfen';
+
+            // Befunde: inhaltliche Aenderung oder toter Link (Umgebung ignorieren).
+            const actionable = reports.filter(r => (r.changed && r.changed.length) || (r.dead && r.dead.length));
+
+            // Bestehendes offenes Issue finden (dedupe ueber Label).
+            const existing = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: LABEL, per_page: 50,
+            });
+            const openIssue = existing.find(i => i.title === TITLE);
+
+            if (actionable.length === 0) {
+              if (openIssue) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo, issue_number: openIssue.number,
+                  body: `Automatischer Lauf ${new Date().toISOString()}: keine offenen Quelländerungen mehr — Issue wird geschlossen.`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo, issue_number: openIssue.number,
+                  state: 'closed', state_reason: 'completed',
+                });
+              }
+              core.info('Keine Befunde.');
+              return;
+            }
+
+            // Befund-Text bauen.
+            const lines = [
+              'Der wöchentliche `change-diff`-Lauf hat Änderungen an offiziellen Quellseiten erkannt.',
+              'Das heisst **nicht** automatisch, dass die extrahierten Daten falsch sind — es ist ein',
+              'Hinweis, die betroffene Leistung neu zu extrahieren und den Diff zu prüfen.',
+              '',
+              `Lauf: ${new Date().toISOString()} · [Workflow-Log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+              '',
+            ];
+            for (const r of actionable) {
+              lines.push(`### \`${r.id}\``);
+              for (const u of (r.changed || [])) lines.push(`- ✏️ geändert (Re-Extraktion prüfen): ${u}`);
+              for (const u of (r.dead || [])) lines.push(`- ❌ toter Link: ${u}`);
+              lines.push('');
+            }
+            lines.push('**Nächster Schritt je Leistung:** `tessera run --id <leistung>` erneut ausführen,');
+            lines.push('den Draft-PR gegen `maschinerie-zuerich` prüfen, danach `tessera fingerprint --id <leistung>`');
+            lines.push('committen (aktualisiert die Baseline). Dieses Issue schliesst sich beim nächsten grünen Lauf selbst.');
+            const body = lines.join('\n');
+
+            // Label sicherstellen (idempotent).
+            try {
+              await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: LABEL });
+            } catch (e) {
+              await github.rest.issues.createLabel({
+                owner: context.repo.owner, repo: context.repo.repo, name: LABEL,
+                color: 'fbca04', description: 'Quellseite hat sich geändert — Re-Extraktion prüfen',
+              });
+            }
+
+            if (openIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: openIssue.number, body,
+              });
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: openIssue.number,
+                body: `Aktualisiert durch Lauf ${new Date().toISOString()} (${actionable.length} Leistung(en) betroffen).`,
+              });
+              core.info(`Issue #${openIssue.number} aktualisiert.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title: TITLE, body, labels: [LABEL],
+              });
+              core.info(`Issue #${created.data.number} angelegt.`);
+            }

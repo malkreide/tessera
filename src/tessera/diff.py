@@ -118,6 +118,21 @@ class DiffReport:
         )
 
 
+def report_to_dict(rep: DiffReport) -> dict:
+    """Maschinenlesbare Fassung eines DiffReports (fuer `diff --json` -> Cron/Issue)."""
+    return {
+        "id": rep.proc_id,
+        "no_baseline": rep.no_baseline,
+        "changed": rep.changed,
+        "dead": rep.dead,
+        "env": rep.env,
+        "new": rep.new,
+        "removed": rep.removed,
+        "unchanged": rep.unchanged,
+        "data_problem": rep.data_problem,
+    }
+
+
 def diff_process(proc: ProcessSource, fetch) -> DiffReport:
     """Vergleicht die Live-Seiten gegen die committete Baseline. fetch(url) ->
     (md, state). Ohne Baseline: no_baseline=True (kein Vergleich moeglich)."""

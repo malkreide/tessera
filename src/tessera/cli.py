@@ -204,45 +204,61 @@ def cmd_fingerprint(cfg: SourcesConfig, ids: list[str] | None) -> int:
     return 0
 
 
-def cmd_diff(cfg: SourcesConfig, ids: list[str] | None, fail_on_change: bool = False) -> int:
+def cmd_diff(
+    cfg: SourcesConfig,
+    ids: list[str] | None,
+    fail_on_change: bool = False,
+    as_json: bool = False,
+) -> int:
     """Vergleicht die Live-Quellseiten gegen die committete Fingerprint-Baseline
     und meldet inhaltliche Aenderungen (Re-Extraktion pruefen). Exit 1 bei totem
     Link immer; bei inhaltlicher Aenderung nur mit --fail-on-change. Block/
-    Netzfehler/SPA und neu/entfernt sind Hinweise (nicht-fatal)."""
+    Netzfehler/SPA und neu/entfernt sind Hinweise (nicht-fatal).
+
+    Mit --json wird eine maschinenlesbare Zusammenfassung nach stdout geschrieben
+    (menschliche Zeilen dann nach stderr) — der change-diff-Cron liest das und
+    oeffnet/aktualisiert daraus ein GitHub-Issue."""
     from . import diff as diff_mod  # noqa: PLC0415
 
+    def out(msg: str) -> None:
+        print(msg, file=sys.stderr if as_json else sys.stdout)
+
     rc = 0
+    results: list[dict] = []
     fetch, client = _make_ssr_fetcher(cfg)
     try:
         for proc in _procs(cfg, ids):
             rep = diff_mod.diff_process(proc, fetch)
+            results.append(diff_mod.report_to_dict(rep))
             if rep.no_baseline:
-                print(
+                out(
                     f"  [{proc.id}] keine Baseline (reports/fingerprints/{proc.id}.json) "
                     "— uebersprungen. Erst `tessera fingerprint` ausfuehren + committen."
                 )
                 continue
-            print(
+            out(
                 f"  [{proc.id}] geaendert: {len(rep.changed)}, tot: {len(rep.dead)}, "
                 f"env: {len(rep.env)}, neu: {len(rep.new)}, entfernt: {len(rep.removed)}, "
                 f"unveraendert: {len(rep.unchanged)}"
             )
             for u in rep.changed:
-                print(f"    ✏ geaendert — Re-Extraktion pruefen: {u}")
+                out(f"    ✏ geaendert — Re-Extraktion pruefen: {u}")
             for u in rep.dead:
-                print(f"    ❌ toter Link: {u}")
+                out(f"    ❌ toter Link: {u}")
             for u in rep.new:
-                print(f"    + neu in sources, noch keine Baseline: {u}")
+                out(f"    + neu in sources, noch keine Baseline: {u}")
             for u in rep.removed:
-                print(f"    - in Baseline, nicht mehr in sources: {u}")
+                out(f"    - in Baseline, nicht mehr in sources: {u}")
             for e in rep.env:
-                print(f"    · Umgebungsbefund (nicht-fatal): {e}")
+                out(f"    · Umgebungsbefund (nicht-fatal): {e}")
             if rep.dead:
                 rc = 1  # toter Link ist immer ein Datenproblem
             if fail_on_change and rep.changed:
                 rc = 1
     finally:
         client.close()
+    if as_json:
+        print(json.dumps(results, indent=2, ensure_ascii=False))
     return rc
 
 
@@ -292,6 +308,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="nur fuer `verify`: Live-Erreichbarkeit + Beleg-Drift pruefen")
     parser.add_argument("--fail-on-change", action="store_true",
                         help="nur fuer `diff`: Exit 1 auch bei inhaltlicher Seitenaenderung")
+    parser.add_argument("--json", action="store_true", dest="as_json",
+                        help="nur fuer `diff`: maschinenlesbare Zusammenfassung nach stdout")
     args = parser.parse_args(argv)
 
     cfg = load_sources()
@@ -307,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "fingerprint":
         return cmd_fingerprint(cfg, args.ids)
     if args.command == "diff":
-        return cmd_diff(cfg, args.ids, fail_on_change=args.fail_on_change)
+        return cmd_diff(cfg, args.ids, fail_on_change=args.fail_on_change, as_json=args.as_json)
     return COMMANDS[args.command](cfg, args.ids)
 
 
