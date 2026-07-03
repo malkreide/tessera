@@ -5,10 +5,17 @@ und tragen das **hoechste Reputationsrisiko** (eine falsche Frist/Gebuehr, auf d
 sich jemand verlaesst, ist realer Schaden): Baubewilligung (`baugesuch`),
 Sozialhilfe (`sozialhilfe`) und Veranstaltungsbewilligung (`veranstaltung`).
 
-Als menschlich reviewte v0-Daten sind sie legitim. tessera schliesst sie in v1
-aber bewusst von der **automatischen** Extraktion aus (`sources.yaml`). Diese
-Registry ist die EINE Wahrheitsquelle dafuer, welche Leistungen als hochriskant
-gelten — sie wird vom Vertrags-Validator und vom PR-Writer konsumiert.
+Als menschlich reviewte v0-Daten sind sie legitim. Diese Registry ist die EINE
+Wahrheitsquelle dafuer, welche Leistungen als hochriskant gelten — sie wird vom
+Vertrags-Validator und vom PR-Writer konsumiert.
+
+**Politik-Stand (v2, bewusste Ausnahme):** `veranstaltung` ist als EINZIGER der
+drei Faelle in `sources.yaml` fuer die automatische Extraktion freigeschaltet —
+mit maximalem Gate (erhoehter Review unten) und ausschliesslich als **Draft-PR**,
+den nur ein Mensch mergt. `baugesuch` und `sozialhilfe` bleiben bewusst
+ausgeschlossen (existenzielles bzw. streitanfaelligstes Risiko). Freigeschaltet
+oder nicht: alle drei bleiben in `HIGH_RISK_IDS`, damit der erhoehte Gate greift,
+wo immer sie durch die Pipeline laufen.
 
 Politik fuer hochriskante Faelle (wo immer sie durch die Pipeline laufen, z.B.
 beim Merge gegen eine bestehende Datei oder bei der Validierung):
@@ -25,14 +32,15 @@ Reine stdlib, keine Dependencies — vom dependency-freien Validator importierba
 """
 from __future__ import annotations
 
-# Die drei reputationskritischen, in v1 von der Automatik AUSGESCHLOSSENEN Faelle.
-# Identisch zur Ausschlussliste am Ende von sources.yaml.
+# Die drei reputationskritischen Faelle. Alle bleiben hier registriert (der
+# erhoehte Gate greift immer); die Automatik-Freischaltung steuert sources.yaml.
 HIGH_RISK_IDS: frozenset[str] = frozenset({"baugesuch", "sozialhilfe", "veranstaltung"})
 
-# Empfohlener i18n-Key fuer den sichtbaren Hochrisiko-Hinweis. Gerendert wird er
-# von der Maschinerie; kanonisch ist der Key-Satz im Ziel-Repo. Dies ist eine
-# Empfehlung, KEIN unilateral erzwungener Vertragswert (Cross-Repo-Grenze).
-HIGH_RISK_DISCLAIMER_KEY = "process.disclaimer.high_risk_legal"
+# i18n-Key fuer den sichtbaren Hochrisiko-Hinweis. Kanonisch ist der Key-Satz im
+# Ziel-Repo maschinerie-zuerich; die handmodellierte veranstaltung.json traegt
+# dort `Prozesse.disclaimerHochrisiko` — dagegen ist dies abgeglichen (nicht
+# unilateral erfunden, vgl. Kardinalregel/Cross-Repo-Grenze).
+HIGH_RISK_DISCLAIMER_KEY = "Prozesse.disclaimerHochrisiko"
 
 # Menschlich lesbare Begruendung je Fall — fuer Reviewer-Hinweise und Doku.
 HIGH_RISK_RATIONALE: dict[str, str] = {

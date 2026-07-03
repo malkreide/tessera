@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Enabled the first high-risk case for automated extraction as a **deliberate
+  exception**: `veranstaltung` (event permit on public ground) is now curated into
+  `sources.yaml` (three stadt-zuerich.ch pages, HTTP 200 verified 2026-07-03; first
+  URL = canonical `source_url`). Maximal gate: output only as a **draft PR**, merged
+  by a human alone. `baugesuch` and `sozialhilfe` stay excluded. All three remain in
+  `HIGH_RISK_IDS` (`src/tessera/risk.py`) — enablement is controlled solely by
+  `sources.yaml`, so the heightened validator gate (ungrounded binding reference =
+  error) fires regardless. `schema.to_contract` now emits the high-risk disclaimer
+  key for high-risk ids; `HIGH_RISK_DISCLAIMER_KEY` is aligned to the canonical
+  `Prozesse.disclaimerHochrisiko` carried by the hand-modelled target file. The
+  fingerprint baseline for `veranstaltung` is seeded on the first `tessera run`
+  (SSR-markdown, not reproducible offline); until then `tessera diff` reports
+  `no_baseline` and skips it. Policy docs updated (`risk.py`, `CLAUDE.md`,
+  `README*.md`, `docs/v1-pipeline.md`).
 - v2 change-diff now files a GitHub issue instead of just going red: the weekly
   `change-diff.yml` runs `tessera diff --json` and an `actions/github-script` step
   opens/updates **one rolling issue** (label `source-change`) listing the changed

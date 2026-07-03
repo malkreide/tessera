@@ -261,6 +261,53 @@ def test_to_contract_matches_fixture() -> None:
     assert step_quotes == FIXED_STEP_QUOTES, step_quotes
 
 
+def test_to_contract_emits_high_risk_disclaimer() -> None:
+    """Fuer eine Hochrisiko-id (z.B. `veranstaltung`) setzt `to_contract` den
+    sichtbaren Hochrisiko-Disclaimer-Key, nicht den regulaeren — sonst warnt der
+    Validator und der Draft-PR meldet einen fehlenden Hochrisiko-Hinweis. Der
+    Wert ist auf die kanonische Zieldatei abgeglichen. Ohne pydantic uebersprungen."""
+    if not HAVE_PYDANTIC:
+        raise _Skip("pydantic nicht installiert (CI ohne Runtime-Deps)")
+
+    from tessera.risk import (  # noqa: PLC0415
+        HIGH_RISK_DISCLAIMER_KEY,
+        is_high_risk_disclaimer,
+    )
+
+    x = XProcess(
+        title=XText(de="Veranstaltung auf oeffentlichem Grund"),
+        steps=[
+            XStep(
+                step_id=1,
+                actor="veranstalter",
+                label=XText(de="Gesuch einreichen"),
+                depends_on=[],
+                source_quote="Gesuch einreichen",
+            ),
+        ],
+        references=[],
+    )
+    process, _sq, _dq = to_contract(
+        x,
+        proc_id="veranstaltung",
+        target_audience="bevoelkerung",
+        source_url="https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen.html",
+        retrieved_at=RETRIEVED_AT,
+    )
+    assert process["disclaimer_key"] == HIGH_RISK_DISCLAIMER_KEY, process["disclaimer_key"]
+    assert is_high_risk_disclaimer(process["disclaimer_key"])
+
+    # Gegenprobe: eine risikoarme id behaelt den regulaeren Disclaimer-Key.
+    low, _sq2, _dq2 = to_contract(
+        x,
+        proc_id="hund-anmelden",
+        target_audience="bevoelkerung",
+        source_url="https://www.stadt-zuerich.ch/x.html",
+        retrieved_at=RETRIEVED_AT,
+    )
+    assert low["disclaimer_key"] == "Prozesse.disclaimer", low["disclaimer_key"]
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

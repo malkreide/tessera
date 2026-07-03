@@ -179,12 +179,17 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   `check:regression`, `check:links` gruen.
 - **Regel:** tessera merged **nie** und pusht **nie** nach `main` (hier wie im Ziel-Repo).
 
-### Hochrisiko (erhoehter Review, falls beruehrt)
-`baugesuch`, `sozialhilfe`, `veranstaltung` (Registry `src/tessera/risk.py`) sind
-von der **automatischen** Extraktion ausgeschlossen. Beruehrt einer dieser Faelle
-die Pipeline (z.B. Merge gegen eine bestehende Datei): jede bindende Reference
-muss `verifiziert` **und** woertlich belegt sein (sonst Validator-**Fehler**),
-plus sichtbarer Hochrisiko-Disclaimer und verschaerfte PR-Checkliste.
+### Hochrisiko (erhoehter Review)
+`baugesuch`, `sozialhilfe`, `veranstaltung` (Registry `src/tessera/risk.py`)
+tragen das hoechste Reputationsrisiko. Ab v2 ist als **bewusste Ausnahme** genau
+EIN Fall — `veranstaltung` — in `sources.yaml` fuer die automatische Extraktion
+freigeschaltet, mit maximalem Gate: nur als **Draft-PR**, Merge ausschliesslich
+durch einen Menschen. `baugesuch` und `sozialhilfe` bleiben ausgeschlossen.
+Unabhaengig von der Freischaltung greift fuer alle drei der erhoehte Gate, wo
+immer sie die Pipeline beruehren: jede bindende Reference muss `verifiziert`
+**und** woertlich belegt sein (sonst Validator-**Fehler**), plus sichtbarer
+Hochrisiko-Disclaimer (`Prozesse.disclaimerHochrisiko`) und verschaerfte
+PR-Checkliste.
 
 ---
 
@@ -203,7 +208,9 @@ plus sichtbarer Hochrisiko-Disclaimer und verschaerfte PR-Checkliste.
   Quellen bevorzugt) ergaenzen; Kandidaten-URLs vorab auf HTTP 200 pruefen
   (tri-state, Subagent-Fan-out moeglich); je Leistung Phase B.
 - **Akzeptanz:** wie B (Validator Exit 0, `verify` sauber, Ziel-CI gruen).
-  **Hochrisiko-IDs bleiben ausgeschlossen** (`risk.py`).
+  **`baugesuch` und `sozialhilfe` bleiben ausgeschlossen** (`risk.py`);
+  `veranstaltung` ist die einzige freigeschaltete Hochrisiko-Ausnahme (Draft-PR,
+  Merge nur durch Menschen).
 - **Vorgehen:** Auswahl begruenden, mit dem Crawl auf Maintainer-Freigabe warten.
 
 ## Phase D — v2-Ausblick (nur bei Bedarf, nach Rueckfrage)

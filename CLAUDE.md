@@ -41,11 +41,16 @@ weggedesignt, nicht wegtechnisiert.
 «v1 ist risikoarm» gilt für Tesseras **automatischen** Output. Die schwersten
 Rechtsfälle – `baugesuch` (Baubewilligung), `sozialhilfe`, `veranstaltung` – existieren
 bereits als **von Hand modellierte, menschlich reviewte** v0-Prozesse in der
-Maschinerie. Legitim, aber höchstes Reputationsrisiko. Tessera schliesst sie in v1
-bewusst von der Extraktion aus (`sources.yaml`). Die Registry ist zentral in
-`src/tessera/risk.py` (`HIGH_RISK_IDS`); berührt einer dieser Fälle die Pipeline, gilt
-erhöhter Review: jede bindende Reference muss wörtlich belegt sein (sonst Validator-
-**Fehler**, nicht Hinweis), und ein sichtbarer Hochrisiko-Disclaimer wird erwartet.
+Maschinerie. Legitim, aber höchstes Reputationsrisiko. Ab v2 ist als **bewusste
+Ausnahme** genau EINER dieser Fälle – `veranstaltung` – für die automatische
+Extraktion freigeschaltet (`sources.yaml`), mit maximalem Gate: Ausgabe nur als
+Draft-PR, Merge ausschliesslich durch einen Menschen. `baugesuch` und `sozialhilfe`
+bleiben bewusst ausgeschlossen. Die Registry ist zentral in `src/tessera/risk.py`
+(`HIGH_RISK_IDS`) und führt weiterhin alle drei – die Freischaltung steuert allein
+`sources.yaml`, damit der erhöhte Review für jeden der drei greift, sobald er die
+Pipeline berührt: jede bindende Reference muss wörtlich belegt sein (sonst Validator-
+**Fehler**, nicht Hinweis), und ein sichtbarer Hochrisiko-Disclaimer
+(`Prozesse.disclaimerHochrisiko`) wird erwartet.
 
 ## Der Datenvertrag
 
