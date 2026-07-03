@@ -2,8 +2,10 @@
 # Es gibt KEINEN Discovery-Agenten; neue Leistungen werden hier manuell ergaenzt.
 #
 # v1 startet bewusst mit rechtlich risikoarmen Leistungen (hund-anmelden,
-# umzug-melden). Schwere Faelle (Baubewilligung, Betreibung, Sozialhilfe)
-# kommen fruehestens in v3 mit erhoehtem Review.
+# umzug-melden). Ab v2 ist als bewusste Ausnahme EIN Hochrisiko-Fall
+# (veranstaltung) mit maximalem Gate freigeschaltet — erhoehter Review, nur als
+# Draft-PR, Merge ausschliesslich durch einen Menschen. baugesuch und sozialhilfe
+# bleiben ausgeschlossen (existenzielles bzw. streitanfaelligstes Risiko).
 #
 # Felder:
 #   id                kebab-case, identisch zur lebenslage_ref in der Maschinerie
@@ -112,5 +114,34 @@ processes:
       Hochrisiko-Fall im Sinne der Registry (anders als sozialhilfe), aber beim
       Review besonders auf die Kardinalregel und Belegbarkeit achten.
 
-# NICHT in v1: baugesuch (Baubewilligung), sozialhilfe, veranstaltung (Hochrisiko).
-# Damit ist das risikoarme v1-Set ausgeschoepft; weitere Leistungen nach Rueckfrage.
+  - id: veranstaltung
+    service_name: "Veranstaltung auf oeffentlichem Grund (Bewilligung)"
+    target_audience: bevoelkerung
+    official_urls:
+      # Am 2026-07-03 manuell auf HTTP 200 geprueft. HOCHRISIKO-Fall (Registry
+      # src/tessera/risk.py). Erste URL = source_url; sie stimmt mit der
+      # source_url der handmodellierten Zieldatei (veranstaltungen.html) ueberein.
+      # Akteure in der Zieldatei: veranstalter, stapo-bew, fachstellen, statthalter.
+      - "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen.html"
+      - "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/fest-sportveranstaltung-quartierfest.html"
+      - "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/infrastruktur-sicherheit.html"
+    catalog_keywords: ["veranstaltung", "bewilligung", "anlass", "fest"]
+    notes: >-
+      HOCHRISIKO — bewusst als einzige Ausnahme freigeschaltet (Draft-PR, Merge
+      nur durch Menschen). Erhoehter Gate greift automatisch (risk.py): JEDE
+      bindende Reference (Vorlauffrist, Gebuehr, Auflagen, Rekursfrist) muss
+      `verifiziert` UND woertlich belegt sein — eine ungrounded bindende
+      Reference ist hier ein Validator-FEHLER, kein Hinweis. Die Vorlauffrist
+      «spaetestens vier Wochen vor dem Veranstaltungsbeginn» ist auf der
+      fest-sportveranstaltung-quartierfest-Seite belegbar und darf NUR als
+      Reference (Label ohne Zahl + Deep-Link + Zitat) erscheinen, nie als Wert im
+      Schritt-Label. Bestehende handmodellierte Zieldatei traegt actors[]
+      (veranstalter, stapo-bew, fachstellen, statthalter) und
+      `disclaimer_key: Prozesse.disclaimerHochrisiko` -> Actor-Abgleich greift,
+      der Hochrisiko-Disclaimer wird erwartet. Unbekannte Rollen werden im PR
+      geflaggt, nicht geraten.
+
+# NICHT freigeschaltet: baugesuch (Baubewilligung), sozialhilfe — beide bleiben
+# bewusst von der Automatik ausgeschlossen (hoechstes bzw. existenzielles Risiko).
+# veranstaltung ist als einzige Hochrisiko-Ausnahme aktiv (siehe oben). Weitere
+# Leistungen nur nach Rueckfrage.

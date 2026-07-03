@@ -1,6 +1,8 @@
 # Scraping-Compliance (robots.txt & Nutzungsbedingungen)
 
-Stand: 2026-06-29 — erzeugt durch `tessera preflight`.
+Stand: 2026-06-29 — erzeugt durch `tessera preflight`; `veranstaltung`-Zeilen
+manuell ergaenzt und am 2026-07-03 gegen `robots.txt` geprueft (erlaubt: keine
+Disallow-Regel trifft den Pfad `/de/stadtleben/veranstaltungen-und-bewilligungen/`).
 
 ## Respekt-Regeln (fix)
 
@@ -39,6 +41,9 @@ Stand: 2026-06-29 — erzeugt durch `tessera preflight`.
 | `kita-platz` | https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/betreuungskosten-und-subventionen.html | erlaubt |
 | `kita-platz` | https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/kitaplatz-finden.html | erlaubt |
 | `kita-platz` | https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/faq.html | erlaubt |
+| `veranstaltung` | https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen.html | erlaubt |
+| `veranstaltung` | https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/fest-sportveranstaltung-quartierfest.html | erlaubt |
+| `veranstaltung` | https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/infrastruktur-sicherheit.html | erlaubt |
 
 Verdikt-Logik: Eine Leistung wird nur gecrawlt, wenn ALLE ihre URLs
 fuer unseren User-Agent erlaubt sind. Bei Disallow: Leistung gesperrt,

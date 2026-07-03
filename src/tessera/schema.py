@@ -19,6 +19,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from .contract import SCHEMA_VERSION
+from .risk import HIGH_RISK_DISCLAIMER_KEY, is_high_risk
 
 # Additive kanonische Step-Typen (maschinerie-zuerich, vom Vertrags-Validator
 # geprueft). Strukturelle Klassifikation eines ohnehin belegten Schritts —
@@ -184,7 +185,9 @@ def to_contract(
         "steps": steps,
         "source_url": source_url,
         "retrieved_at": retrieved_at,
-        "disclaimer_key": "Prozesse.disclaimer",
+        # Hochrisiko-Faelle tragen den sichtbaren Hochrisiko-Disclaimer (kanonisch
+        # `Prozesse.disclaimerHochrisiko`); sonst der reguläre Prozess-Disclaimer.
+        "disclaimer_key": HIGH_RISK_DISCLAIMER_KEY if is_high_risk(proc_id) else "Prozesse.disclaimer",
     }
     if x.preconditions:
         process["preconditions"] = [_i18n(p, with_empty=False) for p in x.preconditions]

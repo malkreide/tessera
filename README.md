@@ -64,19 +64,25 @@ v0 already ships some of the heaviest legal cases — building permits (`baugesu
 social assistance (`sozialhilfe`), event permits (`veranstaltung`) — as **hand-authored,
 human-reviewed** processes. That is legitimate (a human modelled and checked them), but
 they carry the highest reputation risk: a wrong deadline or fee that someone relies on
-is real harm. The two statements are consistent precisely *because* those cases are
-human-curated v0 content, while Tessera's pipeline deliberately **excludes** them from
-v1 extraction (see `sources.yaml`).
+is real harm.
 
-Where such a case touches the pipeline anyway (e.g. a merge against an existing file),
+As of v2, exactly ONE high-risk case — `veranstaltung` — is deliberately enabled for
+automated extraction, under the maximal gate: output only as a **draft PR**, merged by
+a human alone. `baugesuch` and `sozialhilfe` stay excluded (existential and most
+litigious risk respectively; see `sources.yaml`). The registry `src/tessera/risk.py`
+still lists all three — enablement is controlled solely by `sources.yaml`, so the
+heightened gate fires for any of the three wherever it touches the pipeline.
+
+For a high-risk case in the pipeline (enabled, or via a merge against an existing file),
 heightened review applies — defined once in `src/tessera/risk.py` and enforced by the
 contract validator:
 
 - **Every binding reference must be verbatim-grounded.** For a high-risk process an
   `unverifiziert` / ungrounded reference is a hard **error**, not a warning — a
   reputation-critical process may carry no unbacked deadline/fee label.
-- **A visible high-risk disclaimer is expected** (`disclaimer_key`), and the draft PR
-  carries a prominent high-risk reviewer checklist.
+- **A visible high-risk disclaimer is expected** (`disclaimer_key`, canonically
+  `Prozesse.disclaimerHochrisiko`), and the draft PR carries a prominent high-risk
+  reviewer checklist.
 
 ## Prerequisites
 

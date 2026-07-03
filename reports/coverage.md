@@ -1,7 +1,9 @@
 # Abdeckung der kuratierten Leistungen in den Katalogen
 
 Stand: 2026-06-29 — erzeugt durch `tessera preflight` (Katalog wird
-konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).
+konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`). `veranstaltung`
+manuell ergaenzt (2026-07-03); die konkreten Katalog-Treffer fuellt der naechste
+`tessera preflight`-Lauf (offline hier nicht reproduzierbar).
 
 - I14Y Public API (Behoerdenleistungen): 134 Eintraege
 - eCH-0070-Leistungsinventar (V4.2.0, XLSX): 571 Eintraege
@@ -13,6 +15,7 @@ konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).
 | `fundsache` (Fundsache / Fundbüro (etwas verloren oder gefunden)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Fundsachen; Fundsachen |
 | `parkplatz` (Anwohnerparkkarte (Parkbewilligung in der blauen Zone)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Parkkarten für Anwohner/innen |
 | `kita-platz` (Kita-Platz / Betreuungsgutschein (subventionierte Kinderbetreuung)) | —  (kommunale Leistung, kein Bundes-Eintrag) | Voranmeldung eines Kindes bei einer Einrichtung für die schu; Beitragsgesuch für schulergänzende Betreuung |
+| `veranstaltung` (Veranstaltung auf oeffentlichem Grund (Bewilligung)) | _ausstehend — naechster `tessera preflight`_ | _ausstehend — naechster `tessera preflight`_ |
 
 Hinweis: Beide Kataloge sind auf Bundes-/Kantonsebene gepflegt; rein
 kommunale Leistungen der Stadt Zuerich koennen ohne Treffer bleiben.
