@@ -181,6 +181,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture (`docs/v1-pipeline.md`).
 
 ### Changed
+- Field-wise merge hardened with a **label guard** for LLM-assigned keys
+  (`src/tessera/merge.py`): `step_id`/`reference_id` are assigned by the LLM
+  and are NOT stable business keys against an independently maintained target
+  file — the same numeric id can denote a semantically different step. Before
+  pairing two entries of the same id, their `label.de` are compared
+  (`_label_similarity`: max of difflib character ratio and token overlap
+  relative to the shorter label, umlaut-transliterated; threshold
+  `LABEL_SIMILARITY_MIN = 0.5`). Below the threshold the pair is **not
+  merged**: the existing entry stays untouched, the extraction's version is
+  discarded, and the pair is flagged in `MergeReport.suspect_pairs` (rendered
+  as its own «Offen» block in the PR body) — never fill gaps in the wrong
+  step. A longer wording of the same step («Hund anmelden» vs. «Hund online
+  oder am Schalter anmelden») and umlaut vs. ae/oe/ue spellings are not
+  suspicious. `actors[]` keep semantic ids and need no guard.
+- Merge **provenance exception**: `retrieved_at` (process level and per
+  cleanly paired reference) now always takes the extraction's fresh crawl
+  date instead of being «protected» as an existing non-blank value — an old
+  retrieval date is wrong provenance for re-extracted content. Refreshes are
+  recorded in `MergeReport.refreshed` and listed in the PR merge warning; if
+  the extraction carries no `retrieved_at`, the existing one stays. Covered
+  by six new cases in `tests/test_merge.py`.
 - Grounding gate hardened with **per-URL grounding** for references
   (`src/tessera/grounding.py`, wired in `cli.cmd_extract` via a third
   `crawl.load_corpus` return value): when `corpus_by_url` is passed, a

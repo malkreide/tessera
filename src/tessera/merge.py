@@ -17,6 +17,21 @@ Dieses Modul merged stattdessen FELDWEISE und VERLUSTFREI:
 * Konfliktregel pro Feld: bestehender nicht-leerer Wert gewinnt; die Extraktion
   fuellt nur Luecken (leer/None/fehlend).
 
+Zwei Schaerfen gegen stille Fehl-Merges:
+
+* **Label-Guard (steps/references):** step_id/reference_id sind LLM-vergeben —
+  KEINE stabilen fachlichen Schluessel gegenueber einer unabhaengig gepflegten
+  Datei. Tragen bestehender Eintrag und Extraktion unter derselben ID
+  semantisch fremde Labels (Aehnlichkeit unter LABEL_SIMILARITY_MIN), wird das
+  Paar NICHT gemerged: der bestehende Eintrag bleibt unangetastet, die
+  Extraktions-Fassung wird verworfen und als `suspect_pairs` geflaggt —
+  manueller Abgleich statt Luecken-Fuellen im falschen Schritt. actors[] sind
+  semantische ids (kein LLM-Zaehler) und brauchen den Guard nicht.
+* **Provenienz-Ausnahme:** `retrieved_at` (Prozess und je gepairte Reference)
+  gewinnt IMMER aus der Extraktion — das frische Crawl-Datum ist die korrekte
+  Provenienz; ein altes Datum zu «schuetzen» waere falsch (`refreshed` im
+  Report).
+
 Laesst sich ein Fall nicht sauber mergen (kaputtes JSON, id-Mismatch, doppelte
 fachliche Schluessel), wird `MergeConflict` geworfen — der Aufrufer ueberspringt
 die Datei dann lieber, als sie zu verarmen.
@@ -26,6 +41,7 @@ laufen — wie `tests/test_grounding.py`.
 """
 from __future__ import annotations
 
+import difflib
 import re
 from dataclasses import dataclass, field
 
@@ -63,10 +79,54 @@ class MergeReport:
     # nicht geraten. Der Reviewer ergaenzt den fehlenden actors[]-Eintrag
     # (inkl. type) von Hand. Solange offen: kanonische CI wuerde scheitern.
     unmapped_actors: list[str] = field(default_factory=list)
+    # Provenienz-Felder (retrieved_at), bei denen das frische Crawl-Datum der
+    # Extraktion den bestehenden (aelteren) Wert ersetzt hat.
+    refreshed: list[str] = field(default_factory=list)
+    # ID-Paare (steps/references), deren Labels semantisch fremd sind — NICHT
+    # gemerged (bestehend blieb, Extraktion verworfen); manueller Abgleich.
+    suspect_pairs: list[str] = field(default_factory=list)
 
     @property
     def touched_existing(self) -> bool:
-        return bool(self.preserved or self.added or self.remapped_actors)
+        return bool(self.preserved or self.added or self.remapped_actors or self.refreshed)
+
+
+# Unter dieser Label-Aehnlichkeit gilt ein ID-Paar (steps/references) als
+# verdaechtig und wird nicht gemerged, sondern geflaggt (suspect_pairs).
+LABEL_SIMILARITY_MIN = 0.5
+
+
+def _norm_label(value: object) -> str:
+    """Vergleichs-Normalform fuer Labels: lowercase, Umlaut-Transliteration,
+    alles Nicht-Alphanumerische zu Leerzeichen (kein inhaltlicher Eingriff)."""
+    if not isinstance(value, str):
+        return ""
+    s = value.lower().translate(_UMLAUT_MAP)
+    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+
+
+def _label_similarity(a: str, b: str) -> float:
+    """Aehnlichkeit zweier Labels in [0, 1].
+
+    Maximum aus Zeichen-Aehnlichkeit (difflib) und Token-Ueberdeckung relativ
+    zum kuerzeren Label — Letzteres, damit «Hund anmelden» vs. «Hund online
+    oder am Schalter anmelden» (gleicher Schritt, laenger formuliert) nicht
+    faelschlich verdaechtig wird. Leere Labels sind nicht beurteilbar -> 1.0
+    (kein Verdacht; das Gate soll nur klar Fremdes stoppen).
+    """
+    na, nb = _norm_label(a), _norm_label(b)
+    if not na or not nb:
+        return 1.0
+    seq = difflib.SequenceMatcher(None, na, nb).ratio()
+    ta, tb = set(na.split()), set(nb.split())
+    tok = len(ta & tb) / min(len(ta), len(tb))
+    return max(seq, tok)
+
+
+def _item_label_de(item: dict) -> str:
+    label = item.get("label") if isinstance(item, dict) else None
+    de = label.get("de") if isinstance(label, dict) else None
+    return de if isinstance(de, str) else ""
 
 
 def _is_blank(value: object) -> bool:
@@ -117,10 +177,21 @@ def merge_i18n(existing: dict, incoming: dict, *, path: str, report: MergeReport
 
 
 def _merge_i18n_fields(
-    existing: dict, incoming: dict, fields: tuple[str, ...], *, path: str, report: MergeReport
+    existing: dict,
+    incoming: dict,
+    fields: tuple[str, ...],
+    *,
+    path: str,
+    report: MergeReport,
+    always_update: tuple[str, ...] = (),
 ) -> dict:
     """Basis = bestehendes Objekt; i18n-Felder feldweise mergen, restliche
-    Felder nur ergaenzen (Luecke fuellen, bestehend gewinnt)."""
+    Felder nur ergaenzen (Luecke fuellen, bestehend gewinnt).
+
+    `always_update`: Felder, bei denen ein nicht-leerer Extraktionswert den
+    bestehenden ERSETZT (Provenienz-Ausnahme, z.B. retrieved_at — das frische
+    Crawl-Datum ist die korrekte Provenienz; protokolliert als `refreshed`).
+    """
     out = dict(existing)
 
     for f in fields:
@@ -136,7 +207,13 @@ def _merge_i18n_fields(
     for key, in_val in incoming.items():
         if key in fields:
             continue
-        if key not in out or _is_blank(out.get(key)):
+        if key in always_update and not _is_blank(in_val):
+            if key not in existing:
+                report.added.append(f"{path}.{key}")
+            elif not _is_blank(existing.get(key)) and existing.get(key) != in_val:
+                report.refreshed.append(f"{path}.{key}")
+            out[key] = in_val
+        elif key not in out or _is_blank(out.get(key)):
             out[key] = in_val
             if key not in existing:
                 report.added.append(f"{path}.{key}")
@@ -165,11 +242,19 @@ def _merge_keyed_list(
     i18n_fields: tuple[str, ...],
     name: str,
     report: MergeReport,
+    label_guard: bool = False,
+    always_update: tuple[str, ...] = (),
 ) -> list:
     """Listen ueber fachlichen Schluessel mergen (stabil, index-unabhaengig).
 
     Reihenfolge der bestehenden Liste bleibt erhalten; neue Eintraege der
     Extraktion werden hinten angehaengt. Eintraege, die nur bestehen, bleiben.
+
+    `label_guard`: fuer LLM-vergebene numerische Schluessel (step_id,
+    reference_id). Sind die label.de eines ID-Paars semantisch fremd
+    (Aehnlichkeit < LABEL_SIMILARITY_MIN), wird NICHT gemerged: bestehender
+    Eintrag bleibt unangetastet, die Extraktions-Fassung wird verworfen und
+    als suspect_pair geflaggt (nie Luecken im falschen Eintrag fuellen).
     """
     existing_by_key = _index_by(existing_list, key, what=name)
     incoming_by_key = _index_by(incoming_list, key, what=f"{name} (Extraktion)")
@@ -178,9 +263,25 @@ def _merge_keyed_list(
     for item in existing_list:
         k = item[key]
         if k in incoming_by_key:
+            if label_guard:
+                ex_label, in_label = _item_label_de(item), _item_label_de(incoming_by_key[k])
+                sim = _label_similarity(ex_label, in_label)
+                if sim < LABEL_SIMILARITY_MIN:
+                    out.append(item)  # unangetastet; Extraktions-Fassung verworfen
+                    report.suspect_pairs.append(
+                        f"{name}[{k}]: bestehend «{ex_label}» vs. Extraktion "
+                        f"«{in_label}» (Aehnlichkeit {sim:.2f}) — NICHT gemerged, "
+                        "manuell abgleichen"
+                    )
+                    continue
             out.append(
                 _merge_i18n_fields(
-                    item, incoming_by_key[k], i18n_fields, path=f"{name}[{k}]", report=report
+                    item,
+                    incoming_by_key[k],
+                    i18n_fields,
+                    path=f"{name}[{k}]",
+                    report=report,
+                    always_update=always_update,
                 )
             )
         else:
@@ -302,11 +403,16 @@ def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
     report = MergeReport()
     out = dict(existing)  # Basis: alle handgepflegten (auch additiven) Felder bleiben.
 
-    # Top-Level i18n/Freitext (title, description) feldweise mergen.
-    out = _merge_i18n_fields(out, incoming, PROCESS_I18N_FIELDS, path="", report=report)
+    # Top-Level i18n/Freitext (title, description) feldweise mergen; retrieved_at
+    # ist Provenienz und gewinnt immer aus der Extraktion (frisches Crawl-Datum).
+    out = _merge_i18n_fields(
+        out, incoming, PROCESS_I18N_FIELDS, path="", report=report,
+        always_update=("retrieved_at",),
+    )
     # path="" erzeugt fuehrende Punkte -> aufraeumen.
     report.preserved = [p.lstrip(".") for p in report.preserved]
     report.added = [a.lstrip(".") for a in report.added]
+    report.refreshed = [r.lstrip(".") for r in report.refreshed]
 
     if "preconditions" in incoming or "preconditions" in existing:
         out["preconditions"] = _merge_preconditions(
@@ -321,6 +427,8 @@ def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
             i18n_fields=STEP_I18N_FIELDS,
             name="steps",
             report=report,
+            # step_id ist LLM-vergeben, kein stabiler fachlicher Schluessel.
+            label_guard=True,
         )
 
     if "references" in incoming or "references" in existing:
@@ -331,6 +439,9 @@ def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
             i18n_fields=REFERENCE_I18N_FIELDS,
             name="references",
             report=report,
+            label_guard=True,
+            # Provenienz je Reference: frisches Crawl-Datum gewinnt.
+            always_update=("retrieved_at",),
         )
 
     if "actors" in incoming or "actors" in existing:

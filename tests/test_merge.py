@@ -390,6 +390,86 @@ def test_e_ambiguous_normform_not_mapped() -> None:
     assert any("steps[1].actor" in u for u in report.unmapped_actors)
 
 
+def test_f_suspect_step_pair_not_merged() -> None:
+    """(f) Gleiche step_id, semantisch fremdes Label -> NICHT mergen: der
+    bestehende Schritt bleibt unangetastet, die Extraktions-Fassung wird
+    verworfen und als suspect_pair geflaggt (IDs sind LLM-vergeben, keine
+    stabilen fachlichen Schluessel)."""
+    existing = _existing()
+    extraction = _extraction()
+    for s in extraction["steps"]:
+        if s["step_id"] == 2:
+            s["label"]["de"] = "Hund entwurmen lassen"  # voellig anderer Schritt
+            s["type"] = "prozess"  # wuerde sonst als Luecke gefuellt
+    merged, report = merge_process(existing, extraction)
+    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
+    assert s2["label"]["de"] == "Registrierung pruefen"
+    assert "type" not in s2, s2  # nichts aus der fremden Fassung uebernommen
+    assert any("steps[2]" in p and "Hund entwurmen" in p for p in report.suspect_pairs), (
+        report.suspect_pairs
+    )
+    # Es gibt weiterhin genau EINEN Schritt 2 (keine Duplikat-ID angehaengt).
+    assert [s["step_id"] for s in merged["steps"]].count(2) == 1
+
+
+def test_f_similar_labels_still_merge() -> None:
+    """(f) Laengere Formulierung desselben Schritts ist KEIN Verdachtsfall
+    («Hund anmelden» vs. «Hund online oder am Schalter anmelden»)."""
+    merged, report = merge_process(_existing(), _extraction())
+    assert not report.suspect_pairs, report.suspect_pairs
+    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
+    assert s1["label"]["de"] == "Hund anmelden"  # bestehend gewinnt wie bisher
+
+
+def test_f_umlaut_spelling_is_not_suspect() -> None:
+    """(f) Umlaut- vs. ae/oe/ue-Schreibweise desselben Labels ist kein Verdacht."""
+    existing = _existing()
+    extraction = _extraction()
+    for s in extraction["steps"]:
+        if s["step_id"] == 2:
+            s["label"]["de"] = "Registrierung prüfen"  # Umlaut statt 'ue'
+    _, report = merge_process(existing, extraction)
+    assert not report.suspect_pairs, report.suspect_pairs
+
+
+def test_f_suspect_reference_pair_not_merged() -> None:
+    """(f) Gleiche reference_id, fremdes Label -> bestehende Reference bleibt
+    komplett unangetastet (inkl. retrieved_at: kein Refresh am falschen Paar)."""
+    existing = _existing()
+    extraction = _extraction()
+    extraction["references"][0]["label"]["de"] = "Hoehe der Hundeabgabe"  # war Anmeldefrist
+    merged, report = merge_process(existing, extraction)
+    r1 = next(r for r in merged["references"] if r["reference_id"] == 1)
+    assert r1["label"]["de"] == "Anmeldefrist"
+    assert r1["retrieved_at"] == "2026-01-01"  # kein Refresh am verdaechtigen Paar
+    assert any("references[1]" in p for p in report.suspect_pairs), report.suspect_pairs
+
+
+def test_g_retrieved_at_always_refreshed() -> None:
+    """(g) Provenienz-Ausnahme: retrieved_at gewinnt aus der Extraktion —
+    auf Prozess-Ebene und je sauber gepairter Reference; protokolliert."""
+    merged, report = merge_process(_existing(), _extraction())
+    assert merged["retrieved_at"] == "2026-06-14"
+    r1 = next(r for r in merged["references"] if r["reference_id"] == 1)
+    assert r1["retrieved_at"] == "2026-06-14"
+    assert any(r == "retrieved_at" for r in report.refreshed), report.refreshed
+    assert any("references[1].retrieved_at" in r for r in report.refreshed), report.refreshed
+
+
+def test_g_retrieved_at_not_invented() -> None:
+    """(g) Liefert die Extraktion KEIN retrieved_at, bleibt das bestehende."""
+    existing = _existing()
+    extraction = _extraction()
+    del extraction["retrieved_at"]
+    for r in extraction["references"]:
+        r.pop("retrieved_at", None)
+    merged, report = merge_process(existing, extraction)
+    assert merged["retrieved_at"] == "2026-01-01"
+    r1 = next(r for r in merged["references"] if r["reference_id"] == 1)
+    assert r1["retrieved_at"] == "2026-01-01"
+    assert not report.refreshed, report.refreshed
+
+
 def test_d_conflict_on_id_mismatch() -> None:
     """(d) id-Mismatch ist nicht sauber mergebar -> MergeConflict."""
     existing = _existing()
