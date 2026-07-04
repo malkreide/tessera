@@ -78,6 +78,12 @@ def _fetch_i14y(url: str, ua: str) -> list[str]:
     return names
 
 
+# Groessen-Guard fuer das extern geladene XLSX: openpyxl parst ZIP-Container;
+# ein unerwartet grosses Artefakt (Zip-Bomb, falsche Datei hinter dem Link)
+# wird gar nicht erst geparst, sondern als Befund gemeldet (-> coverage.md).
+MAX_XLSX_BYTES = 20 * 1024 * 1024
+
+
 def _fetch_ech0070(url: str, ua: str) -> list[str]:
     """Holt die deutschen Leistungsbezeichnungen aus dem eCH-0070-Inventar."""
     import httpx  # noqa: PLC0415 — lazy, Modul bleibt stdlib-importierbar
@@ -86,6 +92,11 @@ def _fetch_ech0070(url: str, ua: str) -> list[str]:
     with httpx.Client(headers={"User-Agent": ua}, timeout=60, follow_redirects=True) as client:
         r = client.get(url)
         r.raise_for_status()
+    if len(r.content) > MAX_XLSX_BYTES:
+        raise RuntimeError(
+            f"eCH-0070-XLSX ist {len(r.content)} Bytes (> {MAX_XLSX_BYTES}) — "
+            "wird nicht geparst; Quelle pruefen."
+        )
     wb = openpyxl.load_workbook(io.BytesIO(r.content), read_only=True)
     sheet = next((n for n in wb.sheetnames if "Leistungsinventar" in n), None)
     if sheet is None:

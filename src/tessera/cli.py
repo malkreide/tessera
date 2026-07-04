@@ -79,6 +79,14 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
             source_url=proc.official_urls[0],
             retrieved_at=retrieved_at,
         )
+        # Provenienz je Reference: das Abrufdatum IHRER Quellseite (aus
+        # meta.json), nicht pauschal das juengste des Laufs. Unbekannte URLs
+        # behalten den Fallback; das per-URL-Grounding flaggt sie ohnehin.
+        date_by_url = {m["url"].strip().rstrip("/"): m["retrieved_at"] for m in ok_meta}
+        for ref in process.get("references", []):
+            d = date_by_url.get(str(ref.get("source_url", "")).strip().rstrip("/"))
+            if d:
+                ref["retrieved_at"] = d
         # Per-URL-Grounding: Reference-Zitate muessen auf der Seite ihrer
         # source_url stehen, nicht bloss irgendwo im Gesamt-Korpus.
         corpus_by_url = {u: grounding.Corpus(t) for u, t in url_texts.items()}

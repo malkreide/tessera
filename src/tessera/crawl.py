@@ -40,26 +40,47 @@ def _slug(url: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", tail.lower()).strip("-") or "seite"
 
 
-def _ssr_fetch(client: httpx.Client, url: str) -> tuple[str, int, str, str]:
+# Backoff bei transienten Fehlern (Netzfehler, 5xx): 3 Versuche mit 2s/4s
+# Pause — das ist die in reports/scraping-compliance.md zugesagte Hoeflichkeit.
+# Definitive Antworten (2xx/4xx) werden NICHT wiederholt.
+_RETRY_ATTEMPTS = 3
+_RETRY_BASE_DELAY = 2.0
+
+
+def _ssr_fetch(
+    client: httpx.Client, url: str, *, sleep=time.sleep
+) -> tuple[str, int, str, str]:
     """Ein SSR-Abruf: (markdown, http_status, raw_html, tri_state).
 
     http_status 0 + state netzfehler, wenn der Request gar nicht durchkommt.
+    Transiente Fehler (Verbindung/Timeout, 5xx) werden mit exponentiellem
+    Backoff wiederholt; nach dem letzten Versuch wird der Befund ehrlich
+    zurueckgegeben (kein Faken).
     """
     import trafilatura  # noqa: PLC0415
 
-    try:
-        r = client.get(url)
-    except httpx.HTTPError:
-        return "", 0, "", reach.NETERROR
-    state = reach.classify_status(r.status_code)
-    md = ""
-    raw = ""
-    if state == reach.OK:
-        raw = r.text
-        md = trafilatura.extract(
-            raw, url=url, output_format="markdown", include_links=True, include_tables=True
-        ) or ""
-    return md, r.status_code, raw, state
+    last: tuple[str, int, str, str] = ("", 0, "", reach.NETERROR)
+    for attempt in range(_RETRY_ATTEMPTS):
+        if attempt:
+            sleep(_RETRY_BASE_DELAY * 2 ** (attempt - 1))
+        try:
+            r = client.get(url)
+        except httpx.HTTPError:
+            last = ("", 0, "", reach.NETERROR)
+            continue
+        state = reach.classify_status(r.status_code)
+        if 500 <= r.status_code < 600:
+            last = ("", r.status_code, "", state)
+            continue
+        md = ""
+        raw = ""
+        if state == reach.OK:
+            raw = r.text
+            md = trafilatura.extract(
+                raw, url=url, output_format="markdown", include_links=True, include_tables=True
+            ) or ""
+        return md, r.status_code, raw, state
+    return last
 
 
 def _browser_fetch(url: str, ua: str) -> tuple[str, int] | None:

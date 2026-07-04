@@ -54,6 +54,10 @@ Alles in Phase A ist Voraussetzung fuer die Echtlaeufe und liegt beim Maintainer
   TARGET_REPO=malkreide/maschinerie-zuerich   # Default
   ```
   Ohne `GITHUB_TOKEN` landet das fertige PR-Bundle in `out/outbox/<id>/`.
+  **Token-Scope (Least Privilege):** fine-grained PAT, «Only select
+  repositories» → nur das Ziel-Repo; Permissions genau `Contents: Read and
+  write` + `Pull requests: Read and write`, mit Ablaufdatum (Details in
+  `.env.example`). Klassische PATs mit `repo`-Scope sind ueberprivilegiert.
 - **Netz-Policy (ausgehend HTTPS):**
   ```
   i14y.admin.ch          # Pre-Flight-Katalog (ohne Auth)

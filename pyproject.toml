@@ -8,20 +8,24 @@ license = { text = "MIT" }
 authors = [{ name = "malkreide" }]
 keywords = ["civic-tech", "open-government", "ai-agents", "e-government", "swiss-open-data"]
 
+# Versionsgrenzen: Untergrenze = getesteter Stand (2026-07-04, PyPI-verifiziert),
+# Obergrenze = naechster Major (Breaking-Change-Schutz; Repro via constraints
+# in den CI-Workflows). Bewusst keine exakten Pins hier — tessera ist eine
+# Anwendung, exakt gepinnt wird in der CI.
 dependencies = [
-    "crawl4ai",       # HTML -> clean Markdown
-    "pydantic>=2",    # strict schema
-    "pydantic-ai",    # structured LLM extraction
-    "pyyaml",         # read sources.yaml
-    "httpx",          # I14Y public API
-    "openpyxl",       # read eCH-0070 inventory (XLSX)
+    "crawl4ai>=0.9,<1",       # HTML -> clean Markdown (nur SPA-Fallback)
+    "pydantic>=2,<3",         # strict schema
+    "pydantic-ai>=2.5,<3",    # structured LLM extraction
+    "pyyaml>=6,<7",           # read sources.yaml
+    "httpx>=0.27,<1",         # I14Y public API + SSR-Crawl
+    "openpyxl>=3.1,<4",       # read eCH-0070 inventory (XLSX)
+    # SSR-first-Extraktor (crawl._ssr_fetch): seit dem SSR-first-Umbau eine
+    # RUNTIME-Pflicht, kein optionales Extra mehr.
+    "trafilatura>=2,<3",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff"]
-# Fallback-Extraktor, falls Crawl4AI/Playwright in der Umgebung nicht laeuft
-# (httpx + Trafilatura); Nutzung wird in den Snapshot-Metadaten vermerkt.
-crawl-fallback = ["trafilatura"]
 
 [project.scripts]
 tessera = "tessera.cli:main"
