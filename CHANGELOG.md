@@ -181,6 +181,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture (`docs/v1-pipeline.md`).
 
 ### Changed
+- Cardinal-rule lint gains a **strict tier for high-risk cases**
+  (`src/tessera/binding.py` `BINDING_VALUE_STRICT`, applied in
+  `scripts/validate_contract.py`): the narrow lint (digit + unit) stays
+  unchanged and is always an error, but spelled-out deadlines («innert
+  vierzehn Tagen»), date forms («31. März», ISO dates) and hour/minute
+  durations previously slipped through rendered labels entirely. For
+  high-risk ids (`risk.HIGH_RISK_IDS`) a strict-only hit is now a validator
+  **error**; for all other services it is a hint (the broad patterns can
+  match harmless phrasing — abstinence strictness belongs where the damage
+  is greatest). The strict pattern is the union of the existing lint and the
+  label↔value gate's time/money/date patterns — no new regex surface.
+  New fixture `examples/invalid-high-risk-word-number.json` proves the check
+  fires; covered by new cases in `tests/test_binding.py` and
+  `tests/test_risk.py`.
 - PR body reworked as reviewer UI and hardened as a security surface
   (`src/tessera/pr.py`): (1) a **reference table** (Label | Deep-Link |
   verbatim quote | status) puts the reviewer's most expensive check — does the
