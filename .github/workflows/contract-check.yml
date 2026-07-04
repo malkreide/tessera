@@ -22,6 +22,8 @@ jobs:
         run: python tests/test_contract_fields.py
       - name: Grounding-Gate-Tests (stdlib)
         run: python tests/test_grounding.py
+      - name: Preflight-Gate-Tests (Frische + robots-Sperre, stdlib)
+        run: python tests/test_preflight_gate.py
       - name: Pipeline-Integrationstest (extract->ground->validate, key-/netzfrei)
         run: python tests/test_pipeline_integration.py
       - name: Bindewert-Tests (Label<->Wert-Heuristik, stdlib)

@@ -7,6 +7,13 @@
    User-Agent auswerten, Nutzungsbedingungs-Links dokumentieren; Funde nach
    reports/scraping-compliance.md. Bei Disallow wird die Leistung GESPERRT
    (der Crawler verweigert sie) und fuer Rueckfrage geflaggt.
+
+Das Gate VERFAELLT nach MAX_GATE_AGE_DAYS: robots.txt kann sich aendern, ein
+altes «erlaubt» ist keine Freigabe mehr — dann erst `tessera preflight` erneut.
+
+Modul-Importe sind reine stdlib (httpx/openpyxl lazy in den Fetch-Funktionen),
+damit die Gate-Logik (load_gate/require_allowed) in der dependency-freien CI
+testbar ist — wie grounding/binding/risk.
 """
 from __future__ import annotations
 
@@ -15,15 +22,22 @@ import json
 import time
 import urllib.robotparser
 from datetime import date
+from pathlib import Path
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
-import httpx
-import openpyxl
+if TYPE_CHECKING:  # nur Typhinweise — kein Laufzeit-Import von config (pydantic/yaml)
+    from .config import ProcessSource, SourcesConfig
 
-from .config import ROOT, ProcessSource, SourcesConfig
-
+# Repo-Wurzel ohne config-Import (src/tessera/preflight.py -> parents[2]),
+# damit das Modul stdlib-importierbar bleibt (wie verify.py/diff.py).
+ROOT = Path(__file__).resolve().parents[2]
 REPORTS = ROOT / "reports"
 GATE_FILE = REPORTS / "raw" / "preflight-gate.json"
+
+# Maximales Alter eines Preflight-Ergebnisses in Tagen. Aelter -> Gate verfallen,
+# Crawl verweigert (robots.txt/ToU koennen sich geaendert haben).
+MAX_GATE_AGE_DAYS = 7
 
 # UA-Token, auf das robots.txt-Regeln matchen (erste Komponente des User-Agent).
 UA_TOKEN = "tessera"
@@ -39,6 +53,8 @@ KNOWN_TERMS = {
 
 def _fetch_i14y(url: str, ua: str) -> list[str]:
     """Holt alle Behoerdenleistungs-Namen (de) aus der I14Y Public API."""
+    import httpx  # noqa: PLC0415 — lazy, Modul bleibt stdlib-importierbar
+
     names: list[str] = []
     page = 1
     with httpx.Client(headers={"User-Agent": ua}, timeout=30) as client:
@@ -64,6 +80,9 @@ def _fetch_i14y(url: str, ua: str) -> list[str]:
 
 def _fetch_ech0070(url: str, ua: str) -> list[str]:
     """Holt die deutschen Leistungsbezeichnungen aus dem eCH-0070-Inventar."""
+    import httpx  # noqa: PLC0415 — lazy, Modul bleibt stdlib-importierbar
+    import openpyxl  # noqa: PLC0415
+
     with httpx.Client(headers={"User-Agent": ua}, timeout=60, follow_redirects=True) as client:
         r = client.get(url)
         r.raise_for_status()
@@ -93,6 +112,8 @@ def _matches(names: list[str], keywords: list[str]) -> list[str]:
 
 def _robots_for_host(host: str, ua: str) -> tuple[urllib.robotparser.RobotFileParser | None, str]:
     """Laedt und parst robots.txt einer Domain. (parser, status_notiz)."""
+    import httpx  # noqa: PLC0415 — lazy, Modul bleibt stdlib-importierbar
+
     rp = urllib.robotparser.RobotFileParser()
     url = f"https://{host}/robots.txt"
     try:
@@ -219,13 +240,35 @@ def load_gate() -> dict[str, dict]:
     return json.loads(GATE_FILE.read_text(encoding="utf-8"))
 
 
+def gate_age_days(entry: dict) -> int | None:
+    """Alter eines Gate-Eintrags in Tagen. None bei fehlendem/ungueltigem
+    checked_at oder einem Datum in der Zukunft (beides gilt als nicht frisch)."""
+    try:
+        age = (date.today() - date.fromisoformat(str(entry.get("checked_at")))).days
+    except (TypeError, ValueError):
+        return None
+    return age if age >= 0 else None
+
+
 def require_allowed(proc: ProcessSource) -> None:
-    """Crawl-Gate: ohne frischen, positiven Preflight wird nicht gecrawlt."""
+    """Crawl-Gate: ohne frischen, positiven Preflight wird nicht gecrawlt.
+
+    Frisch heisst: checked_at hoechstens MAX_GATE_AGE_DAYS alt. robots.txt und
+    Nutzungsbedingungen koennen sich aendern — ein altes «erlaubt» ist keine
+    Freigabe mehr; das war bisher nur ein Docstring-Versprechen.
+    """
     gate = load_gate()
     entry = gate.get(proc.id)
     if entry is None:
         raise SystemExit(
             f"[{proc.id}] Kein Preflight-Ergebnis gefunden — zuerst `tessera preflight` ausfuehren."
+        )
+    age = gate_age_days(entry)
+    if age is None or age > MAX_GATE_AGE_DAYS:
+        raise SystemExit(
+            f"[{proc.id}] Preflight-Ergebnis ist nicht frisch "
+            f"(checked_at={entry.get('checked_at')!r}, max. {MAX_GATE_AGE_DAYS} Tage) — "
+            "robots.txt kann sich geaendert haben; zuerst `tessera preflight` erneut ausfuehren."
         )
     if not entry["allowed"]:
         raise SystemExit(
