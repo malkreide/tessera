@@ -284,10 +284,17 @@ Bewusst **nicht** in v1 (`CLAUDE.md`):
 
 `tessera fingerprint` schreibt nach einem Lauf eine committete Baseline
 (`reports/fingerprints/<id>.json`): je Quell-URL ein SHA-256 ueber den
-**normalisierten** Seitentext (`grounding.normalize`). `tessera diff` re-crawlt
-die Live-Seiten und vergleicht: rein kosmetische Aenderungen (Whitespace,
-Typografie) loesen NICHTS aus, nur inhaltliche. `tessera diff --json` gibt eine
-maschinenlesbare Zusammenfassung aus (menschliche Zeilen dann nach stderr).
+**normalisierten** Seitentext (`grounding.normalize`) — plus den zeilenweise
+normalisierten Seitentext als Textdatei (`reports/fingerprints/<id>/NN-slug.txt`,
+siehe README dort; Provenienz: amtliche Quellseiten, nur Diff-Basis, keine
+publizierten Daten). `tessera diff` re-crawlt die Live-Seiten und vergleicht:
+rein kosmetische Aenderungen (Whitespace, Typografie) loesen NICHTS aus, nur
+inhaltliche. Bei einer Aenderung liefert `diff` einen **unified-diff-Auszug**
+baseline vs. live mit (CLI und `--json`; gekappt auf `diff.MAX_EXCERPT_LINES`)
+— das Issue zeigt, WAS sich geaendert hat, nicht nur wo. Alte Hash-only-
+Baselines bleiben gueltig, liefern nur keinen Auszug. `tessera diff --json`
+gibt eine maschinenlesbare Zusammenfassung aus (menschliche Zeilen dann nach
+stderr).
 
 Der woechentliche `change-diff.yml`-Cron faehrt `tessera diff --json` ueber alle
 Leistungen mit Baseline und **oeffnet/aktualisiert daraus EIN rollendes

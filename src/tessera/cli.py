@@ -262,6 +262,8 @@ def cmd_diff(
             )
             for u in rep.changed:
                 out(f"    ✏ geaendert — Re-Extraktion pruefen: {u}")
+                for line in rep.excerpts.get(u, "").splitlines():
+                    out(f"      | {line}")
             for u in rep.dead:
                 out(f"    ❌ toter Link: {u}")
             for u in rep.new:

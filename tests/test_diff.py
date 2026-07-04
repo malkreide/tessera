@@ -132,6 +132,78 @@ def test_new_and_removed_urls() -> None:
     _with_tmp_fingerprints(body)
 
 
+def test_changed_url_carries_diff_excerpt() -> None:
+    def body() -> None:
+        proc = _Proc("svc", [URL_A])
+        base = {URL_A: ("# Titel\n\nDie Frist betraegt 10 Tage.\n\nSchluss.", reach.OK)}
+        diff_mod.write_fingerprints(
+            "svc", diff_mod.build_entries(proc, _fetcher(base), "2026-06-29"), "2026-06-29"
+        )
+        changed = {URL_A: ("# Titel\n\nDie Frist betraegt 30 Tage.\n\nSchluss.", reach.OK)}
+        rep = diff_mod.diff_process(proc, _fetcher(changed))
+        assert rep.changed == [URL_A]
+        ex = rep.excerpts.get(URL_A, "")
+        assert "-Die Frist betraegt 10 Tage." in ex, ex
+        assert "+Die Frist betraegt 30 Tage." in ex, ex
+    _with_tmp_fingerprints(body)
+
+
+def test_excerpt_is_capped() -> None:
+    def body() -> None:
+        proc = _Proc("svc", [URL_A])
+        old = "\n".join(f"Zeile {i} alt" for i in range(80))
+        new = "\n".join(f"Zeile {i} neu" for i in range(80))
+        diff_mod.write_fingerprints(
+            "svc",
+            diff_mod.build_entries(proc, _fetcher({URL_A: (old, reach.OK)}), "2026-06-29"),
+            "2026-06-29",
+        )
+        rep = diff_mod.diff_process(proc, _fetcher({URL_A: (new, reach.OK)}))
+        ex = rep.excerpts[URL_A]
+        assert len(ex.splitlines()) <= diff_mod.MAX_EXCERPT_LINES + 1, len(ex.splitlines())
+        assert "gekappt" in ex
+    _with_tmp_fingerprints(body)
+
+
+def test_legacy_baseline_without_text_yields_no_excerpt() -> None:
+    def body() -> None:
+        # Alte Hash-only-Baseline (vor 6b): kein text_file -> kein Auszug,
+        # aber die Aenderung wird weiterhin gemeldet (kein Crash).
+        proc = _Proc("svc", [URL_A])
+        entries = diff_mod.build_entries(proc, _fetcher({URL_A: ("Alt.", reach.OK)}), "2026-06-29")
+        for e in entries:
+            e.pop("text", None)  # simuliert die alte Baseline-Form
+        diff_mod.write_fingerprints("svc", entries, "2026-06-29")
+        rep = diff_mod.diff_process(proc, _fetcher({URL_A: ("Neu und anders.", reach.OK)}))
+        assert rep.changed == [URL_A]
+        assert rep.excerpts == {}, rep.excerpts
+    _with_tmp_fingerprints(body)
+
+
+def test_fingerprint_writes_and_prunes_text_files() -> None:
+    def body() -> None:
+        proc = _Proc("svc", [URL_A, URL_B])
+        live = {URL_A: ("Inhalt A.", reach.OK), URL_B: ("Inhalt B.", reach.OK)}
+        diff_mod.write_fingerprints(
+            "svc", diff_mod.build_entries(proc, _fetcher(live), "2026-06-29"), "2026-06-29"
+        )
+        base = diff_mod.load_fingerprints("svc")
+        for url in (URL_A, URL_B):
+            tf = base[url].get("text_file", "")
+            assert tf, base[url]
+            assert (diff_mod.FINGERPRINTS / tf).exists(), tf
+        # URL_B faellt aus sources -> ihre Textdatei wird beim naechsten
+        # Fingerprint entfernt (Verzeichnis gehoert dem Fingerprint).
+        stale = diff_mod.FINGERPRINTS / base[URL_B]["text_file"]
+        proc2 = _Proc("svc", [URL_A])
+        diff_mod.write_fingerprints(
+            "svc", diff_mod.build_entries(proc2, _fetcher(live), "2026-06-30"), "2026-06-30"
+        )
+        assert not stale.exists(), stale
+        assert (diff_mod.FINGERPRINTS / base[URL_A]["text_file"]).exists()
+    _with_tmp_fingerprints(body)
+
+
 def test_report_to_dict_shape() -> None:
     def body() -> None:
         proc = _Proc("svc", [URL_A])
