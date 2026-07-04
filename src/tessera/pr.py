@@ -3,18 +3,38 @@
 Ohne GITHUB_TOKEN im ENV wird KEIN API-Call versucht; stattdessen landet das
 komplette PR-Bundle (JSON + PR-Body) in out/outbox/<id>/ — der Maintainer kann
 es von dort einreichen. Die Pipeline merged NIE und pusht NIE nach main.
+
+Der PR-Body ist Reviewer-UI und Sicherheitsflaeche zugleich:
+
+* **Review-Ergonomie:** Die teuerste Reviewer-Pruefung (Zitat woertlich auf der
+  verlinkten Seite?) bekommt eine eigene Reference-Tabelle (Label | Deep-Link |
+  Zitat | Status); alle Leichte-Sprache-Texte (`ls`) stehen gesammelt zur
+  inhaltlichen Pruefung — sie sind der einzige LLM-Freitext ohne mechanisches
+  Gate (nur Zahlen-Lint).
+* **Markdown-Neutralisierung:** LLM-/Quelltext (Labels, Zitate, Flags) wird nie
+  roh interpoliert — `_md`/`_md_code` escapen Markdown-Steuerzeichen und
+  entschaerfen @-Mentions, damit extrahierter Text weder Checklisten faelschen
+  noch Personen anpingen noch Review-Bots Anweisungen geben kann.
+* **Body-Limit:** GitHub kappt PR-Bodies bei 65 536 Zeichen; ueber
+  MAX_BODY_CHARS wird der JSON-Block durch einen Hinweis ersetzt (die Datei
+  liegt ohnehin im Diff).
+
+Modul-Importe sind reine stdlib (httpx lazy in open_draft_pr, config nur
+TYPE_CHECKING), damit `build_pr_body` in der dependency-freien CI testbar ist.
 """
 from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from datetime import date
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import httpx
+if TYPE_CHECKING:  # nur Typhinweise — kein Laufzeit-Import von config (pydantic/yaml)
+    from .config import ProcessSource
 
-from .config import ROOT, ProcessSource
 from .merge import MergeConflict, MergeReport, merge_process
 from .risk import (
     HIGH_RISK_DISCLAIMER_KEY,
@@ -23,17 +43,112 @@ from .risk import (
     is_high_risk_disclaimer,
 )
 
+# Repo-Wurzel ohne config-Import (src/tessera/pr.py -> parents[2]), damit das
+# Modul stdlib-importierbar bleibt (wie verify.py/diff.py/preflight.py).
+ROOT = Path(__file__).resolve().parents[2]
 OUTBOX = ROOT / "out" / "outbox"
 DEFAULT_TARGET = "malkreide/maschinerie-zuerich"
 TARGET_PATH = "stadt-zuerich-next/data/prozesse/zh"
 
+# GitHub kappt PR-Bodies bei 65 536 Zeichen; Puffer fuer Encoding/Anhaenge.
+MAX_BODY_CHARS = 60_000
+
+_WS_RUN = re.compile(r"\s+")
+# Markdown-Steuerzeichen, die interpolierter LLM-/Quelltext nicht ausueben darf
+# (Links, Checklisten, Ueberschriften, Tabellen, Code, HTML).
+_MD_ESCAPE = re.compile(r"([\\`*_\[\]<>|#~])")
+_BACKTICK_RUN = re.compile(r"`+")
+
+
+def _md(text: object) -> str:
+    """Neutralisiert LLM-/Quelltext fuer die Markdown-Interpolation:
+    Whitespace/Zeilenumbrueche kollabiert (kein Ausbruch aus Listen/Tabellen),
+    Steuerzeichen escaped, @-Mentions entschaerft (Word-Joiner nach dem @ —
+    unsichtbar, aber GitHub parst keine Mention mehr)."""
+    s = _WS_RUN.sub(" ", str(text or "")).strip()
+    s = _MD_ESCAPE.sub(r"\\\1", s)
+    return s.replace("@", "@\u2060")  # U+2060 WORD JOINER: unsichtbar, keine Mention
+
+
+def _md_code(text: object) -> str:
+    """LLM-/Quelltext als Code-Span: rendert verbatim, keine Mentions, kein
+    Markdown. Delimiter laenger als der laengste Backtick-Run im Text."""
+    s = _WS_RUN.sub(" ", str(text or "")).strip()
+    if not s:
+        return "—"
+    run = max((len(m.group(0)) for m in _BACKTICK_RUN.finditer(s)), default=0)
+    if run:
+        fence = "`" * (run + 1)
+        return f"{fence} {s} {fence}"
+    return f"`{s}`"
+
 
 def _bullets(items: list[str], limit: int = 12) -> list[str]:
-    """Aufzaehlung fuer den PR-Body, lange Listen gekuerzt."""
-    shown = [f"  - `{i}`" for i in items[:limit]]
+    """Aufzaehlung fuer den PR-Body, lange Listen gekuerzt; Eintraege als
+    Code-Span (neutralisiert Markdown/Mentions in LLM-Anteilen)."""
+    shown = [f"  - {_md_code(i)}" for i in items[:limit]]
     if len(items) > limit:
         shown.append(f"  - … und {len(items) - limit} weitere")
     return shown
+
+
+def _collect_ls(process: dict) -> list[tuple[str, str]]:
+    """Sammelt alle Leichte-Sprache-Texte (`ls`) mit Fundstelle — der einzige
+    LLM-Freitext ohne mechanisches Gate; der Reviewer prueft ihn gesammelt."""
+    out: list[tuple[str, str]] = []
+
+    def add(where: str, obj: object) -> None:
+        if isinstance(obj, dict):
+            ls = obj.get("ls")
+            if isinstance(ls, str) and ls.strip():
+                out.append((where, ls.strip()))
+
+    add("title", process.get("title"))
+    add("description", process.get("description"))
+    for i, p in enumerate(process.get("preconditions") or []):
+        add(f"preconditions[{i}]", p)
+    for s in process.get("steps") or []:
+        if not isinstance(s, dict):
+            continue
+        sid = s.get("step_id", "?")
+        add(f"steps[{sid}].label", s.get("label"))
+        add(f"steps[{sid}].description", s.get("description"))
+        for d in s.get("depends_on") or []:
+            if isinstance(d, dict):
+                add(f"steps[{sid}].depends_on[{d.get('step_id')}].condition", d.get("condition"))
+        for j, doc in enumerate(s.get("documents") or []):
+            if isinstance(doc, dict):
+                add(f"steps[{sid}].documents[{j}].label", doc.get("label"))
+    for r in process.get("references") or []:
+        if isinstance(r, dict):
+            add(f"references[{r.get('reference_id')}].label", r.get("label"))
+    return out
+
+
+def _reference_table(refs: list[dict]) -> list[str]:
+    """Die Kernpruefung des Reviewers als Tabelle: Zitat und Deep-Link pro
+    Reference nebeneinander — Klick-und-Vergleich statt Wuehlen im JSON."""
+    lines = [
+        "## References — Kernpruefung: steht das Zitat woertlich auf der verlinkten Seite?",
+        "",
+        "| # | Label | Deep-Link | Zitat (woertlich) | Status |",
+        "|---|---|---|---|---|",
+    ]
+    for r in refs:
+        if not isinstance(r, dict):
+            continue
+        label = r.get("label")
+        label_de = label.get("de", "?") if isinstance(label, dict) else "?"
+        url = _WS_RUN.sub("", str(r.get("source_url") or "")).replace("|", "%7C")
+        status = r.get("status", "verifiziert")
+        icon = "✅" if status == "verifiziert" else "⚠️"
+        quote = (r.get("source_quote") or "").strip()
+        lines.append(
+            f"| {r.get('reference_id')} | {_md(label_de)} | {url} "
+            f"| {_md_code(quote)} | {icon} {status} |"
+        )
+    lines.append("")
+    return lines
 
 
 def build_merge_warning(report: MergeReport, path: str) -> str:
@@ -126,7 +241,7 @@ def build_high_risk_warning(process: dict) -> str:
     ]
     if not is_high_risk_disclaimer(process.get("disclaimer_key")):
         lines.append(
-            f"  - ⚠️ aktueller `disclaimer_key`: `{process.get('disclaimer_key')}` "
+            f"  - ⚠️ aktueller `disclaimer_key`: {_md_code(process.get('disclaimer_key'))} "
             "— erscheint **nicht** als Hochrisiko-Hinweis; bitte pruefen"
         )
     lines += [
@@ -150,7 +265,7 @@ def build_pr_body(
     open_refs = [r for r in refs if r.get("status") == "unverifiziert"]
 
     lines = [
-        f"# tessera v1: Prozess «{process['title']['de']}» (`{proc.id}`)",
+        f"# tessera v1: Prozess «{_md(process['title']['de'])}» (`{proc.id}`)",
         "",
         "Automatisch extrahierte **Prozess-Struktur** (struktur-only) aus den",
         "offiziellen Quellseiten. Rechtlich bindende Werte (Fristen, Gebuehren)",
@@ -171,9 +286,25 @@ def build_pr_body(
     ]
     for m in crawl_meta:
         lines.append(f"  - {m['url']} (HTTP {m['http_status']}, Extraktor: {m['extractor']})")
-    lines += ["", "## Grounding-Gate / offene Punkte", ""]
+    lines.append("")
+    if refs:
+        lines += _reference_table(refs)
+    ls_texts = _collect_ls(process)
+    if ls_texts:
+        lines += [
+            "## Leichte Sprache (`ls`) — inhaltlich pruefen",
+            "",
+            "Die `ls`-Texte sind der einzige LLM-Freitext ohne mechanisches Gate",
+            "(nur der Zahlen-Lint greift). Bitte gesammelt auf Korrektheit und",
+            "wirklich einfache Sprache pruefen:",
+            "",
+        ]
+        lines += [f"- `{where}`: {_md_code(text)}" for where, text in ls_texts]
+        lines.append("")
+    lines += ["## Grounding-Gate / offene Punkte", ""]
     if flags:
-        lines += [f"- ⚠️ {f}" for f in flags]
+        # Flags tragen LLM-Anteile (Labels/Zitate) -> neutralisiert interpolieren.
+        lines += [f"- ⚠️ {_md(f)}" for f in flags]
     else:
         lines.append("- Keine: alle Schritte und References sind woertlich belegt.")
     lines += [
@@ -182,7 +313,8 @@ def build_pr_body(
         "",
         "- [ ] Schritte und Reihenfolge entsprechen der offiziellen Darstellung",
         "- [ ] Kein Schritt-Label enthaelt eine bindende Zahl (Frist/Gebuehr)",
-        "- [ ] Jede verifizierte Reference: Zitat stimmt woertlich mit der verlinkten Seite ueberein",
+        "- [ ] Jede verifizierte Reference: Zitat stimmt woertlich mit der verlinkten Seite ueberein "
+        "(Tabelle oben: Klick auf den Deep-Link, Zitat vergleichen)",
         "- [ ] Unverifizierte References: pruefen, belegen oder entfernen",
         "- [ ] Leichte Sprache (`ls`) ist inhaltlich korrekt und wirklich einfach",
         "- [ ] `lebenslage_ref` verlinkt korrekt auf die bestehende Lebenslage",
@@ -190,17 +322,34 @@ def build_pr_body(
         "Validierung: `scripts/validate_contract.py` (tessera) bestanden — bitte",
         "zusaetzlich `npm run validate:prozesse` im Ziel-Repo laufen lassen.",
         "",
-        "## JSON",
-        "",
-        "```json",
-        json.dumps(process, indent=2, ensure_ascii=False),
-        "```",
-        "",
+    ]
+    footer = [
         "---",
         "_Erzeugt von tessera v1 (Human-in-the-Loop: dieser PR ist ein Draft und",
         "wird ausschliesslich von Menschen gemergt)._",
     ]
-    return "\n".join(lines)
+    # JSON-Block: 4-Backtick-Fence, damit ein ``` in einem Zitat den Block nicht
+    # sprengen kann. Ueber MAX_BODY_CHARS (GitHub-Limit 65 536) wird er durch
+    # einen Hinweis ersetzt — die Datei liegt ohnehin im Diff des PRs.
+    json_block = [
+        "## JSON",
+        "",
+        "````json",
+        json.dumps(process, indent=2, ensure_ascii=False),
+        "````",
+        "",
+    ]
+    body = "\n".join(lines + json_block + footer)
+    if len(body) > MAX_BODY_CHARS:
+        note = [
+            "## JSON",
+            "",
+            "_(JSON hier weggelassen — PR-Body-Limit. Die vollstaendige Datei",
+            f"liegt im Diff dieses PRs und im Bundle `out/outbox/{proc.id}/`.)_",
+            "",
+        ]
+        body = "\n".join(lines + note + footer)
+    return body
 
 
 def validate_merged(path: Path) -> tuple[bool, str]:
@@ -256,6 +405,8 @@ def open_draft_pr(
             f"{write_bundle(proc, process, body)} (manuell einreichen)."
         )
         return None
+
+    import httpx  # noqa: PLC0415 — lazy, Modul bleibt stdlib-importierbar
 
     target = os.environ.get("TARGET_REPO", DEFAULT_TARGET)
     api = f"https://api.github.com/repos/{target}"
@@ -326,11 +477,26 @@ def open_draft_pr(
         )["object"]["sha"]
         # Branch anlegen — oder, wenn er aus einem frueheren (Teil-)Lauf schon
         # existiert (der Name ist tagesdatiert), idempotent auf base zuruecksetzen,
-        # statt mit 422 abzubrechen.
+        # statt mit 422 abzubrechen. Zurueckgesetzt wird aber NUR ein Branch,
+        # dessen Head ein tessera-Commit ist: hat ein Mensch dort nachgearbeitet
+        # (fremde Commit-Message), wird abgebrochen statt still ueberschrieben.
         created = client.post(
             f"{api}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": base_sha}
         )
         if created.status_code == 422:
+            head_msg = str(
+                client.get(f"{api}/commits/{branch}").raise_for_status().json()
+                .get("commit", {}).get("message", "")
+            )
+            if not head_msg.startswith("feat(prozesse):"):
+                first_line = head_msg.splitlines()[0] if head_msg else "?"
+                print(
+                    f"  [{proc.id}] Branch {branch} existiert mit fremden Commits "
+                    f"(Head: {first_line!r}) — NICHT zurueckgesetzt, KEIN PR. "
+                    "Bitte manuell klaeren (Branch loeschen oder umbenennen).",
+                    file=sys.stderr,
+                )
+                return None
             client.patch(
                 f"{api}/git/refs/heads/{branch}", json={"sha": base_sha, "force": True}
             ).raise_for_status()
@@ -352,7 +518,9 @@ def open_draft_pr(
         created_pr = client.post(
             f"{api}/pulls",
             json={
-                "title": f"tessera v1: {final_process['title']['de']} ({proc.id})",
+                # Titel ist Plaintext (kein Markdown/Mentions) — nur Whitespace
+                # kollabieren, damit ein mehrzeiliges LLM-title nicht bricht.
+                "title": f"tessera v1: {_WS_RUN.sub(' ', final_process['title']['de']).strip()} ({proc.id})",
                 "head": branch,
                 "base": default_branch,
                 "body": body,
