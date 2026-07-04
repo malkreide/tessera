@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Diff excerpts for source changes** (`src/tessera/diff.py`,
+  `change-diff.yml`; review package 6b, maintainer-approved full-text
+  baselines): `tessera fingerprint` now also commits the line-wise normalised
+  page text per URL (`reports/fingerprints/<id>/NN-slug.txt`, provenance
+  README added) alongside the hash. When `tessera diff` detects a content
+  change it emits a capped unified-diff excerpt baseline vs. live
+  (`MAX_EXCERPT_LINES` = 20, long lines truncated) — in the CLI output, in
+  `--json` (`excerpts` map), and rendered as a ```diff block in the rolling
+  `source-change` issue, which now shows *what* changed instead of only which
+  URL. The change hash is still computed over the whole-text normalisation,
+  so existing hash-only baselines stay valid — they simply yield no excerpt
+  until the next `fingerprint` run adds the texts; stale text files of
+  removed URLs are pruned. The issue body falls back to excerpt-less
+  rendering above ~60k chars (GitHub limit). Covered by four new cases in
+  `tests/test_diff.py`.
 - **Injection screening** on the crawled corpus (`src/tessera/screening.py`,
   wired in `cli.cmd_extract`): the corpus is untrusted LLM input, and the
   grounding gate fundamentally cannot defend against prompt injection —
