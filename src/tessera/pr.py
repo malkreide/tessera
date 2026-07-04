@@ -56,12 +56,31 @@ def build_merge_warning(report: MergeReport, path: str) -> str:
     lines.append(f"- Ergaenzte Felder / neue Schritte/References: **{len(report.added)}**")
     if report.added:
         lines += _bullets(report.added)
+    if report.refreshed:
+        lines.append(
+            f"- Provenienz aktualisiert (frisches Crawl-Datum gewinnt): "
+            f"**{len(report.refreshed)}**"
+        )
+        lines += _bullets(report.refreshed)
     if report.remapped_actors:
         lines.append(
             f"- Actor-Rollen auf bestehende `actors[].id` abgebildet: "
             f"**{len(report.remapped_actors)}**"
         )
         lines += _bullets(report.remapped_actors)
+    if report.suspect_pairs:
+        lines += [
+            "",
+            f"### ❌ Offen: {len(report.suspect_pairs)} verdaechtige(s) ID-Paar(e) — NICHT gemerged",
+            "",
+            "Extraktion und bestehende Datei tragen unter derselben step_id/",
+            "reference_id semantisch fremde Labels — numerische IDs sind KEINE",
+            "stabilen fachlichen Schluessel. Der bestehende Eintrag blieb",
+            "unangetastet, die Extraktions-Fassung wurde verworfen. Bitte manuell",
+            "abgleichen (Schritt umnummerieren oder als neuen Schritt ergaenzen):",
+            "",
+        ]
+        lines += _bullets(report.suspect_pairs)
     if report.unmapped_actors:
         lines += [
             "",
