@@ -129,6 +129,32 @@ def test_non_high_risk_disclaimer_warns_not_fails() -> None:
     assert any("HOCHRISIKO" in w and "Disclaimer" in w for w in rep.warnings)
 
 
+def test_high_risk_warning_survives_cp1252_stdout() -> None:
+    """Regression (Windows/Python 3.14): der Validator druckt den ⚠-Hochrisiko-
+    Hinweis. Unter einer nicht-UTF-8-Ausgabe (cp1252, Default fuer eine Windows-
+    Pipe) crashte das mit UnicodeEncodeError und liess `pr.validate_merged`
+    faelschlich scheitern (kein PR). Der Validator stellt seine Ausgabe jetzt auf
+    UTF-8; hier via PYTHONIOENCODING=cp1252 reproduziert (schlaegt ohne Fix fehl)."""
+    import os  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252"}
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "validate_contract.py"),
+            str(ROOT / "examples" / "baugesuch.json"),  # gueltiger Hochrisiko-Fall
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+    )
+    assert "UnicodeEncodeError" not in result.stderr, result.stderr
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "HOCHRISIKO" in result.stdout, result.stdout
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0
