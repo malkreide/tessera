@@ -35,8 +35,10 @@ jobs:
       # Schlanke Installation: verify --online braucht httpx (Live-Fetch), pyyaml
       # (sources.yaml laden) und pydantic (config-Modelle) — NICHT crawl4ai/
       # playwright/pydantic-ai (die nur Crawl bzw. Extract benoetigen).
-      - name: Laufzeit-Deps (schlank)
-        run: python -m pip install --quiet httpx pyyaml "pydantic>=2"
+      # EXAKT gepinnt (Repro/Supply-Chain; Stand 2026-07-04, PyPI-verifiziert) —
+      # Bumps bewusst als Commit, nicht implizit im Cron.
+      - name: Laufzeit-Deps (schlank, exakt gepinnt)
+        run: python -m pip install --quiet httpx==0.28.1 pyyaml==6.0.3 pydantic==2.13.4
       - name: Link-Rot + Beleg-Drift (nur publizierte Ausgaben)
         run: |
           shopt -s nullglob

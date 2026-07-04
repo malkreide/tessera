@@ -181,6 +181,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture (`docs/v1-pipeline.md`).
 
 ### Changed
+- Ops/compliance hardening (review package 5):
+  * **Crawl backoff implemented** (`crawl._ssr_fetch`): transient failures
+    (connection/timeout, 5xx) are retried up to 3 attempts with 2s/4s
+    exponential backoff — the politeness that
+    `reports/scraping-compliance.md` promised but the code never had.
+    Definitive answers (2xx/4xx) are never retried; the tri-state finding
+    stays honest after the last attempt.
+  * **Dependencies bounded and CI-pinned**: `pyproject.toml` now carries
+    tested lower bounds + next-major caps (PyPI-verified 2026-07-04);
+    the slim installs in `link-rot.yml`/`change-diff.yml` are pinned to
+    exact versions so weekly crons don't silently pick up new releases.
+    `trafilatura` moved from the `crawl-fallback` extra into core
+    dependencies — since the SSR-first rework it is a runtime requirement
+    of the crawl path, not a fallback. NOTE: pinning the GitHub Actions
+    (`checkout`/`setup-python`/`github-script`/`upload-artifact`) to commit
+    SHAs still needs the maintainer (tag→SHA resolution requires GitHub
+    access outside this repo).
+  * **eCH-0070 XLSX size guard** (`preflight.MAX_XLSX_BYTES` = 20 MiB):
+    the externally downloaded workbook is not parsed if oversized
+    (zip-bomb / wrong artefact behind the link) — reported as a coverage
+    finding instead.
+  * **Per-reference provenance**: `cmd_extract` now stamps each reference
+    with the retrieval date of **its own** source page (from `meta.json`)
+    instead of the newest date of the whole run.
+  * **Token scope documented** (`.env.example`, `docs/v1-pipeline.md` A.2):
+    fine-grained PAT, target repo only, exactly Contents + Pull requests
+    read/write, with expiry.
+  * Hygiene: removed the accidentally committed
+    `tests/__pycache__/*.pyc` from the index (ignore rule already existed).
 - Cardinal-rule lint gains a **strict tier for high-risk cases**
   (`src/tessera/binding.py` `BINDING_VALUE_STRICT`, applied in
   `scripts/validate_contract.py`): the narrow lint (digit + unit) stays
