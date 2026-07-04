@@ -1,0 +1,21 @@
+{
+  "schema_version": "0.1.0",
+  "id": "veranstaltung",
+  "lebenslage_ref": "veranstaltung",
+  "title": { "de": "Veranstaltung auf oeffentlichem Grund", "en": "", "fr": "", "it": "" },
+  "target_audience": "bevoelkerung",
+  "steps": [
+    {
+      "step_id": 1,
+      "actor": "Veranstalter:in",
+      "label": {
+        "de": "Gesuch spaetestens vier Wochen vor Veranstaltungsbeginn einreichen",
+        "en": "", "fr": "", "it": ""
+      },
+      "depends_on": []
+    }
+  ],
+  "source_url": "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen.html",
+  "retrieved_at": "2026-07-04",
+  "disclaimer_key": "Prozesse.disclaimerHochrisiko"
+}

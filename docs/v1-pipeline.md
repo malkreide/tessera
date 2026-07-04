@@ -212,7 +212,10 @@ Unabhaengig von der Freischaltung greift fuer alle drei der erhoehte Gate, wo
 immer sie die Pipeline beruehren: jede bindende Reference muss `verifiziert`
 **und** woertlich belegt sein (sonst Validator-**Fehler**), plus sichtbarer
 Hochrisiko-Disclaimer (`Prozesse.disclaimerHochrisiko`) und verschaerfte
-PR-Checkliste.
+PR-Checkliste. Zusaetzlich gilt der **strenge Kardinalregel-Lint**
+(`binding.BINDING_VALUE_STRICT`): auch ausgeschriebene Fristen («innert
+vierzehn Tagen») und Datumsformen («31. Maerz») in gerendertem Text sind bei
+Hochrisiko ein Validator-Fehler — im Normalfall nur ein Hinweis.
 
 ---
 

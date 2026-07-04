@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from tessera.binding import (  # noqa: E402
     BINDING_VALUE,
+    BINDING_VALUE_STRICT,
     binding_label_kind,
     label_value_mismatch,
     quote_substantiates,
@@ -65,6 +66,33 @@ def test_cardinal_lint_regex_unchanged() -> None:
     assert BINDING_VALUE.search("8 Prozent")
     # Ausgeschriebene Zahl ist fuer den Kardinalregel-Lint bewusst KEIN Treffer.
     assert not BINDING_VALUE.search("innert zehn Tagen")
+
+
+def test_strict_lint_catches_word_numbers_and_dates() -> None:
+    # Strenger Lint (Hochrisiko): auch ausgeschriebene Fristen und Datumsformen.
+    assert BINDING_VALUE_STRICT.search("innert zehn Tagen melden")
+    assert BINDING_VALUE_STRICT.search("spaetestens vier Wochen vor Veranstaltungsbeginn")
+    assert BINDING_VALUE_STRICT.search("innert vierzehn Tagen")
+    assert BINDING_VALUE_STRICT.search("bis 31. Maerz einreichen")
+    assert BINDING_VALUE_STRICT.search("bis 31. März einreichen")
+    assert BINDING_VALUE_STRICT.search("Stichtag 2026-07-04")
+    assert BINDING_VALUE_STRICT.search("innerhalb einer Stunde")  # Stunde: nur strict
+    # Alles, was der enge Lint faengt, faengt auch der strenge.
+    assert BINDING_VALUE_STRICT.search("innert 14 Tagen")
+    assert BINDING_VALUE_STRICT.search("CHF 175")
+
+
+def test_strict_lint_ignores_plain_structure_text() -> None:
+    # Reine Struktur-Labels ohne Wertangabe bleiben treffelfrei.
+    for text in (
+        "Gesuch einreichen",
+        "Registrierung pruefen",
+        "Veranlagung der Hundeabgabe",
+        "Meldefrist bei Zuzug",          # benennt den Wert, traegt ihn nicht
+        "Unterlagen am Schalter abgeben",
+        "Tag der offenen Tuer besuchen",  # 'Tag' ohne Zahl davor
+    ):
+        assert not BINDING_VALUE_STRICT.search(text), text
 
 
 def main() -> int:

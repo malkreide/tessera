@@ -21,6 +21,9 @@ MUESSEN gueltig sein (`tests/run_checks.py` prueft genau diese Erwartung).
 | `invalid-binding-value-in-label.json` | **Ungueltig.** Bindende Zahl im Step-Label («innert 10 Tagen», «CHF 175») – Kardinalregel-Verstoss. |
 | `invalid-binding-value-in-condition.json` | **Ungueltig.** Bindende Zahl in einer `depends_on[].condition` («innert 30 Tagen») – Kardinalregel gilt fuer ALLE gerenderten Texte, auch Bedingungs-Kanten. |
 | `invalid-grounding-verifiziert.json` | **Ungueltig.** Reference mit `status: verifiziert` ohne `source_quote` – Grounding-Gate-Verstoss. |
+| `baugesuch.json` | **Gueltig.** Hochrisiko-Fall (Registry `risk.py`): vollstaendig belegte References, Hochrisiko-Disclaimer – besteht auch den strengen Kardinalregel-Lint. |
+| `invalid-high-risk-ungrounded.json` | **Ungueltig.** Hochrisiko-Fall mit `unverifiziert`er bindender Reference – im erhoehten Review ein Fehler, kein Hinweis. |
+| `invalid-high-risk-word-number.json` | **Ungueltig.** Hochrisiko-Fall mit **ausgeschriebener Frist** im Step-Label («vier Wochen») – der strenge Kardinalregel-Lint (Wortzahlen/Datumsformen) ist bei Hochrisiko ein Fehler; im Normalfall waere es ein Hinweis. |
 
 ## Pruefen
 

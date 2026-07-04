@@ -53,7 +53,11 @@ from pathlib import Path
 # Der Validator bleibt dependency-frei; wir bootstrappen nur den src-Pfad und
 # importieren reine stdlib-Konstanten (kein pydantic/httpx).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from tessera.binding import BINDING_VALUE, label_value_mismatch  # noqa: E402
+from tessera.binding import (  # noqa: E402
+    BINDING_VALUE,
+    BINDING_VALUE_STRICT,
+    label_value_mismatch,
+)
 from tessera.contract import SCHEMA_VERSION  # noqa: E402
 from tessera.risk import (  # noqa: E402
     HIGH_RISK_DISCLAIMER_KEY,
@@ -170,17 +174,39 @@ def _lint_binding(rep: Report, where: str, i18n: object) -> None:
 
     Gilt fuer jeden gerenderten i18n-Text (Step-Label, Step-/Prozess-Description).
     Bindende Werte leben ausschliesslich in references (Label + Link + source_quote).
+
+    Zwei Stufen: Ziffer + Einheit ist IMMER ein Fehler (enger Lint). Nur vom
+    strengen Muster gefangene Angaben — ausgeschriebene Fristen («innert
+    vierzehn Tagen»), Datumsformen («31. Maerz», ISO) — sind bei
+    Hochrisiko-Faellen (rep.high_risk) ebenfalls ein FEHLER, sonst ein Hinweis
+    (die breiten Muster koennen in harmlosen Formulierungen anschlagen).
     """
     if not isinstance(i18n, dict):
         return
     for loc, text in i18n.items():
-        if isinstance(text, str):
-            hit = BINDING_VALUE.search(text)
-            if hit:
+        if not isinstance(text, str):
+            continue
+        hit = BINDING_VALUE.search(text)
+        if hit:
+            rep.error(
+                f"{where}.{loc}: KARDINALREGEL verletzt — bindende Zahl "
+                f"{hit.group(0)!r} gehoert in eine Reference (Label + Link), "
+                f"nicht in gerenderten Text: {text!r}"
+            )
+            continue
+        strict_hit = BINDING_VALUE_STRICT.search(text)
+        if strict_hit:
+            if rep.high_risk:
                 rep.error(
-                    f"{where}.{loc}: KARDINALREGEL verletzt — bindende Zahl "
-                    f"{hit.group(0)!r} gehoert in eine Reference (Label + Link), "
-                    f"nicht in gerenderten Text: {text!r}"
+                    f"{where}.{loc}: KARDINALREGEL (HOCHRISIKO) verletzt — "
+                    f"bindende Angabe {strict_hit.group(0)!r} (auch ausgeschriebene "
+                    f"Fristen/Daten) gehoert in eine Reference: {text!r}"
+                )
+            else:
+                rep.warn(
+                    f"{where}.{loc}: moegliche bindende Angabe {strict_hit.group(0)!r} "
+                    f"(ausgeschriebene Frist/Datum) — pruefen, ob sie in eine "
+                    f"Reference gehoert: {text!r}"
                 )
 
 
@@ -531,6 +557,9 @@ def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> 
     if not isinstance(data, dict):
         rep.error("Wurzel: muss ein Objekt sein.")
         return
+    # Frueh setzen, damit der Kardinalregel-Lint (laeuft vor _check_high_risk)
+    # die Hochrisiko-Verschaerfung (Wortzahlen/Datumsformen = Fehler) kennt.
+    rep.high_risk = is_high_risk(data.get("id"))
 
     required = {
         "schema_version", "id", "lebenslage_ref", "title", "target_audience",
