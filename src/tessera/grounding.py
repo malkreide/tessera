@@ -8,6 +8,17 @@ Quelltext belegbar sein. Nicht belegbar heisst:
 * Schritt    -> wird VERWORFEN (nicht geraten); seine Nachfolger erben seine
   Vorgaenger, damit der Graph ein DAG bleibt; Flag fuer den Reviewer.
 
+Zwei zusaetzliche Schaerfen:
+
+* **Per-URL-Grounding (References):** Ist `corpus_by_url` uebergeben, muss das
+  Zitat einer Reference auf der Seite ihrer `source_url` stehen — nicht bloss
+  irgendwo im Gesamt-Korpus. Der Deep-Link verspricht «die exakte Originalseite»;
+  ein Zitat von einer anderen Seite waere ein falsches Versprechen. Schritte und
+  Dokumente tragen keine URL und bleiben beim Gesamt-Korpus.
+* **Mindest-Spezifitaet:** Zitate unter MIN_QUOTE_CHARS normalisierten Zeichen
+  belegen nichts — ein Ein-Wort-Substring-Treffer ist Zufall, kein Beleg. Der
+  Extraktions-Prompt verlangt ohnehin den ganzen Satz.
+
 Es gibt bewusst keinen Score und keine Heuristik: ein Zitat ist im Korpus
 auffindbar oder nicht. Normalisiert werden nur typografische Artefakte des
 HTML->Markdown-Wegs (Anfuehrungszeichen, Whitespace, weiche Trennstriche,
@@ -61,6 +72,22 @@ class Corpus:
         return bool(q) and q in self._norm
 
 
+# Mindestlaenge eines Zitats nach Normalisierung. Darunter ist ein Substring-
+# Treffer kein Beleg («Anmeldung» steht auf jeder Seite). Der Prompt verlangt
+# den ganzen Satz; ein legitimes Zitat unterschreitet das praktisch nie.
+MIN_QUOTE_CHARS = 25
+
+
+def _too_unspecific(quote: str) -> bool:
+    return len(normalize(quote)) < MIN_QUOTE_CHARS
+
+
+def _url_key(url: object) -> str:
+    """Konservative URL-Normalform fuer den Seiten-Abgleich (nur Whitespace/
+    Trailing-Slash — kein Fuzzy-Matching)."""
+    return str(url or "").strip().rstrip("/")
+
+
 def _dep_id(dep) -> int:
     return dep["step_id"] if isinstance(dep, dict) else dep
 
@@ -70,18 +97,29 @@ def apply_gate(
     step_quotes: dict[int, str],
     corpus: Corpus,
     doc_quotes: dict[tuple[int, int], str] | None = None,
+    *,
+    corpus_by_url: dict[str, Corpus] | None = None,
 ) -> tuple[dict, list[str]]:
     """Wendet das Gate auf ein Vertrags-JSON an. Gibt (Prozess, Flags) zurueck.
 
     `process` wird nicht mutiert; es wird eine bereinigte Kopie gebaut.
     `doc_quotes` (optional) traegt die internen Belegstellen der Dokumente je
     (step_id, Dokument-Index); fehlt es, werden Dokumente nicht gegated.
+    `corpus_by_url` (optional) traegt den Korpus je Quell-URL; ist es gesetzt,
+    muss das Zitat einer Reference auf der Seite IHRER source_url stehen
+    (per-URL-Grounding) — fehlt es, genuegt der Gesamt-Korpus (Altverhalten).
     """
     flags: list[str] = []
     # None = Aufrufer verwaltet Dokument-Grounding nicht -> Dokumente unberuehrt.
     # Dict (auch leer) = gaten; ein Dokument ohne bekanntes Zitat wird verworfen.
     gate_documents = doc_quotes is not None
     doc_quotes = doc_quotes or {}
+    # Normalisierte URL -> Seiten-Korpus (None = per-URL-Grounding nicht aktiv).
+    pages = (
+        {_url_key(u): c for u, c in corpus_by_url.items()}
+        if corpus_by_url is not None
+        else None
+    )
 
     # --- References: nicht belegbar -> unverifiziert + leeres Zitat ----------
     references = []
@@ -89,19 +127,36 @@ def apply_gate(
         ref = dict(ref)
         quote = ref.get("source_quote", "")
         label_de = (ref.get("label") or {}).get("de", "?") if isinstance(ref.get("label"), dict) else "?"
-        mismatch = label_value_mismatch(label_de, quote) if quote else None
-        if quote and corpus.contains(quote) and not mismatch:
+        reason: str | None = None
+        if not quote.strip():
+            reason = "kein Zitat angegeben"
+        elif _too_unspecific(quote):
+            reason = (
+                f"Zitat zu unspezifisch (unter {MIN_QUOTE_CHARS} normalisierten "
+                "Zeichen) — ganzen Satz zitieren"
+            )
+        elif not corpus.contains(quote):
+            reason = "Zitat nicht woertlich im Korpus"
+        elif pages is not None:
+            # Per-URL-Grounding: der Deep-Link verspricht die exakte Seite.
+            page = pages.get(_url_key(ref.get("source_url")))
+            if page is None:
+                reason = (
+                    "source_url gehoert zu keinem gecrawlten Snapshot — "
+                    "Deep-Link nicht pruefbar"
+                )
+            elif not page.contains(quote):
+                found_on = [u for u, c in corpus_by_url.items() if c.contains(quote)]
+                hint = f"; woertlich gefunden auf: {', '.join(found_on)}" if found_on else ""
+                reason = "Zitat steht nicht auf der Seite der angegebenen source_url" + hint
+        if reason is None:
+            # Verbatim belegt, aber der falsche Werttyp: Default = Abstinenz.
+            # Plausibel-aber-falsch (richtige Seite, falscher Wert) ist
+            # gefaehrlicher als ein sichtbarer Fehlschlag.
+            reason = label_value_mismatch(label_de, quote)
+        if reason is None:
             ref["status"] = "verifiziert"
         else:
-            if not quote.strip():
-                reason = "kein Zitat angegeben"
-            elif not corpus.contains(quote):
-                reason = "Zitat nicht woertlich im Korpus"
-            else:
-                # Verbatim belegt, aber der falsche Werttyp: Default = Abstinenz.
-                # Plausibel-aber-falsch (richtige Seite, falscher Wert) ist
-                # gefaehrlicher als ein sichtbarer Fehlschlag.
-                reason = mismatch
             flags.append(
                 f"Reference {ref.get('reference_id')} «{label_de}»: "
                 f"{reason} -> status 'unverifiziert', Zitat verworfen. OFFEN fuer Review."
@@ -116,10 +171,18 @@ def apply_gate(
     for step in process.get("steps", []):
         sid = step["step_id"]
         quote = step_quotes.get(sid, "")
-        if quote and corpus.contains(quote):
+        if quote and not _too_unspecific(quote) and corpus.contains(quote):
             kept.append(dict(step))
         else:
-            reason = "ohne Belegstelle" if not quote.strip() else "Belegstelle nicht woertlich im Korpus"
+            if not quote.strip():
+                reason = "ohne Belegstelle"
+            elif _too_unspecific(quote):
+                reason = (
+                    f"mit zu unspezifischem Zitat (unter {MIN_QUOTE_CHARS} "
+                    "normalisierten Zeichen)"
+                )
+            else:
+                reason = "Belegstelle nicht woertlich im Korpus"
             flags.append(
                 f"Schritt {sid} «{step.get('label', {}).get('de', '?')}» {reason} "
                 "-> VERWORFEN (Grounding-Gate). Nachfolger erben seine Vorgaenger."
@@ -169,11 +232,19 @@ def apply_gate(
             kept_docs: list[dict] = []
             for i, doc in enumerate(step["documents"]):
                 quote = doc_quotes.get((sid, i), "")
-                if quote and corpus.contains(quote):
+                if quote and not _too_unspecific(quote) and corpus.contains(quote):
                     kept_docs.append(doc)
                 else:
                     label_de = (doc.get("label") or {}).get("de", "?") if isinstance(doc.get("label"), dict) else "?"
-                    reason = "ohne Belegstelle" if not quote.strip() else "Belegstelle nicht woertlich im Korpus"
+                    if not quote.strip():
+                        reason = "ohne Belegstelle"
+                    elif _too_unspecific(quote):
+                        reason = (
+                            f"mit zu unspezifischem Zitat (unter {MIN_QUOTE_CHARS} "
+                            "normalisierten Zeichen)"
+                        )
+                    else:
+                        reason = "Belegstelle nicht woertlich im Korpus"
                     flags.append(
                         f"Dokument «{label_de}» bei Schritt {sid} {reason} "
                         "-> VERWORFEN (Grounding-Gate)."

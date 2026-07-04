@@ -154,7 +154,7 @@ def test_transitive_rewire() -> None:
         }
     )
     quotes[4] = ""  # ebenfalls verworfen
-    quotes[5] = "online oder am Schalter"
+    quotes[5] = "Die Anmeldung ist online oder am Schalter moeglich."
     gated, _ = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
     step5 = next(s for s in gated["steps"] if s["step_id"] == 5)
     assert step5["depends_on"] == [1], step5["depends_on"]  # 4 -> 2 -> 1 transitiv
@@ -190,6 +190,86 @@ def test_document_gate_backward_compatible() -> None:
     gated, _ = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
     step1 = next(s for s in gated["steps"] if s["step_id"] == 1)
     assert step1.get("documents") == [{"label": {"de": "Ausweis"}}]
+
+
+def test_quote_too_unspecific() -> None:
+    # Ein Ein-/Zwei-Wort-Zitat ist ein Zufalls-Substring, kein Beleg: die
+    # Reference wird herabgestuft, der Schritt verworfen — mit eigenem Flag.
+    process, quotes = _process()
+    process["references"][0]["source_quote"] = "innert zehn Tagen"  # verbatim, aber < 25
+    quotes[1] = "am Schalter moeglich"  # verbatim, aber < 25 -> Schritt faellt
+    gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
+    assert ref1["status"] == "unverifiziert"
+    assert ref1["source_quote"] == ""
+    assert 1 not in [s["step_id"] for s in gated["steps"]]
+    assert any("Reference 1" in f and "unspezifisch" in f for f in flags), flags
+    assert any("Schritt 1" in f and "unspezifisch" in f for f in flags), flags
+
+
+def _by_url() -> dict[str, Corpus]:
+    # Zwei Snapshots: die Frist steht NUR auf der zweiten Seite.
+    return {
+        "https://example.org/hunde": Corpus(
+            "Der Hund muss bei AMICUS registriert werden. "
+            "Die Anmeldung ist online oder am Schalter moeglich."
+        ),
+        "https://example.org/hunde/fristen": Corpus(
+            "Sie muessen Ihren Hund innert zehn Tagen nach Uebernahme bei "
+            "Ihrer Wohngemeinde melden."
+        ),
+    }
+
+
+def test_per_url_grounding_right_page() -> None:
+    # Zitat steht auf der Seite der angegebenen source_url -> verifiziert.
+    process, quotes = _process()
+    process["references"][0]["source_url"] = "https://example.org/hunde/fristen"
+    gated, _ = apply_gate(
+        process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url()
+    )
+    ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
+    assert ref1["status"] == "verifiziert", ref1
+
+
+def test_per_url_grounding_wrong_page() -> None:
+    # Zitat ist im Gesamt-Korpus, steht aber NICHT auf der Seite der angegebenen
+    # source_url -> Abstinenz; das Flag nennt die Seite, auf der es steht.
+    process, quotes = _process()
+    assert process["references"][0]["source_url"] == "https://example.org/hunde"
+    gated, flags = apply_gate(
+        process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url()
+    )
+    ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
+    assert ref1["status"] == "unverifiziert", ref1
+    assert ref1["source_quote"] == ""
+    hit = next(f for f in flags if "Reference 1" in f)
+    assert "nicht auf der Seite" in hit, hit
+    assert "https://example.org/hunde/fristen" in hit, hit
+
+
+def test_per_url_grounding_unknown_source_url() -> None:
+    # source_url gehoert zu keinem Snapshot (z.B. erfundener Deep-Link) ->
+    # Abstinenz, eigenes Flag.
+    process, quotes = _process()
+    process["references"][0]["source_url"] = "https://example.org/erfunden"
+    gated, flags = apply_gate(
+        process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url()
+    )
+    ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
+    assert ref1["status"] == "unverifiziert", ref1
+    assert any("Reference 1" in f and "keinem gecrawlten Snapshot" in f for f in flags), flags
+
+
+def test_per_url_grounding_trailing_slash() -> None:
+    # Trailing-Slash-Differenz ist keine andere Seite (konservative Normalform).
+    process, quotes = _process()
+    process["references"][0]["source_url"] = "https://example.org/hunde/fristen/"
+    gated, _ = apply_gate(
+        process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url()
+    )
+    ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
+    assert ref1["status"] == "verifiziert", ref1
 
 
 def test_label_value_abstinence() -> None:
