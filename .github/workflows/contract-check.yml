@@ -32,6 +32,8 @@ jobs:
         run: python tests/test_verify.py
       - name: Merge-Tests (Handdaten erhalten, stdlib)
         run: python tests/test_merge.py
+      - name: PR-Body-Tests (Reviewer-UI + Markdown-Neutralisierung, stdlib)
+        run: python tests/test_pr_body.py
       - name: Hochrisiko-Tests (erhoehter Review, stdlib)
         run: python tests/test_risk.py
       - name: Aenderungs-Diff-Tests (Fingerprint/Diff, stdlib)

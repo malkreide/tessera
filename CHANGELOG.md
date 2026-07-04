@@ -181,6 +181,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture (`docs/v1-pipeline.md`).
 
 ### Changed
+- PR body reworked as reviewer UI and hardened as a security surface
+  (`src/tessera/pr.py`): (1) a **reference table** (Label | Deep-Link |
+  verbatim quote | status) puts the reviewer's most expensive check — does the
+  quote really appear on the linked page? — one click away instead of buried
+  in the JSON blob; (2) all **Leichte-Sprache (`ls`) texts** are listed in one
+  section for content review (they are the only LLM free text without a
+  mechanical gate); (3) **markdown neutralisation**: LLM/source text (title,
+  labels, quotes, flags) is never interpolated raw — `_md`/`_md_code` escape
+  markdown control characters and defuse @-mentions (U+2060 word joiner), so
+  extracted text cannot fake checklist state, ping people, or instruct review
+  bots; (4) a **body-size guard** replaces the embedded JSON block with a
+  pointer once the body would exceed `MAX_BODY_CHARS` (GitHub caps PR bodies
+  at 65 536 chars — previously a large process meant a hard 422); the JSON
+  fence is now 4 backticks so a ``` inside a quote cannot break out; (5) the
+  **branch force-reset is guarded**: an existing `tessera/<id>-<date>` branch
+  is only reset if its head commit matches the tessera commit pattern —
+  human follow-up commits on that branch abort the PR step instead of being
+  silently overwritten. `pr.py`'s module imports are stdlib-only now (httpx
+  lazy, config type-checking-only), so the body builder is covered by
+  dependency-free CI tests (`tests/test_pr_body.py`, 9 cases, added to
+  `contract-check.yml`).
 - Field-wise merge hardened with a **label guard** for LLM-assigned keys
   (`src/tessera/merge.py`): `step_id`/`reference_id` are assigned by the LLM
   and are NOT stable business keys against an independently maintained target

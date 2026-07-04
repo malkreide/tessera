@@ -192,6 +192,14 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
 - **Erwartetes Resultat:** Draft-PR (`draft: true`, Branch
   `tessera/<id>-<datum>`) mit Reviewer-Checkliste; Ziel-CI `validate:prozesse`,
   `check:regression`, `check:links` gruen.
+- **PR-Body als Reviewer-UI:** Reference-Tabelle (Label | Deep-Link | Zitat |
+  Status) fuer die Kernpruefung «steht das Zitat woertlich auf der verlinkten
+  Seite?», gesammelte `ls`-Texte zur inhaltlichen Pruefung, LLM-Text stets
+  markdown-neutralisiert (kein Mention/Checklist/Link aus extrahiertem Text),
+  JSON-Block faellt ueber `pr.MAX_BODY_CHARS` auf einen Hinweis zurueck
+  (GitHub-Limit 65 536). Ein bestehender Tagesbranch wird nur zurueckgesetzt,
+  wenn sein Head ein tessera-Commit ist — menschliche Nacharbeit bricht ab
+  statt ueberschrieben zu werden.
 - **Regel:** tessera merged **nie** und pusht **nie** nach `main` (hier wie im Ziel-Repo).
 
 ### Hochrisiko (erhoehter Review)
