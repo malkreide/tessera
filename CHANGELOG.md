@@ -211,6 +211,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture (`docs/v1-pipeline.md`).
 
 ### Changed
+- **GitHub Actions pinned to commit SHAs** (closes the maintainer TODO from
+  review package 5): all `uses:` lines in `contract-check.yml`,
+  `link-rot.yml` and `change-diff.yml` now reference immutable commit SHAs
+  (with the release tag as a comment) instead of movable major tags —
+  a hijacked tag can no longer inject code into the workflows. SHAs were
+  resolved by the maintainer against the latest releases, so this is also a
+  major bump (checkout v4→v7.0.0, setup-python v5→v6.3.0, github-script
+  v7→v9.0.0, upload-artifact v4→v7.0.1); `contract-check` validates
+  checkout/setup-python on this very PR, the two cron-only actions should be
+  smoke-tested once via `workflow_dispatch`. New `.github/dependabot.yml`
+  (github-actions ecosystem, monthly) keeps the pins from freezing stale.
 - Ops/compliance hardening (review package 5):
   * **Crawl backoff implemented** (`crawl._ssr_fetch`): transient failures
     (connection/timeout, 5xx) are retried up to 3 attempts with 2s/4s

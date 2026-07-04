@@ -1,0 +1,11 @@
+# Haelt die SHA-gepinnten GitHub-Actions aktuell: Dependabot versteht
+# Commit-Pins, bumpt sie per PR und pflegt den Versions-Kommentar mit —
+# ohne das wuerde das Pinning die Workflows auf einem alternden Stand
+# einfrieren. (Python-Deps werden bewusst manuell gepinnt/gebumpt, siehe
+# pyproject.toml und die CI-Slim-Installs.)
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
