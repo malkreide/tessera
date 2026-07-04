@@ -192,10 +192,15 @@ def validate_merged(path: Path) -> tuple[bool, str]:
     KEIN PR geoeffnet."""
     import subprocess  # noqa: PLC0415
 
+    # UTF-8 erzwingen: sonst dekodiert/encodiert der Subprozess auf Windows die
+    # Pipe als cp1252 und crasht am ⚠-Hochrisiko-Hinweis (UnicodeEncodeError) —
+    # was faelschlich als "Validierung fehlgeschlagen" gewertet wuerde.
     result = subprocess.run(
         [sys.executable, str(ROOT / "scripts" / "validate_contract.py"), str(path)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
     )
     return result.returncode == 0, (result.stdout + result.stderr)
 

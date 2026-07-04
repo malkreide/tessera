@@ -672,6 +672,15 @@ def validate_file(path: Path, *, strict_label_value: bool = False) -> Report:
 
 
 def main(argv: list[str]) -> int:
+    # Ausgabe deterministisch auf UTF-8 stellen: Windows-Konsolen/Pipes nutzen
+    # teils cp1252, wo nicht-ASCII (z.B. der ⚠-Hochrisiko-Hinweis) beim Drucken mit
+    # UnicodeEncodeError crashen wuerde. Das liess frueher `pr.validate_merged`
+    # (Subprozess mit capture_output/Pipe) faelschlich scheitern.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
+        except (AttributeError, ValueError):  # z.B. bereits umgeleiteter Nicht-TextIO-Stream
+            pass
     root = Path(__file__).resolve().parent.parent
     # Strenger Modus opt-in: per Flag oder ENV TESSERA_STRICT_LABEL_VALUE.
     import os  # noqa: PLC0415
