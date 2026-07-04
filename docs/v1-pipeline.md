@@ -181,7 +181,14 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   `description`-Bloecke bleiben erhalten, die Extraktion fuellt nur Luecken. Nicht
   sauber mergebar → Datei ueberspringen statt verarmen (kein PR). Der PR-Body
   traegt die Merge-Warnung mit erhaltenen/ergaenzten Feldern; so besteht der PR
-  den Ziel-Guard `check:regression` ohne `ALLOW_PROZESS_SHRINK`.
+  den Ziel-Guard `check:regression` ohne `ALLOW_PROZESS_SHRINK`. Zwei Schaerfen:
+  **Label-Guard** — `step_id`/`reference_id` sind LLM-vergeben, keine stabilen
+  fachlichen Schluessel; sind die Labels eines ID-Paars semantisch fremd
+  (Aehnlichkeit < `merge.LABEL_SIMILARITY_MIN` = 0.5), wird das Paar NICHT
+  gemerged, sondern als `suspect_pairs` im PR geflaggt (bestehend bleibt
+  unangetastet). **Provenienz-Ausnahme** — `retrieved_at` (Prozess und je
+  gepairte Reference) gewinnt immer aus der Extraktion (frisches Crawl-Datum),
+  protokolliert als `refreshed`.
 - **Erwartetes Resultat:** Draft-PR (`draft: true`, Branch
   `tessera/<id>-<datum>`) mit Reviewer-Checkliste; Ziel-CI `validate:prozesse`,
   `check:regression`, `check:links` gruen.
