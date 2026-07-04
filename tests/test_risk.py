@@ -111,6 +111,41 @@ def test_same_unverified_reference_is_only_warning_for_low_risk() -> None:
     assert rep.high_risk is False
 
 
+def test_word_number_in_label_is_error_for_high_risk() -> None:
+    """Strenger Kardinalregel-Lint: ausgeschriebene Frist im gerenderten Text
+    ist bei Hochrisiko ein FEHLER (der enge Ziffer+Einheit-Lint saehe nichts)."""
+    proc = _high_risk_process()
+    proc["steps"][0]["label"]["de"] = (
+        "Baugesuch spaetestens vier Wochen vor Baubeginn einreichen"
+    )
+    rep = Report(Path("synthetic"))
+    validate(proc, rep)
+    assert not rep.ok
+    assert any("HOCHRISIKO" in e and "vier Wochen" in e for e in rep.errors), rep.errors
+
+
+def test_date_in_label_is_error_for_high_risk() -> None:
+    proc = _high_risk_process()
+    proc["steps"][0]["label"]["de"] = "Gesuch bis 31. Maerz einreichen"
+    rep = Report(Path("synthetic"))
+    validate(proc, rep)
+    assert not rep.ok
+    assert any("HOCHRISIKO" in e and "31. Maerz" in e for e in rep.errors), rep.errors
+
+
+def test_same_word_number_is_only_warning_for_low_risk() -> None:
+    """Gegenprobe: dieselbe ausgeschriebene Frist ist bei einer risikoarmen
+    Leistung nur ein Hinweis (breite Muster koennen harmlos anschlagen)."""
+    proc = _high_risk_process()
+    proc["id"] = "hund-anmelden"
+    proc["lebenslage_ref"] = "hund-anmelden"
+    proc["steps"][0]["label"]["de"] = "Hund innert zehn Tagen anmelden"
+    rep = Report(Path("synthetic"))
+    validate(proc, rep)
+    assert rep.ok, rep.errors
+    assert any("moegliche bindende Angabe" in w for w in rep.warnings), rep.warnings
+
+
 def test_missing_quote_is_error_for_high_risk() -> None:
     proc = _high_risk_process()
     proc["references"][0]["source_quote"] = "   "  # leer/whitespace

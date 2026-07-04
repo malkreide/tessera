@@ -73,6 +73,19 @@ _MONEY_VALUE = re.compile(
     re.IGNORECASE,
 )
 
+# --- Strenger Kardinalregel-Lint (Hochrisiko) ---------------------------------
+# Union aus dem engen Lint (Ziffer + Einheit) und den breiten Wert-Mustern des
+# Label<->Wert-Gates: ausgeschriebene Fristen («innert vierzehn Tagen»),
+# Datumsformen («31. Maerz», ISO) und Geldbetraege. Fuer reputationskritische
+# Rechtsfaelle (risk.HIGH_RISK_IDS) prueft der Vertrags-Validator gerenderten
+# Text damit als FEHLER; im Normalfall ist ein Nur-Strict-Treffer ein Hinweis —
+# die breiten Muster koennen in harmlosen Formulierungen anschlagen, und
+# Abstinenz-Haerte gehoert dorthin, wo der Schaden am groessten ist.
+BINDING_VALUE_STRICT = re.compile(
+    "|".join((BINDING_VALUE.pattern, _TIME_VALUE.pattern, _MONEY_VALUE.pattern)),
+    re.IGNORECASE,
+)
+
 # Label-Stichwoerter -> Werttyp. Substring-Match auf das kleingeschriebene
 # Label; deutsche Komposita tragen den Stamm (Anmeldefrist -> frist,
 # Hundeabgabe -> abgabe, Bearbeitungsgebuehr -> gebuehr).
