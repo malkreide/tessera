@@ -145,6 +145,15 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   Flag, das die tatsaechliche Fundseite nennt) und **Mindest-Spezifitaet**
   (Zitate unter `grounding.MIN_QUOTE_CHARS` = 25 normalisierten Zeichen belegen
   nichts → Abstinenz bzw. Verwurf mit Flag).
+- **Injection-Screening (Flag, kein Gate):** Der Korpus ist untrusted
+  LLM-Input; das Grounding-Gate beweist Herkunft, nicht Legitimitaet —
+  injizierter Seitentext wuerde es bestehen. `screening.py` flaggt
+  Anweisungs-Muster («ignore previous instructions», «du bist jetzt …»,
+  «system prompt», …) je Quell-URL mit Kontext-Snippet. Ein Treffer blockiert
+  NICHTS (False Positives duerfen keine Daten kosten); er erscheint in den
+  Flags/im PR-Body und schaltet dort einen zusaetzlichen
+  Injection-Checklisten-Punkt frei. Menschlicher Review bleibt die
+  eigentliche Verteidigung.
 - **Test-Setting:**
   ```bash
   tessera extract --id hund-anmelden

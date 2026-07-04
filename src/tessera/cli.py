@@ -57,7 +57,7 @@ def cmd_crawl(cfg: SourcesConfig, ids: list[str] | None) -> int:
 
 
 def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
-    from . import crawl, extract, grounding, schema  # noqa: PLC0415
+    from . import crawl, extract, grounding, schema, screening  # noqa: PLC0415
 
     OUT.mkdir(exist_ok=True)
     rc = 0
@@ -97,6 +97,10 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
             doc_quotes,
             corpus_by_url=corpus_by_url,
         )
+        # Injection-Screening auf dem UNTRUSTED Korpus: Flag, kein Gate — das
+        # Grounding-Gate beweist Herkunft, nicht Legitimitaet; injizierter
+        # Seitentext wuerde es bestehen. Befund vorne anstellen (prominent).
+        flags = screening.screen_url_texts(url_texts) + flags
         out_json = OUT / f"{proc.id}.json"
         out_json.write_text(
             json.dumps(process, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

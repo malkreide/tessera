@@ -36,6 +36,7 @@ if TYPE_CHECKING:  # nur Typhinweise — kein Laufzeit-Import von config (pydant
     from .config import ProcessSource
 
 from .merge import MergeConflict, MergeReport, merge_process
+from .screening import FLAG_PREFIX as INJECTION_FLAG_PREFIX
 from .risk import (
     HIGH_RISK_DISCLAIMER_KEY,
     HIGH_RISK_RATIONALE,
@@ -311,6 +312,14 @@ def build_pr_body(
         "",
         "## Reviewer-Checkliste",
         "",
+    ]
+    if any(str(f).startswith(INJECTION_FLAG_PREFIX) for f in flags):
+        lines.append(
+            "- [ ] **INJECTION-Verdacht geprueft**: Die geflaggten Quelltext-Stellen "
+            "(oben) enthalten keine Anweisungen, die die Extraktion gesteuert haben "
+            "koennten; Schritte/References gegen die Originalseite plausibilisiert"
+        )
+    lines += [
         "- [ ] Schritte und Reihenfolge entsprechen der offiziellen Darstellung",
         "- [ ] Kein Schritt-Label enthaelt eine bindende Zahl (Frist/Gebuehr)",
         "- [ ] Jede verifizierte Reference: Zitat stimmt woertlich mit der verlinkten Seite ueberein "
