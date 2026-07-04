@@ -107,6 +107,9 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   ```
 - **Stop-Bedingung:** `DISALLOW` (robots) oder ToU-Verbot → nicht crawlen,
   flaggen, Maintainer fragen.
+- **Frische:** Das Gate verfaellt nach 7 Tagen (`preflight.MAX_GATE_AGE_DAYS`) —
+  robots.txt kann sich aendern. Ein aelteres, fehlendes oder ungueltiges
+  `checked_at` verweigert den Crawl; zuerst `tessera preflight` erneut ausfuehren.
 
 ### B.2 — Crawl (Snapshots)
 - **Aktion:** `tessera crawl --id <id>`.
@@ -132,7 +135,12 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   (speisen Ziel-Indikatoren wie Medienbruch/Online-Schritt/benötigte Unterlagen);
   `documents` durchlaufen dasselbe Grounding-Gate wie Schritte. Nicht belegte
   References → `unverifiziert`; Label↔Wert-Mismatch → Abstinenz-Flag. Das
-  Grounding-Gate verwirft jedes nicht woertlich belegte Element.
+  Grounding-Gate verwirft jedes nicht woertlich belegte Element. Zwei Schaerfen:
+  **per-URL-Grounding** (das Zitat einer Reference muss auf der Seite ihrer
+  `source_url` stehen, nicht bloss irgendwo im Korpus — sonst Abstinenz mit
+  Flag, das die tatsaechliche Fundseite nennt) und **Mindest-Spezifitaet**
+  (Zitate unter `grounding.MIN_QUOTE_CHARS` = 25 normalisierten Zeichen belegen
+  nichts → Abstinenz bzw. Verwurf mit Flag).
 - **Test-Setting:**
   ```bash
   tessera extract --id hund-anmelden

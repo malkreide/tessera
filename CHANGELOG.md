@@ -181,6 +181,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   architecture (`docs/v1-pipeline.md`).
 
 ### Changed
+- Grounding gate hardened with **per-URL grounding** for references
+  (`src/tessera/grounding.py`, wired in `cli.cmd_extract` via a third
+  `crawl.load_corpus` return value): when `corpus_by_url` is passed, a
+  reference's `source_quote` must be found verbatim on the page of **its own
+  `source_url`** — not merely anywhere in the concatenated corpus. Previously a
+  deep link could point at a page that does not contain the quote (the drift
+  check in `tessera verify --online` would only catch that after the fact).
+  Quotes found on a *different* crawled page are downgraded to `unverifiziert`
+  with a flag naming the page they actually appear on (easy reviewer fix); a
+  `source_url` that matches no crawled snapshot is flagged as unverifiable.
+  URL matching is conservative (whitespace/trailing-slash only, no fuzzing).
+  Steps and documents carry no URL and keep grounding against the full corpus.
+  Callers without `corpus_by_url` keep the old behaviour.
+- Grounding gate now enforces a **minimum quote specificity**
+  (`MIN_QUOTE_CHARS = 25` normalised characters): a one-word `source_quote`
+  is a coincidental substring hit, not evidence. Too-short quotes downgrade a
+  reference / drop a step or document with a dedicated flag («Zitat zu
+  unspezifisch»). The extraction prompt already demands full sentences, so
+  legitimate quotes are unaffected.
+- Crawl gate now enforces **pre-flight freshness** (`src/tessera/preflight.py`):
+  `require_allowed` rejects a gate entry whose `checked_at` is missing, invalid,
+  in the future, or older than `MAX_GATE_AGE_DAYS = 7` — robots.txt and terms
+  of use can change, so a stale «allowed» is no clearance (the docstring
+  promised freshness; now the code enforces it). `preflight`'s module-level
+  imports are stdlib-only now (httpx/openpyxl are lazy, the config import is
+  type-checking-only, `ROOT` is computed locally like in `verify.py`/`diff.py`),
+  so the gate logic is covered by dependency-free CI tests
+  (`tests/test_preflight_gate.py`, added to `contract-check.yml`).
 - LLM sampling: `temperature=0` is no longer sent to Anthropic models that
   reject sampling parameters (Opus 4.7/4.8, Fable, Mythos) — `src/tessera/extract.py`.
   pydantic-ai / the Anthropic SDK discard a set `temperature` on those models
