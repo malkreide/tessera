@@ -130,15 +130,23 @@ def crawl_process(proc: ProcessSource, cfg: SourcesConfig) -> Path:
     return outdir
 
 
-def load_corpus(proc_id: str) -> tuple[str, list[dict]]:
-    """Laedt alle Snapshots einer Leistung als einen Belegkorpus + Metadaten."""
+def load_corpus(proc_id: str) -> tuple[str, list[dict], dict[str, str]]:
+    """Laedt alle Snapshots einer Leistung: (Gesamt-Korpus, Metadaten, Text je URL).
+
+    Der Gesamt-Korpus belegt Schritte/Dokumente (tragen keine URL); die
+    per-URL-Texte speisen das per-URL-Grounding der References (das Zitat muss
+    auf der Seite der angegebenen source_url stehen, siehe grounding.apply_gate).
+    """
     outdir = RAW / proc_id
     meta_path = outdir / "meta.json"
     if not meta_path.exists():
         raise SystemExit(f"[{proc_id}] Keine Snapshots — zuerst `tessera crawl` ausfuehren.")
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
     parts = []
+    url_texts: dict[str, str] = {}
     for m in meta:
         text = (outdir / m["file"]).read_text(encoding="utf-8")
         parts.append(f"\n\n<<<QUELLE {m['url']} (abgerufen {m['retrieved_at']})>>>\n\n{text}")
-    return "".join(parts), meta
+        url = m["url"]
+        url_texts[url] = f"{url_texts[url]}\n\n{text}" if url in url_texts else text
+    return "".join(parts), meta, url_texts

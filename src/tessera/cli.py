@@ -63,7 +63,7 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
     rc = 0
     for proc in _procs(cfg, ids):
         print(f"Extrahiere {proc.id} …")
-        corpus_text, meta = crawl.load_corpus(proc.id)
+        corpus_text, meta, url_texts = crawl.load_corpus(proc.id)
         ok_meta = [m for m in meta if m["http_status"] == 200 and m["chars"] > 0]
         if not ok_meta:
             print(f"  [{proc.id}] Keine brauchbaren Snapshots — uebersprungen.", file=sys.stderr)
@@ -79,8 +79,15 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
             source_url=proc.official_urls[0],
             retrieved_at=retrieved_at,
         )
+        # Per-URL-Grounding: Reference-Zitate muessen auf der Seite ihrer
+        # source_url stehen, nicht bloss irgendwo im Gesamt-Korpus.
+        corpus_by_url = {u: grounding.Corpus(t) for u, t in url_texts.items()}
         process, flags = grounding.apply_gate(
-            process, step_quotes, grounding.Corpus(corpus_text), doc_quotes
+            process,
+            step_quotes,
+            grounding.Corpus(corpus_text),
+            doc_quotes,
+            corpus_by_url=corpus_by_url,
         )
         out_json = OUT / f"{proc.id}.json"
         out_json.write_text(
