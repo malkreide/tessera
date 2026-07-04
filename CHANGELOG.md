@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Injection screening** on the crawled corpus (`src/tessera/screening.py`,
+  wired in `cli.cmd_extract`): the corpus is untrusted LLM input, and the
+  grounding gate fundamentally cannot defend against prompt injection —
+  injected page text is verbatim in the corpus and passes the gate (it proves
+  provenance, not legitimacy). A small, deliberately high-precision heuristic
+  now flags instruction-shaped patterns («ignore previous instructions»,
+  «du bist jetzt …», «system prompt», output steering, «as a language
+  model», the meta term «prompt injection») per source URL, with a context
+  snippet. Policy: **flag, no gate** — a hit never blocks or discards
+  anything (false positives must not cost data); findings land in the flags
+  file and PR body, and any injection flag unlocks an extra reviewer
+  checklist item («flagged passages did not steer the extraction»). Benign
+  administrative phrasing («Den Anweisungen der Polizei ist Folge zu
+  leisten») stays clean. Covered by `tests/test_screening.py` (stdlib, in
+  `contract-check.yml`).
 - Enabled the first high-risk case for automated extraction as a **deliberate
   exception**: `veranstaltung` (event permit on public ground) is now curated into
   `sources.yaml` (three stadt-zuerich.ch pages, HTTP 200 verified 2026-07-03; first
