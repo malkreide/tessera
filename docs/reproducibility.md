@@ -20,12 +20,26 @@ ploetzlich durchs Grounding-Gate fallen lassen — oder umgekehrt.
    Versionen inline zu pinnen (kein Drift zwischen zwei Workflow-Dateien mehr).
 
 Ein Versions-Bump ist damit **immer ein sichtbarer Commit** an `constraints.txt`,
-nie ein impliziter Effekt eines Cron-Laufs. `crawl4ai`, `pydantic-ai` und
-`openpyxl` (nur vom vollen Extraktionslauf gebraucht) bleiben vorerst
-range-gepinnt und werden ergaenzt, sobald ihre exakten Versionen ebenso
-verifiziert sind. Einen vollstaendigen transitiven Lock kann man bei
-installierbaren Deps mit `pip-compile` erzeugen; `constraints.txt` pinnt bewusst
-die direkten Deps, die wir steuern.
+nie ein impliziter Effekt eines Cron-Laufs. `constraints.txt` pinnt alle
+**direkten** Laufzeit-Deps aus `pyproject.toml` — auch `crawl4ai`, `pydantic-ai`
+und `openpyxl` (nur vom vollen Extraktionslauf gebraucht). Einen vollstaendigen
+transitiven Lock (alle Untergraph-Deps) kann man bei installierbaren Deps mit
+`pip-compile` erzeugen.
+
+### Pins verifizieren / aktualisieren
+
+«Verifiziert» heisst nicht «neueste PyPI-Version», sondern: der pip-Resolver
+findet mit genau diesen Pins eine kompatible Kombination. So ermittelt/geprueft:
+
+```bash
+python -m pip install --dry-run --ignore-installed --report resolve.json \
+  -c constraints.txt \
+  "crawl4ai>=0.9,<1" "pydantic-ai>=2.5,<3" "openpyxl>=3.1,<4"
+```
+
+Exit 0 = auflösbar; die vom Resolver gewaehlten Versionen stehen in
+`resolve.json` und wandern nach `constraints.txt`. Bei einem Bump denselben
+Lauf mit der neuen Ober-/Untergrenze wiederholen.
 
 ## Determinismus des LLM-Laufs
 
