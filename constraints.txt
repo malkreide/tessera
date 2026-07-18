@@ -14,15 +14,28 @@
 # Workflows referenzieren sie statt inline gepinnter Versionen (kein Drift zwischen
 # zwei Cron-Dateien mehr).
 #
-# STAND: 2026-07-04, PyPI-verifiziert. Direkte Deps des Crawl-/Verify-/Config-
-# Pfads. Deps, die nur der volle Extraktionslauf braucht (crawl4ai, pydantic-ai,
-# openpyxl), bleiben vorerst range-gepinnt in pyproject und werden hier ergaenzt,
-# sobald ihre exakten Versionen ebenso verifiziert sind (dann als eigener Commit).
-# Ein vollstaendiger transitiver Lock laesst sich bei installierbaren Deps mit
+# STAND: 2026-07-18, PyPI- und resolver-verifiziert. Alle DIREKTEN Laufzeit-Deps
+# aus pyproject.toml. «Verifiziert» heisst nicht «neueste PyPI-Version», sondern:
+# der pip-Resolver findet mit genau diesen Pins eine kompatible Kombination —
+# ermittelt via
+#
+#     python -m pip install --dry-run --ignore-installed --report resolve.json \
+#       -c constraints.txt \
+#       "crawl4ai>=0.9,<1" "pydantic-ai>=2.5,<3" "openpyxl>=3.1,<4"
+#
+# (Exit 0 = auflösbar; die gewählten Versionen stehen in resolve.json). crawl4ai/
+# pydantic-ai/openpyxl koexistieren so nachweislich mit dem Crawl-/Verify-Kern.
+# Ein vollstaendiger transitiver Lock (alle Untergraph-Deps) liesse sich mit
 # `pip-compile` erzeugen; diese Datei pinnt bewusst die direkten Deps, die wir
 # steuern.
 
+# Crawl-/Verify-/Config-Pfad (bestimmt die source_quote-Normalisierung):
 httpx==0.28.1
 trafilatura==2.1.0
 pyyaml==6.0.3
 pydantic==2.13.4
+
+# Nur vom vollen Extraktionslauf gebraucht (Crawl-Fallback, LLM-Extraktion, XLSX):
+crawl4ai==0.9.2
+pydantic-ai==2.13.0
+openpyxl==3.1.5
