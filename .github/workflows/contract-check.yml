@@ -28,6 +28,8 @@ jobs:
         run: python tests/test_pipeline_integration.py
       - name: Component-Contract-Tests (validierte I/O-Grenzen, stdlib)
         run: python tests/test_component.py
+      - name: Extraktor-Registry-Tests (Auswahl-Kern, stdlib)
+        run: python tests/test_registry.py
       - name: Bindewert-Tests (Label<->Wert-Heuristik, stdlib)
         run: python tests/test_binding.py
       - name: Re-Verifikations-Tests (Link-Rot + Drift, stdlib)

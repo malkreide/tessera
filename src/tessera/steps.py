@@ -70,9 +70,11 @@ def _load_ok(corpus: CrawlCorpus) -> list[str]:
 
 
 def _extract(proc, corpus: CrawlCorpus) -> Draft:
-    from . import extract  # noqa: PLC0415
+    from . import registry  # noqa: PLC0415
 
-    xprocess = extract.extract_process(proc, corpus.text)
+    # Registry waehlt den Extraktor pro Leistung (spezialisiert vor generisch);
+    # ein neuer Prozesstyp kommt hinzu, ohne diese Strecke anzufassen.
+    xprocess = registry.get_extractor(proc).extract(proc, corpus.text)
     return Draft(corpus=corpus, xprocess=xprocess)
 
 
