@@ -39,10 +39,10 @@ jobs:
       # Schlank: diff braucht httpx + trafilatura (SSR-Fetch wie der Crawl),
       # pyyaml (sources.yaml) und pydantic (config-Modelle) — kein crawl4ai/
       # playwright (kein Browser; diff nutzt nur den SSR-Pfad) oder pydantic-ai.
-      # EXAKT gepinnt (Repro/Supply-Chain; Stand 2026-07-04, PyPI-verifiziert) —
-      # Bumps bewusst als Commit, nicht implizit im Cron.
-      - name: Laufzeit-Deps (schlank, exakt gepinnt)
-        run: python -m pip install --quiet httpx==0.28.1 trafilatura==2.1.0 pyyaml==6.0.3 pydantic==2.13.4
+      # Versionen kommen aus der zentralen Lock-Datei constraints.txt (EINE
+      # Wahrheitsquelle; Bumps bewusst als Commit, nicht implizit im Cron).
+      - name: Laufzeit-Deps (schlank, exakt gepinnt via constraints.txt)
+        run: python -m pip install --quiet -c constraints.txt httpx trafilatura pyyaml pydantic
       - name: Aenderungs-Diff (JSON, nur Leistungen mit Baseline)
         id: diff
         run: |

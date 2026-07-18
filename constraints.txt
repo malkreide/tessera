@@ -1,0 +1,28 @@
+# Zentrale, exakt gepinnte Laufzeit-Abhaengigkeiten — EINE Wahrheitsquelle fuer
+# reproduzierbare Laeufe (CI-Crons und lokale Re-Extraktion).
+#
+# WARUM: Die `source_quote`-Belege muessen woertlich und STABIL gegen die Quelle
+# pruefbar bleiben. Der HTML->Markdown-Weg (httpx-Fetch + trafilatura-Extraktion)
+# bestimmt, wie der Seitentext normalisiert wird; eine stille Version-Drift dort
+# koennte ein bisher belegtes Zitat ploetzlich durchs Grounding-Gate fallen lassen
+# (oder umgekehrt). Exakte Pins machen den Extraktions- und Verifikationslauf
+# reproduzierbar — Bumps kommen bewusst als Commit, nicht implizit im Cron.
+#
+# VERHAELTNIS ZU pyproject.toml: pyproject fuehrt bewusst RANGES (tessera ist eine
+# Anwendung; die Obergrenze schuetzt vor Breaking Changes). Diese Datei ist die
+# EXAKTE Pin-Schicht darueber, via `pip install -c constraints.txt ...` — die
+# Workflows referenzieren sie statt inline gepinnter Versionen (kein Drift zwischen
+# zwei Cron-Dateien mehr).
+#
+# STAND: 2026-07-04, PyPI-verifiziert. Direkte Deps des Crawl-/Verify-/Config-
+# Pfads. Deps, die nur der volle Extraktionslauf braucht (crawl4ai, pydantic-ai,
+# openpyxl), bleiben vorerst range-gepinnt in pyproject und werden hier ergaenzt,
+# sobald ihre exakten Versionen ebenso verifiziert sind (dann als eigener Commit).
+# Ein vollstaendiger transitiver Lock laesst sich bei installierbaren Deps mit
+# `pip-compile` erzeugen; diese Datei pinnt bewusst die direkten Deps, die wir
+# steuern.
+
+httpx==0.28.1
+trafilatura==2.1.0
+pyyaml==6.0.3
+pydantic==2.13.4
