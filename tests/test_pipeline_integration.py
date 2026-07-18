@@ -33,7 +33,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from tessera import contracts  # noqa: E402
 from tessera.grounding import Corpus, apply_gate  # noqa: E402
+from tessera.merge import merge_process  # noqa: E402
 from validate_contract import Report, validate  # noqa: E402
 
 # to_contract braucht pydantic (Runtime-Dep). Fehlt es (CI ohne Deps), wird der
@@ -194,6 +196,59 @@ def test_gated_output_passes_contract_validator() -> None:
     gated, _ = _gated()
     rep = Report(Path("synthetic"))
     validate(gated, rep)
+    assert rep.ok, rep.errors
+
+
+def test_gated_output_is_struktur_only() -> None:
+    """Die gegatete Extraktion ist struktur-only (de + leere en/fr/it) — die
+    Invariante, die der feldweise Merge der Maschinerie schuetzt. Der neue
+    Component-Vertrag findet hier keinen Verstoss."""
+    gated, _ = _gated()
+    assert contracts.struktur_only(gated) == [], contracts.struktur_only(gated)
+
+
+def test_gated_output_merges_without_regression() -> None:
+    """Kapstein (DoD): die schema-valide, struktur-only Extraktion merged in eine
+    handuebersetzte Zieldatei, OHNE bestehende Uebersetzungen/description zu leeren
+    (Regression-Guard) — und das Ergebnis besteht weiterhin den Vertrags-Validator."""
+    gated, _ = _gated()
+
+    # Handgepflegte Zieldatei: de + volle en/fr/it + description (wie im Ziel-Repo).
+    existing = {
+        "schema_version": "0.1.0",
+        "id": PROC_ID,
+        "lebenslage_ref": PROC_ID,
+        "city": "zh",
+        "title": {"de": "Umzug melden", "en": "Report a move", "fr": "Annoncer un demenagement", "it": "Notificare un trasloco"},
+        "description": {"de": "Adressaenderung bei einem Umzug.", "en": "Address change on moving."},
+        "target_audience": "bevoelkerung",
+        "steps": [
+            {
+                "step_id": 1,
+                "actor": "Einwohner:in",
+                "label": {"de": "Neue Adresse beim Kreisbuero melden", "en": "Report new address", "fr": "Annoncer la nouvelle adresse", "it": "Notificare il nuovo indirizzo"},
+                "depends_on": [],
+            },
+        ],
+        "source_url": SOURCE_URL,
+        "retrieved_at": "2026-01-01",
+        "disclaimer_key": "Prozesse.disclaimer",
+    }
+
+    merged, report = merge_process(existing, gated)
+
+    # Regression-Guard: keine belegte Uebersetzung/description wurde geleert.
+    assert merged["title"]["en"] == "Report a move"
+    assert merged["title"]["fr"] == "Annoncer un demenagement"
+    assert merged["description"]["de"] == "Adressaenderung bei einem Umzug."
+    step1 = next(s for s in merged["steps"] if s["step_id"] == 1)
+    assert step1["label"]["en"] == "Report new address"
+    assert report.preserved, "Merge haette die geschuetzten Locale-Werte protokollieren muessen."
+
+    # Frisches Crawl-Datum gewinnt (Provenienz), aber schema-valide bleibt es.
+    assert merged["retrieved_at"] == RETRIEVED_AT
+    rep = Report(Path("merged"))
+    validate(merged, rep)
     assert rep.ok, rep.errors
 
 
