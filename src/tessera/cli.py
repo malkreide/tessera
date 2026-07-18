@@ -57,50 +57,23 @@ def cmd_crawl(cfg: SourcesConfig, ids: list[str] | None) -> int:
 
 
 def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
-    from . import crawl, extract, grounding, schema, screening  # noqa: PLC0415
+    from . import steps  # noqa: PLC0415
+    from .component import ComponentError  # noqa: PLC0415
 
     OUT.mkdir(exist_ok=True)
     rc = 0
     for proc in _procs(cfg, ids):
         print(f"Extrahiere {proc.id} …")
-        corpus_text, meta, url_texts = crawl.load_corpus(proc.id)
-        ok_meta = [m for m in meta if m["http_status"] == 200 and m["chars"] > 0]
-        if not ok_meta:
-            print(f"  [{proc.id}] Keine brauchbaren Snapshots — uebersprungen.", file=sys.stderr)
+        # Validierte Component-Kette (load->extract->to_contract->ground->screen).
+        # Jede Grenze prueft Ein-/Ausgabe; eine Verletzung stoppt DIESE Leistung
+        # hart (kein Muell in out/), die Schleife laeuft mit der naechsten weiter.
+        try:
+            result = steps.run_extract(proc)
+        except ComponentError as exc:
+            print(f"  [{proc.id}] {exc}", file=sys.stderr)
             rc = 1
             continue
-
-        x = extract.extract_process(proc, corpus_text)
-        retrieved_at = max(m["retrieved_at"] for m in ok_meta)
-        process, step_quotes, doc_quotes = schema.to_contract(
-            x,
-            proc_id=proc.id,
-            target_audience=proc.target_audience,  # kuratiert, nie LLM-inferiert
-            source_url=proc.official_urls[0],
-            retrieved_at=retrieved_at,
-        )
-        # Provenienz je Reference: das Abrufdatum IHRER Quellseite (aus
-        # meta.json), nicht pauschal das juengste des Laufs. Unbekannte URLs
-        # behalten den Fallback; das per-URL-Grounding flaggt sie ohnehin.
-        date_by_url = {m["url"].strip().rstrip("/"): m["retrieved_at"] for m in ok_meta}
-        for ref in process.get("references", []):
-            d = date_by_url.get(str(ref.get("source_url", "")).strip().rstrip("/"))
-            if d:
-                ref["retrieved_at"] = d
-        # Per-URL-Grounding: Reference-Zitate muessen auf der Seite ihrer
-        # source_url stehen, nicht bloss irgendwo im Gesamt-Korpus.
-        corpus_by_url = {u: grounding.Corpus(t) for u, t in url_texts.items()}
-        process, flags = grounding.apply_gate(
-            process,
-            step_quotes,
-            grounding.Corpus(corpus_text),
-            doc_quotes,
-            corpus_by_url=corpus_by_url,
-        )
-        # Injection-Screening auf dem UNTRUSTED Korpus: Flag, kein Gate — das
-        # Grounding-Gate beweist Herkunft, nicht Legitimitaet; injizierter
-        # Seitentext wuerde es bestehen. Befund vorne anstellen (prominent).
-        flags = screening.screen_url_texts(url_texts) + flags
+        process, flags = result.process, result.flags
         out_json = OUT / f"{proc.id}.json"
         out_json.write_text(
             json.dumps(process, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
