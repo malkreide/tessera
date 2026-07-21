@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Specialized `veranstaltung` extractor via the registry**
+  (`src/tessera/extractors/veranstaltung.py`, `extractors/__init__.py`;
+  covered by `tests/test_extractors_veranstaltung.py`, wired into
+  `contract-check.yml`): a first specialized extractor demonstrates the
+  zoo-style registry (step 2) — it is added *without touching* existing
+  extractors or the pipeline (`steps.py`). It claims exactly the high-risk
+  `veranstaltung` service via `handles(proc)` and falls back to the generic
+  two-pass extractor for every other service. Its only difference is a
+  curated **domain hint** (canonical actors `veranstalter/stapo-bew/
+  fachstellen/statthalter`, the typical Gesuch → Prüfung → Fachstellen →
+  Auflagen → Entscheid shape, a sharpened cardinal-rule reminder) threaded
+  into the existing LLM path through a new backward-compatible
+  `domain_hint=""` parameter on `extract.build_extract_prompt` /
+  `build_review_prompt` / `extract_process` (empty hint → byte-identical
+  prompt as before). The hint changes only the *instruction*: grounding,
+  the cardinal rule, struktur-only, and the high-risk disclaimer
+  (`schema.to_contract`) stay centrally enforced downstream, so the hint can
+  never force ungrounded output — and the hint itself carries no binding
+  value (guarded by `BINDING_VALUE_STRICT` in the test). Built-in extractors
+  self-register on import of `tessera.registry`.
 - **Diff excerpts for source changes** (`src/tessera/diff.py`,
   `change-diff.yml`; review package 6b, maintainer-approved full-text
   baselines): `tessera fingerprint` now also commits the line-wise normalised

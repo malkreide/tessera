@@ -99,3 +99,15 @@ def get_extractor(proc) -> ProcessExtractor:
         if extractor.handles(proc):
             return extractor
     return GENERIC
+
+
+# Mitgelieferte spezialisierte Extraktoren registrieren sich per Seiteneffekt beim
+# Import ihres Pakets. Der Import steht bewusst am MODULENDE: `register` ist dann
+# definiert, sodass `tessera.extractors.*` -> `from ..registry import register`
+# nicht in einen halbinitialisierten Zustand laeuft. Die Extraktor-Module halten
+# pydantic/LLM-Importe lazy (erst in `.extract(...)`), darum bleibt `registry`
+# nach wie vor stdlib-rein und ohne Runtime-Deps importierbar. Einen neuen
+# Prozesstyp fuegt man hinzu, indem man ein Modul in `tessera/extractors/`
+# ergaenzt (und dort in `__init__` importiert) — bestehende Extraktoren bleiben
+# unangetastet.
+from . import extractors as _extractors  # noqa: E402,F401,PLC0415
