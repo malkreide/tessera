@@ -30,6 +30,8 @@ jobs:
         run: python tests/test_component.py
       - name: Extraktor-Registry-Tests (Auswahl-Kern, stdlib)
         run: python tests/test_registry.py
+      - name: Veranstaltung-Extraktor-Tests (spezialisierter Extraktor, stdlib)
+        run: python tests/test_extractors_veranstaltung.py
       - name: Reproduzierbarkeits-Guard (constraints.txt <-> Workflows, stdlib)
         run: python tests/test_reproducibility.py
       - name: Bindewert-Tests (Label<->Wert-Heuristik, stdlib)

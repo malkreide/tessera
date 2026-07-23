@@ -144,12 +144,30 @@ Rechtschreibung (kein ß). Gib NUR das korrigierte XProcess aus.
 """
 
 
-def build_extract_prompt(proc: ProcessSource, corpus: str) -> str:
-    """Entwurfs-Prompt (rein, ohne LLM-Aufruf — testbar)."""
+def _hint_block(domain_hint: str) -> str:
+    """Formatiert die kuratierte Domaenen-Hilfe (aus einem spezialisierten
+    Extraktor) als eigenen, klar abgesetzten Prompt-Block mit Leerzeile danach.
+    Ein leerer Hint ergibt den LEEREN String — der Prompt bleibt dann
+    byte-identisch zum generischen Pfad (kein stiller Effekt auf bestehende
+    Extraktionen)."""
+    if not domain_hint or not domain_hint.strip():
+        return ""
+    return (
+        "KURATIERTE DOMAENEN-HINWEISE (verbindlich, aus dem spezialisierten "
+        f"Extraktor):\n{domain_hint.strip()}\n\n"
+    )
+
+
+def build_extract_prompt(proc: ProcessSource, corpus: str, domain_hint: str = "") -> str:
+    """Entwurfs-Prompt (rein, ohne LLM-Aufruf — testbar).
+
+    `domain_hint` traegt optionale, kuratierte Domaenen-Hilfe eines spezialisierten
+    Extraktors (Registry). Leer -> Prompt identisch zum generischen Pfad."""
     return (
         f"Leistung: {proc.service_name} (id: {proc.id}, "
         f"target_audience: {proc.target_audience}).\n"
         f"Hinweise aus der kuratierten Liste: {proc.notes or '—'}\n\n"
+        f"{_hint_block(domain_hint)}"
         "Extrahiere die Prozess-Struktur aus den folgenden Quell-Snapshots. "
         "Jeder Snapshot beginnt mit <<<QUELLE url>>> — verwende fuer jede "
         "Reference die URL des Snapshots, in dem ihr Zitat steht.\n"
@@ -157,11 +175,16 @@ def build_extract_prompt(proc: ProcessSource, corpus: str) -> str:
     )
 
 
-def build_review_prompt(proc: ProcessSource, corpus: str, draft_json: str) -> str:
-    """Review-Prompt (rein, ohne LLM-Aufruf — testbar). Traegt Entwurf + Korpus."""
+def build_review_prompt(
+    proc: ProcessSource, corpus: str, draft_json: str, domain_hint: str = ""
+) -> str:
+    """Review-Prompt (rein, ohne LLM-Aufruf — testbar). Traegt Entwurf + Korpus.
+
+    `domain_hint` wie in `build_extract_prompt`; leer -> Prompt unveraendert."""
     return (
         f"Leistung: {proc.service_name} (id: {proc.id}, "
         f"target_audience: {proc.target_audience}).\n\n"
+        f"{_hint_block(domain_hint)}"
         "ENTWURF (zu pruefen und zu korrigieren):\n"
         f"{draft_json}\n\n"
         "QUELL-SNAPSHOTS (einzige Belegquelle; jeder beginnt mit <<<QUELLE url>>>):\n"
@@ -194,7 +217,12 @@ def _require_key(model: str) -> None:
         )
 
 
-def extract_process(proc: ProcessSource, corpus: str) -> XProcess:
+def extract_process(proc: ProcessSource, corpus: str, domain_hint: str = "") -> XProcess:
+    """Fuehrt die (Zwei-Pass-)LLM-Extraktion aus. `domain_hint` traegt optionale
+    kuratierte Domaenen-Hilfe eines spezialisierten Extraktors (Registry) und geht
+    in BEIDE Paesse; leer -> Verhalten wie der generische Pfad. Der Hint aendert nur
+    die INSTRUKTION — Belegbarkeit/Grounding/Kardinalregel bleiben unveraendert
+    (nachgelagerte Gates), er kann also keine unbelegte Ausgabe erzwingen."""
     model = os.environ.get("TESSERA_MODEL", DEFAULT_MODEL)
     _require_key(model)
 
@@ -206,7 +234,7 @@ def extract_process(proc: ProcessSource, corpus: str) -> XProcess:
 
     draft = Agent(
         model, output_type=XProcess, instructions=INSTRUCTIONS, model_settings=settings
-    ).run_sync(build_extract_prompt(proc, corpus)).output
+    ).run_sync(build_extract_prompt(proc, corpus, domain_hint)).output
 
     if not _review_enabled():
         return draft
@@ -216,6 +244,6 @@ def extract_process(proc: ProcessSource, corpus: str) -> XProcess:
     reviewed = Agent(
         model, output_type=XProcess, instructions=REVIEW_INSTRUCTIONS, model_settings=settings
     ).run_sync(
-        build_review_prompt(proc, corpus, draft.model_dump_json(indent=2))
+        build_review_prompt(proc, corpus, draft.model_dump_json(indent=2), domain_hint)
     ).output
     return reviewed
