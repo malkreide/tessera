@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **ruff rule set pinned explicitly** (`[tool.ruff.lint]`: `E, F, W, I, UP`,
+  without `E501` — the set the portfolio's servers use). Without `select`,
+  ruff's default applied, and that default grew from 59 rules (0.15.8:
+  E4/E7/E9/F) to 413 in 0.16 (adding B, SIM, RUF, PL, DTZ and more). With
+  `ruff` unpinned in the `dev` extra, whichever version happened to be
+  installed decided what "clean" meant — 95+ findings under 0.16's default,
+  21 under the pinned set. Configuration only: no code was changed, and no CI
+  workflow runs ruff in this repository, so nothing turns red. The 21 findings
+  (13 auto-fixable: import order, unused imports, placeholder-less f-strings;
+  7× `E741` ambiguous names `l`/`I`/`O`, 1× `E731`) are left for a separate
+  change together with a first `ruff format` pass and a lint gate.
+
 ### Added
 - **Specialized `veranstaltung` extractor via the registry**
   (`src/tessera/extractors/veranstaltung.py`, `extractors/__init__.py`;
