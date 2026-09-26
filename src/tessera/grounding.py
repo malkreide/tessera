@@ -24,6 +24,7 @@ auffindbar oder nicht. Normalisiert werden nur typografische Artefakte des
 HTML->Markdown-Wegs (Anfuehrungszeichen, Whitespace, weiche Trennstriche,
 unsichtbare Zero-Width-Zeichen, Ellipsis) — keine inhaltliche Angleichung.
 """
+
 from __future__ import annotations
 
 import re
@@ -31,14 +32,24 @@ import re
 from .binding import label_value_mismatch
 
 # Typografische Varianten, die Extraktoren austauschbar liefern.
-_QUOTE_MAP = str.maketrans({
-    "«": '"', "»": '"', "“": '"', "”": '"', "„": '"',
-    "’": "'", "‘": "'", "´": "'", "`": "'",
-    " ": " ",   # geschuetztes Leerzeichen
-    "‑": "-",   # non-breaking hyphen
-    "–": "-", "—": "-",
-    "…": "...",  # Ellipsis: HTML rendert oft das Einzelzeichen, das LLM kopiert "..."
-})
+_QUOTE_MAP = str.maketrans(
+    {
+        "«": '"',
+        "»": '"',
+        "“": '"',
+        "”": '"',
+        "„": '"',
+        "’": "'",
+        "‘": "'",
+        "´": "'",
+        "`": "'",
+        " ": " ",  # geschuetztes Leerzeichen
+        "‑": "-",  # non-breaking hyphen
+        "–": "-",
+        "—": "-",
+        "…": "...",  # Ellipsis: HTML rendert oft das Einzelzeichen, das LLM kopiert "..."
+    }
+)
 # Unsichtbare Zeichen, die HTML->Markdown einstreut und die ein verbatim kopiertes
 # Zitat NICHT enthaelt (oder umgekehrt): Soft-Hyphen, Zero-Width-Space/Joiner,
 # Word-Joiner und ZWNBSP/BOM. `\s` faengt diese NICHT — also explizit entfernen,
@@ -115,11 +126,7 @@ def apply_gate(
     gate_documents = doc_quotes is not None
     doc_quotes = doc_quotes or {}
     # Normalisierte URL -> Seiten-Korpus (None = per-URL-Grounding nicht aktiv).
-    pages = (
-        {_url_key(u): c for u, c in corpus_by_url.items()}
-        if corpus_by_url is not None
-        else None
-    )
+    pages = {_url_key(u): c for u, c in corpus_by_url.items()} if corpus_by_url is not None else None
 
     # --- References: nicht belegbar -> unverifiziert + leeres Zitat ----------
     references = []
@@ -141,10 +148,7 @@ def apply_gate(
             # Per-URL-Grounding: der Deep-Link verspricht die exakte Seite.
             page = pages.get(_url_key(ref.get("source_url")))
             if page is None:
-                reason = (
-                    "source_url gehoert zu keinem gecrawlten Snapshot — "
-                    "Deep-Link nicht pruefbar"
-                )
+                reason = "source_url gehoert zu keinem gecrawlten Snapshot — Deep-Link nicht pruefbar"
             elif not page.contains(quote):
                 found_on = [u for u, c in corpus_by_url.items() if c.contains(quote)]
                 hint = f"; woertlich gefunden auf: {', '.join(found_on)}" if found_on else ""
@@ -177,10 +181,7 @@ def apply_gate(
             if not quote.strip():
                 reason = "ohne Belegstelle"
             elif _too_unspecific(quote):
-                reason = (
-                    f"mit zu unspezifischem Zitat (unter {MIN_QUOTE_CHARS} "
-                    "normalisierten Zeichen)"
-                )
+                reason = f"mit zu unspezifischem Zitat (unter {MIN_QUOTE_CHARS} normalisierten Zeichen)"
             else:
                 reason = "Belegstelle nicht woertlich im Korpus"
             flags.append(
@@ -235,19 +236,19 @@ def apply_gate(
                 if quote and not _too_unspecific(quote) and corpus.contains(quote):
                     kept_docs.append(doc)
                 else:
-                    label_de = (doc.get("label") or {}).get("de", "?") if isinstance(doc.get("label"), dict) else "?"
+                    label_de = (
+                        (doc.get("label") or {}).get("de", "?") if isinstance(doc.get("label"), dict) else "?"
+                    )
                     if not quote.strip():
                         reason = "ohne Belegstelle"
                     elif _too_unspecific(quote):
                         reason = (
-                            f"mit zu unspezifischem Zitat (unter {MIN_QUOTE_CHARS} "
-                            "normalisierten Zeichen)"
+                            f"mit zu unspezifischem Zitat (unter {MIN_QUOTE_CHARS} normalisierten Zeichen)"
                         )
                     else:
                         reason = "Belegstelle nicht woertlich im Korpus"
                     flags.append(
-                        f"Dokument «{label_de}» bei Schritt {sid} {reason} "
-                        "-> VERWORFEN (Grounding-Gate)."
+                        f"Dokument «{label_de}» bei Schritt {sid} {reason} -> VERWORFEN (Grounding-Gate)."
                     )
             if kept_docs:
                 step["documents"] = kept_docs

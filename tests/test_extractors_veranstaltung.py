@@ -19,6 +19,7 @@ uebersprungen, nicht stillschweigend bestanden.
 
 Aufruf: python tests/test_extractors_veranstaltung.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import sys

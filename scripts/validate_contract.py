@@ -41,6 +41,7 @@ Aufruf:
 Ohne Pfade werden examples/*.json geprueft.
 Exit-Code 0 = alles gueltig, 1 = mindestens ein Fehler.
 """
+
 from __future__ import annotations
 
 import json
@@ -61,7 +62,6 @@ from tessera.binding import (  # noqa: E402
 from tessera.contract import SCHEMA_VERSION  # noqa: E402
 from tessera.risk import (  # noqa: E402
     HIGH_RISK_DISCLAIMER_KEY,
-    HIGH_RISK_RATIONALE,
     is_high_risk,
     is_high_risk_disclaimer,
 )
@@ -78,9 +78,7 @@ REF_STATUS = {"verifiziert", "unverifiziert"}
 KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 # ISO 8601: Tagesgenaues Datum (kanonisch, z.B. 2026-06-06) ODER voller Zeitstempel.
-ISO = re.compile(
-    r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$"
-)
+ISO = re.compile(r"^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2}))?$")
 
 # Kardinalregel-Lint nutzt BINDING_VALUE aus tessera.binding (EINE Wahrheitsquelle).
 
@@ -253,9 +251,17 @@ def _check_steps(rep: Report, steps: object) -> set[int]:
         else:
             seen.add(sid)
         allowed_step = {
-            "step_id", "actor", "label", "depends_on", "reference_ids",
+            "step_id",
+            "actor",
+            "label",
+            "depends_on",
+            "reference_ids",
             # additive kanonische Erweiterungen:
-            "type", "description", "documents", "source_id", "loops_back_to",
+            "type",
+            "description",
+            "documents",
+            "source_id",
+            "loops_back_to",
         }
         for f in sorted(set(step) - allowed_step):
             rep.error(f"{where}: unbekanntes Feld {f!r}.")
@@ -275,9 +281,7 @@ def _check_steps(rep: Report, steps: object) -> set[int]:
             rep.error(f"{where}.source_id: muss ein String sein.")
         if "loops_back_to" in step:
             lbt = step["loops_back_to"]
-            if not isinstance(lbt, list) or any(
-                not isinstance(x, int) or isinstance(x, bool) for x in lbt
-            ):
+            if not isinstance(lbt, list) or any(not isinstance(x, int) or isinstance(x, bool) for x in lbt):
                 rep.error(f"{where}.loops_back_to: Liste von step_ids erwartet.")
             elif step.get("type") != "loop":
                 rep.warn(f"{where}.loops_back_to: nur auf type 'loop' vorgesehen.")
@@ -375,10 +379,17 @@ def _check_references(rep: Report, refs: object) -> set[int]:
             rep.error(f"{where}.reference_id: {rid} ist nicht eindeutig.")
         else:
             seen.add(rid)
-        for f in sorted(set(ref) - {
-            "reference_id", "label", "source_url", "source_quote",
-            "retrieved_at", "status",
-        }):
+        for f in sorted(
+            set(ref)
+            - {
+                "reference_id",
+                "label",
+                "source_url",
+                "source_quote",
+                "retrieved_at",
+                "status",
+            }
+        ):
             rep.error(f"{where}: unbekanntes Feld {f!r}.")
         _check_i18n(rep, f"{where}.label", ref.get("label"))
         # Kardinalregel: das Label benennt den Wert, traegt aber nie die Zahl.
@@ -562,16 +573,31 @@ def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> 
     rep.high_risk = is_high_risk(data.get("id"))
 
     required = {
-        "schema_version", "id", "lebenslage_ref", "title", "target_audience",
-        "steps", "source_url", "retrieved_at", "disclaimer_key",
+        "schema_version",
+        "id",
+        "lebenslage_ref",
+        "title",
+        "target_audience",
+        "steps",
+        "source_url",
+        "retrieved_at",
+        "disclaimer_key",
     }
     for field in sorted(required - set(data)):
         rep.error(f"Pflichtfeld fehlt: {field}")
 
     allowed = required | {
-        "$schema", "preconditions", "references",
+        "$schema",
+        "preconditions",
+        "references",
         # additive kanonische Erweiterungen (maschinerie-zuerich):
-        "city", "description", "actors", "legal_basis", "sources", "reife", "meta",
+        "city",
+        "description",
+        "actors",
+        "legal_basis",
+        "sources",
+        "reife",
+        "meta",
         # 'bewertung' ist ein kanonisches additives Feld im Ziel-Repo. tessera
         # erzeugt es nie selbst; es stammt aus handgepflegten Zieldateien und
         # bleibt beim feldweisen Merge erhalten. Hier nur erlauben (Gate-Paritaet,
@@ -609,8 +635,7 @@ def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> 
         _lint_binding(rep, "title", data["title"])
     if data.get("target_audience") not in AUDIENCES:
         rep.error(
-            f"target_audience: muss eines von {sorted(AUDIENCES)} sein "
-            f"({data.get('target_audience')!r})."
+            f"target_audience: muss eines von {sorted(AUDIENCES)} sein ({data.get('target_audience')!r})."
         )
     if "preconditions" in data:
         pc = data["preconditions"]
@@ -674,8 +699,7 @@ def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> 
                 # darum Fehler, nicht Warnung (Gate-Paritaet, sonst rutscht eine
                 # Datei lokal durch, die die Ziel-CI ablehnt).
                 rep.error(
-                    f"Schritt {sid}: actor {actor!r} ist keine actors[].id "
-                    f"(vorhanden: {sorted(actor_ids)})."
+                    f"Schritt {sid}: actor {actor!r} ist keine actors[].id (vorhanden: {sorted(actor_ids)})."
                 )
             for t in step.get("loops_back_to", []) or []:
                 if isinstance(t, int) and t not in step_ids:
@@ -713,6 +737,7 @@ def main(argv: list[str]) -> int:
     root = Path(__file__).resolve().parent.parent
     # Strenger Modus opt-in: per Flag oder ENV TESSERA_STRICT_LABEL_VALUE.
     import os  # noqa: PLC0415
+
     strict = bool(os.environ.get("TESSERA_STRICT_LABEL_VALUE"))
     args = [a for a in argv if a not in ("--strict-label-value", "-s")]
     if len(args) != len(argv):
@@ -740,7 +765,7 @@ def main(argv: list[str]) -> int:
         for w in rep.warnings:
             print(f"    - Hinweis: {w}")
         if rep.pending:
-            locs = sorted({p.rsplit('.', 1)[-1] for p in rep.pending})
+            locs = sorted({p.rsplit(".", 1)[-1] for p in rep.pending})
             print(
                 f"    - Hinweis: {len(rep.pending)} i18n-Feld(er) ohne Uebersetzung "
                 f"({', '.join(locs)}) — ausstehend, nicht maschinell raten."

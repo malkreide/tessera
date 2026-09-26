@@ -13,6 +13,7 @@ erlauben — sonst lehnt er einen gemergten Stand ab, den die Ziel-CI akzeptiert
   * ein echtes Fremdfeld wird weiterhin als 'Unbekanntes Feld' abgelehnt
     (Gegenprobe: die Allowlist gated noch).
 """
+
 from __future__ import annotations
 
 import sys

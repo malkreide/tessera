@@ -20,6 +20,7 @@ Zwei verschiedene Empfindlichkeiten fuer zwei verschiedene Zwecke:
 
 Reine stdlib (`re`), damit der dependency-freie Validator es importieren kann.
 """
+
 from __future__ import annotations
 
 import re
@@ -90,11 +91,25 @@ BINDING_VALUE_STRICT = re.compile(
 # Label; deutsche Komposita tragen den Stamm (Anmeldefrist -> frist,
 # Hundeabgabe -> abgabe, Bearbeitungsgebuehr -> gebuehr).
 _MONEY_TERMS = (
-    "gebuehr", "gebühr", "kosten", "betrag", "tarif", "abgabe", "steuer",
-    "preis", "entgelt", "ansatz", "zuschlag",
+    "gebuehr",
+    "gebühr",
+    "kosten",
+    "betrag",
+    "tarif",
+    "abgabe",
+    "steuer",
+    "preis",
+    "entgelt",
+    "ansatz",
+    "zuschlag",
 )
 _TIME_TERMS = (
-    "frist", "gueltig", "gültig", "dauer", "laufzeit", "bearbeitungszeit",
+    "frist",
+    "gueltig",
+    "gültig",
+    "dauer",
+    "laufzeit",
+    "bearbeitungszeit",
     "termin",
 )
 
@@ -151,7 +166,4 @@ def label_value_mismatch(label_text: str, quote: str) -> str | None:
     if quote_substantiates(kind, quote):
         return None
     expect = {"money": "Betrag/Gebuehr", "time": "Frist/Dauer/Datum", "any": "Frist oder Betrag"}[kind]
-    return (
-        f"Label benennt einen bindenden Wert ({expect}), das Zitat belegt aber "
-        f"keinen solchen Wert"
-    )
+    return f"Label benennt einen bindenden Wert ({expect}), das Zitat belegt aber keinen solchen Wert"

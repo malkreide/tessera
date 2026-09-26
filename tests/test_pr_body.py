@@ -7,6 +7,7 @@ dependency-freien CI laufen.
 
 Aufruf: python tests/test_pr_body.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import sys
@@ -75,7 +76,10 @@ def test_reference_table_rendered() -> None:
     body = build_pr_body(PROC, _process(), [], META)
     assert "| # | Label | Deep-Link | Zitat (woertlich) | Status |" in body
     # Verifizierte Reference: Zitat als Code-Span + Haekchen.
-    assert "| 1 | Meldefrist | https://www.stadt-zuerich.ch/hund | `innert zehn Tagen nach Uebernahme melden` | ✅ verifiziert |" in body
+    assert (
+        "| 1 | Meldefrist | https://www.stadt-zuerich.ch/hund | `innert zehn Tagen nach Uebernahme melden` | ✅ verifiziert |"
+        in body
+    )
     # Unverifizierte Reference: kein Zitat (—) + Warnsymbol.
     assert "| 2 | Hundeabgabe | https://www.stadt-zuerich.ch/abgabe | — | ⚠️ unverifiziert |" in body
 

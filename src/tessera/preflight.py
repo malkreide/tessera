@@ -15,6 +15,7 @@ Modul-Importe sind reine stdlib (httpx/openpyxl lazy in den Fetch-Funktionen),
 damit die Gate-Logik (load_gate/require_allowed) in der dependency-freien CI
 testbar ist — wie grounding/binding/risk.
 """
+
 from __future__ import annotations
 
 import io
@@ -64,11 +65,7 @@ def _fetch_i14y(url: str, ua: str) -> list[str]:
             data = r.json().get("data", [])
             for svc in data:
                 name = (svc.get("name") or {}).get("de") or ""
-                kw = [
-                    (k.get("de") or "")
-                    for k in (svc.get("keywords") or [])
-                    if isinstance(k, dict)
-                ]
+                kw = [(k.get("de") or "") for k in (svc.get("keywords") or []) if isinstance(k, dict)]
                 names.append(" · ".join(s for s in [name, *kw] if s).strip())
             total_pages = int(r.headers.get("x-paging-totalpages", page))
             if page >= total_pages:
@@ -104,9 +101,7 @@ def _fetch_ech0070(url: str, ua: str) -> list[str]:
     ws = wb[sheet]
     rows = ws.iter_rows(min_row=1, values_only=True)
     header = [str(c or "") for c in next(rows)]
-    col = next(
-        (i for i, h in enumerate(header) if h.startswith("Leistungsergebnis")), None
-    )
+    col = next((i for i, h in enumerate(header) if h.startswith("Leistungsergebnis")), None)
     if col is None:
         raise RuntimeError(f"Spalte 'Leistungsergebnis' nicht gefunden: {header}")
     return [str(row[col]) for row in rows if row[col]]
@@ -167,20 +162,24 @@ def run_preflight(cfg: SourcesConfig, only: list[str] | None = None) -> dict[str
         f"Stand: {today} — erzeugt durch `tessera preflight` (Katalog wird",
         "konsumiert, nicht entdeckt; kuratierte Liste: `sources.yaml`).",
         "",
-        f"- I14Y Public API (Behoerdenleistungen): "
+        "- I14Y Public API (Behoerdenleistungen): "
         + (f"{len(i14y_names)} Eintraege" if not i14y_err else f"FEHLER — {i14y_err}"),
-        f"- eCH-0070-Leistungsinventar (V4.2.0, XLSX): "
+        "- eCH-0070-Leistungsinventar (V4.2.0, XLSX): "
         + (f"{len(ech_names)} Eintraege" if not ech_err else f"FEHLER — {ech_err}"),
         "",
         "| Leistung (kuratiert) | I14Y-Treffer | eCH-0070-Treffer |",
         "|---|---|---|",
     ]
+
+    def fmt(hits: list[str]) -> str:
+        if not hits:
+            return "—  (kommunale Leistung, kein Bundes-Eintrag)"
+        more = f" (+{len(hits) - 4})" if len(hits) > 4 else ""
+        return "; ".join(h[:60].replace("|", "/") for h in hits[:4]) + more
+
     for p in procs:
         i_hits = _matches(i14y_names, p.catalog_keywords)
         e_hits = _matches(ech_names, p.catalog_keywords)
-        fmt = lambda hits: "; ".join(h[:60].replace("|", "/") for h in hits[:4]) + (
-            f" (+{len(hits) - 4})" if len(hits) > 4 else ""
-        ) if hits else "—  (kommunale Leistung, kein Bundes-Eintrag)"
         lines.append(f"| `{p.id}` ({p.service_name}) | {fmt(i_hits)} | {fmt(e_hits)} |")
     lines += [
         "",
@@ -218,7 +217,9 @@ def run_preflight(cfg: SourcesConfig, only: list[str] | None = None) -> dict[str
     for h in hosts:
         _, note = robots[h]
         terms = KNOWN_TERMS.get(h, "—")
-        terms_md = f"[{terms}]({terms}) — manuelle Pruefung Maintainer" if terms != "—" else "— (Link nachtragen)"
+        terms_md = (
+            f"[{terms}]({terms}) — manuelle Pruefung Maintainer" if terms != "—" else "— (Link nachtragen)"
+        )
         clines.append(f"| {h} | {note} | {terms_md} |")
 
     clines += ["", "## Geprüfte URLs", "", "| Leistung | URL | robots-Verdikt |", "|---|---|---|"]

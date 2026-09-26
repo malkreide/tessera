@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest", "ruff>=0.16,<0.17"]  # exakt gepinnt in constraints.txt
 
 [project.scripts]
 tessera = "tessera.cli:main"
@@ -47,12 +47,15 @@ packages = ["src/tessera"]
 # entschied bisher die zufaellig installierte Version, was «sauber» heisst.
 # Derselbe Satz wie in den Servern des Portfolios.
 #
-# Bewusst OHNE `line-length`: Dieses Repo wurde nie mit `ruff format`
-# formatiert (39 von 40 Dateien weichen bei 88, 100, 110 und 120 ab). Eine
-# Breite hier waere eine Behauptung ohne Messung. Sie kommt mit dem ersten
-# Formatlauf, zusammen mit einem Gate in der CI.
+# `line-length` explizit, und gemessen statt geschaetzt: Der erste Formatlauf
+# aenderte bei 88 Zeichen 1269 Zeilen, bei 100 717, bei 110 638 und bei 120 691.
+# 110 ist die Breite, in der dieser Code geschrieben wurde. Der Wert muss hier
+# stehen, auch wenn er einmal dem Default entspraeche: `ruff format` bricht
+# eine Zeile um, sobald sie nicht mehr passt, und eine zwischen Repos kopierte
+# Datei sieht sonst im Ziel nach einem Fehler aus.
 [tool.ruff]
 target-version = "py311"
+line-length = 110
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP"]

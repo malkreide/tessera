@@ -10,6 +10,7 @@ Deckt ab:
   * Baseline-Abgleich: neu (in sources, nicht in Baseline) / entfernt (umgekehrt).
   * Ohne Baseline: no_baseline (kein Vergleich, kein Fehler).
 """
+
 from __future__ import annotations
 
 import sys
@@ -33,8 +34,10 @@ class _Proc:
 
 def _fetcher(pages: dict[str, tuple[str, str]]):
     """pages: {url: (markdown, state)}; fehlende URL -> ('', netzfehler)."""
+
     def fetch(url: str):
         return pages.get(url, ("", reach.NETERROR))
+
     return fetch
 
 
@@ -64,6 +67,7 @@ def test_fingerprint_roundtrip_and_unchanged() -> None:
         assert not rep.data_problem, rep
         assert sorted(rep.unchanged) == sorted([URL_A, URL_B]), rep.unchanged
         assert not rep.changed and not rep.new and not rep.removed
+
     _with_tmp_fingerprints(body)
 
 
@@ -79,6 +83,7 @@ def test_cosmetic_change_not_flagged() -> None:
         rep = diff_mod.diff_process(proc, _fetcher(cosmetic))
         assert rep.unchanged == [URL_A], rep
         assert not rep.changed
+
     _with_tmp_fingerprints(body)
 
 
@@ -93,6 +98,7 @@ def test_content_change_flagged() -> None:
         rep = diff_mod.diff_process(proc, _fetcher(changed))
         assert rep.changed == [URL_A], rep
         assert rep.data_problem
+
     _with_tmp_fingerprints(body)
 
 
@@ -108,6 +114,7 @@ def test_dead_is_data_problem_block_is_env() -> None:
         assert rep.dead == [URL_A], rep.dead
         assert any(URL_B in e for e in rep.env), rep.env
         assert rep.data_problem  # wegen totem Link
+
     _with_tmp_fingerprints(body)
 
 
@@ -129,6 +136,7 @@ def test_new_and_removed_urls() -> None:
         gone_proc = _Proc("svc", [URL_B])
         rep2 = diff_mod.diff_process(gone_proc, _fetcher({URL_B: ("B", reach.OK)}))
         assert rep2.removed == [URL_A], rep2.removed
+
     _with_tmp_fingerprints(body)
 
 
@@ -145,6 +153,7 @@ def test_changed_url_carries_diff_excerpt() -> None:
         ex = rep.excerpts.get(URL_A, "")
         assert "-Die Frist betraegt 10 Tage." in ex, ex
         assert "+Die Frist betraegt 30 Tage." in ex, ex
+
     _with_tmp_fingerprints(body)
 
 
@@ -162,6 +171,7 @@ def test_excerpt_is_capped() -> None:
         ex = rep.excerpts[URL_A]
         assert len(ex.splitlines()) <= diff_mod.MAX_EXCERPT_LINES + 1, len(ex.splitlines())
         assert "gekappt" in ex
+
     _with_tmp_fingerprints(body)
 
 
@@ -177,6 +187,7 @@ def test_legacy_baseline_without_text_yields_no_excerpt() -> None:
         rep = diff_mod.diff_process(proc, _fetcher({URL_A: ("Neu und anders.", reach.OK)}))
         assert rep.changed == [URL_A]
         assert rep.excerpts == {}, rep.excerpts
+
     _with_tmp_fingerprints(body)
 
 
@@ -201,6 +212,7 @@ def test_fingerprint_writes_and_prunes_text_files() -> None:
         )
         assert not stale.exists(), stale
         assert (diff_mod.FINGERPRINTS / base[URL_A]["text_file"]).exists()
+
     _with_tmp_fingerprints(body)
 
 
@@ -208,14 +220,27 @@ def test_report_to_dict_shape() -> None:
     def body() -> None:
         proc = _Proc("svc", [URL_A])
         diff_mod.write_fingerprints(
-            "svc", diff_mod.build_entries(proc, _fetcher({URL_A: ("A", reach.OK)}), "2026-06-29"), "2026-06-29"
+            "svc",
+            diff_mod.build_entries(proc, _fetcher({URL_A: ("A", reach.OK)}), "2026-06-29"),
+            "2026-06-29",
         )
         rep = diff_mod.diff_process(proc, _fetcher({URL_A: ("A geaendert", reach.OK)}))
         d = diff_mod.report_to_dict(rep)
         assert d["id"] == "svc"
         assert d["changed"] == [URL_A]
         assert d["data_problem"] is True
-        assert set(d) >= {"id", "no_baseline", "changed", "dead", "env", "new", "removed", "unchanged", "data_problem"}
+        assert set(d) >= {
+            "id",
+            "no_baseline",
+            "changed",
+            "dead",
+            "env",
+            "new",
+            "removed",
+            "unchanged",
+            "data_problem",
+        }
+
     _with_tmp_fingerprints(body)
 
 
@@ -224,6 +249,7 @@ def test_no_baseline() -> None:
         proc = _Proc("svc-ohne-baseline", [URL_A])
         rep = diff_mod.diff_process(proc, _fetcher({URL_A: ("A", reach.OK)}))
         assert rep.no_baseline and not rep.data_problem
+
     _with_tmp_fingerprints(body)
 
 
@@ -235,6 +261,7 @@ def test_unreachable_url_not_frozen_into_baseline() -> None:
         diff_mod.write_fingerprints("svc", entries, "2026-06-29")
         base = diff_mod.load_fingerprints("svc")
         assert URL_A in base and URL_B not in base, base  # Block nicht eingefroren
+
     _with_tmp_fingerprints(body)
 
 

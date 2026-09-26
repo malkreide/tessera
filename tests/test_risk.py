@@ -12,9 +12,9 @@ Deckt ab:
     high_risk markiert;
   * Disclaimer-Empfehlung greift (Hinweis, kein Fehler).
 """
+
 from __future__ import annotations
 
-import copy
 import sys
 from pathlib import Path
 
@@ -22,13 +22,14 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from validate_contract import Report, validate  # noqa: E402
+
 from tessera.risk import (  # noqa: E402
     HIGH_RISK_DISCLAIMER_KEY,
     HIGH_RISK_IDS,
     is_high_risk,
     is_high_risk_disclaimer,
 )
-from validate_contract import Report, validate  # noqa: E402
 
 
 def _high_risk_process() -> dict:
@@ -115,9 +116,7 @@ def test_word_number_in_label_is_error_for_high_risk() -> None:
     """Strenger Kardinalregel-Lint: ausgeschriebene Frist im gerenderten Text
     ist bei Hochrisiko ein FEHLER (der enge Ziffer+Einheit-Lint saehe nichts)."""
     proc = _high_risk_process()
-    proc["steps"][0]["label"]["de"] = (
-        "Baugesuch spaetestens vier Wochen vor Baubeginn einreichen"
-    )
+    proc["steps"][0]["label"]["de"] = "Baugesuch spaetestens vier Wochen vor Baubeginn einreichen"
     rep = Report(Path("synthetic"))
     validate(proc, rep)
     assert not rep.ok

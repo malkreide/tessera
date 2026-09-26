@@ -39,3 +39,9 @@ pydantic==2.13.4
 crawl4ai==0.9.2
 pydantic-ai==2.13.0
 openpyxl==3.1.5
+
+# Entwicklungswerkzeug, installiert von .github/workflows/lint.yml. Exakt, weil
+# `ruff format --check` kein `select` hat: jede Version, die am Formatter
+# dreht, faerbt unberuehrten Code rot. Bump bewusst als Commit, nach einem Lauf
+# beider Gates mit der neuen Version.
+ruff==0.16.9

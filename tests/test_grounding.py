@@ -3,6 +3,7 @@
 
 Aufruf: python tests/test_grounding.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import sys
@@ -12,8 +13,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from tessera.grounding import Corpus, apply_gate, normalize  # noqa: E402
 from validate_contract import Report, validate  # noqa: E402
+
+from tessera.grounding import Corpus, apply_gate, normalize  # noqa: E402
 
 CORPUS_TEXT = """
 # Hundekontrolle
@@ -104,10 +106,7 @@ def test_normalize_zero_width_and_ellipsis() -> None:
 
 def test_normalize_markdown_links() -> None:
     # Linksyntax mitten im Satz darf den woertlichen Abgleich nicht brechen.
-    corpus = Corpus(
-        "Der Hund muss bei [Externer Link:AMICUS](http://www.amicus.ch) "
-        "registriert werden."
-    )
+    corpus = Corpus("Der Hund muss bei [Externer Link:AMICUS](http://www.amicus.ch) registriert werden.")
     assert corpus.contains("muss bei AMICUS registriert werden")
     # Auch wenn das Zitat die Linksyntax mitkopiert:
     assert corpus.contains("bei [Externer Link:AMICUS](http://www.amicus.ch) registriert")
@@ -166,12 +165,12 @@ def test_document_grounding() -> None:
     # bleibt) ist unberuehrt.
     process, quotes = _process()
     process["steps"][0]["documents"] = [
-        {"label": {"de": "Ausweis"}, "required": True},        # belegt
-        {"label": {"de": "Erfundenes Formular"}},               # unbelegt
+        {"label": {"de": "Ausweis"}, "required": True},  # belegt
+        {"label": {"de": "Erfundenes Formular"}},  # unbelegt
     ]
     doc_quotes = {
         (1, 0): "Die Anmeldung ist online oder am Schalter moeglich.",  # im Korpus
-        (1, 1): "Dieses Dokument steht nirgends im Korpus.",            # nicht im Korpus
+        (1, 1): "Dieses Dokument steht nirgends im Korpus.",  # nicht im Korpus
     }
     gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT), doc_quotes)
     step1 = next(s for s in gated["steps"] if s["step_id"] == 1)
@@ -211,12 +210,10 @@ def _by_url() -> dict[str, Corpus]:
     # Zwei Snapshots: die Frist steht NUR auf der zweiten Seite.
     return {
         "https://example.org/hunde": Corpus(
-            "Der Hund muss bei AMICUS registriert werden. "
-            "Die Anmeldung ist online oder am Schalter moeglich."
+            "Der Hund muss bei AMICUS registriert werden. Die Anmeldung ist online oder am Schalter moeglich."
         ),
         "https://example.org/hunde/fristen": Corpus(
-            "Sie muessen Ihren Hund innert zehn Tagen nach Uebernahme bei "
-            "Ihrer Wohngemeinde melden."
+            "Sie muessen Ihren Hund innert zehn Tagen nach Uebernahme bei Ihrer Wohngemeinde melden."
         ),
     }
 
@@ -225,9 +222,7 @@ def test_per_url_grounding_right_page() -> None:
     # Zitat steht auf der Seite der angegebenen source_url -> verifiziert.
     process, quotes = _process()
     process["references"][0]["source_url"] = "https://example.org/hunde/fristen"
-    gated, _ = apply_gate(
-        process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url()
-    )
+    gated, _ = apply_gate(process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url())
     ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
     assert ref1["status"] == "verifiziert", ref1
 
@@ -237,9 +232,7 @@ def test_per_url_grounding_wrong_page() -> None:
     # source_url -> Abstinenz; das Flag nennt die Seite, auf der es steht.
     process, quotes = _process()
     assert process["references"][0]["source_url"] == "https://example.org/hunde"
-    gated, flags = apply_gate(
-        process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url()
-    )
+    gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url())
     ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
     assert ref1["status"] == "unverifiziert", ref1
     assert ref1["source_quote"] == ""
@@ -253,9 +246,7 @@ def test_per_url_grounding_unknown_source_url() -> None:
     # Abstinenz, eigenes Flag.
     process, quotes = _process()
     process["references"][0]["source_url"] = "https://example.org/erfunden"
-    gated, flags = apply_gate(
-        process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url()
-    )
+    gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url())
     ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
     assert ref1["status"] == "unverifiziert", ref1
     assert any("Reference 1" in f and "keinem gecrawlten Snapshot" in f for f in flags), flags
@@ -265,9 +256,7 @@ def test_per_url_grounding_trailing_slash() -> None:
     # Trailing-Slash-Differenz ist keine andere Seite (konservative Normalform).
     process, quotes = _process()
     process["references"][0]["source_url"] = "https://example.org/hunde/fristen/"
-    gated, _ = apply_gate(
-        process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url()
-    )
+    gated, _ = apply_gate(process, quotes, Corpus(CORPUS_TEXT), corpus_by_url=_by_url())
     ref1 = next(r for r in gated["references"] if r["reference_id"] == 1)
     assert ref1["status"] == "verifiziert", ref1
 

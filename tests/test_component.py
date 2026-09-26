@@ -13,6 +13,7 @@ Geprueft wird die Mechanik der validierten Grenzen und die Teil-Vertraege
 
 Aufruf: python tests/test_component.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import sys
@@ -69,6 +70,7 @@ def test_pipeline_stops_at_first_violation() -> None:
         def t(x):
             seen.append(name)
             return x
+
         return t
 
     pipe = [
@@ -160,9 +162,7 @@ def test_grounded_ok_delegates_to_validator() -> None:
 
     good = json.loads((ROOT / "examples" / "hund-anmelden.json").read_text(encoding="utf-8"))
     assert contracts.grounded_ok(good) == [], contracts.grounded_ok(good)
-    bad = json.loads(
-        (ROOT / "examples" / "invalid-binding-value-in-label.json").read_text(encoding="utf-8")
-    )
+    bad = json.loads((ROOT / "examples" / "invalid-binding-value-in-label.json").read_text(encoding="utf-8"))
     assert contracts.grounded_ok(bad) != []
 
 

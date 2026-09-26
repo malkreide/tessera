@@ -18,14 +18,15 @@ fehlerhafte Daten weiterzureichen.
 Die Teil-Vertraege (siehe `contracts.py`) leiten sich aus dem kanonischen Validator
 ab, nie daneben: der Datenvertrag der Maschinerie bleibt die eine Wahrheitsquelle.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-I = TypeVar("I")
-O = TypeVar("O")
+InT = TypeVar("InT")
+OutT = TypeVar("OutT")
 
 # Ein Contract prueft einen Wert und gibt die Liste der GEFUNDENEN Probleme zurueck
 # (leere Liste = gueltig). Bewusst simpel: kein Schema-Framework, nur eine Funktion.
@@ -55,7 +56,7 @@ def _accept_all(_value: object) -> list[str]:
 
 
 @dataclass(frozen=True)
-class Component(Generic[I, O]):
+class Component(Generic[InT, OutT]):
     """Eine benannte Transformation mit validierter Ein- und Ausgabe.
 
     * `check_input`  laeuft VOR der Transformation; Verletzung -> ComponentError.
@@ -64,11 +65,11 @@ class Component(Generic[I, O]):
     """
 
     name: str
-    transform: Callable[[I], O]
+    transform: Callable[[InT], OutT]
     check_input: Contract = _accept_all
     check_output: Contract = _accept_all
 
-    def run(self, value: I) -> O:
+    def run(self, value: InT) -> OutT:
         problems = self.check_input(value)
         if problems:
             raise ComponentError(self.name, "Eingabe", problems)

@@ -20,6 +20,7 @@ Vertrag vor dem Grounding) sind bewusst schlank: sie fangen strukturelle Grob-
 fehler und Kardinalregel-Verstoesse frueh, statt die volle Endvalidierung zu
 duplizieren.
 """
+
 from __future__ import annotations
 
 import sys

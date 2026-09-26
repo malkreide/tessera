@@ -12,6 +12,7 @@ Einen neuen Prozesstyp hinzufuegen — OHNE bestehende Extraktoren anzufassen:
 Die Import-Reihenfolge ist zugleich die Auswahl-Reihenfolge (erster `handles`-
 Treffer gewinnt); der generische Extraktor bleibt der Fallback.
 """
+
 from __future__ import annotations
 
 from . import veranstaltung  # noqa: F401 — Seiteneffekt: registriert VeranstaltungExtractor

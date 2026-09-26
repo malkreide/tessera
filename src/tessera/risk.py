@@ -30,6 +30,7 @@ beim Merge gegen eine bestehende Datei oder bei der Validierung):
 
 Reine stdlib, keine Dependencies — vom dependency-freien Validator importierbar.
 """
+
 from __future__ import annotations
 
 # Die drei reputationskritischen Faelle. Alle bleiben hier registriert (der

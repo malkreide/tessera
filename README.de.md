@@ -104,6 +104,15 @@ cd tessera
 uv sync          # oder: python -m venv .venv && pip install -e ".[dev]"
 ```
 
+Vor einem Push die beiden Lint-Gates der CI laufen lassen — mit der in
+`constraints.txt` gepinnten ruff-Version, nicht mit der gerade installierten:
+
+```bash
+python -m pip install -c constraints.txt ruff
+ruff check src/ tests/ scripts/
+ruff format --check src/ tests/ scripts/
+```
+
 ## Verwendung / Quickstart
 
 ```bash

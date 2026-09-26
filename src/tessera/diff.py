@@ -28,6 +28,7 @@ Dieses Modul ergaenzt `tessera verify`: verify prueft Link-Rot und Drift der
 EINZELNEN verifizierten Zitate; diff erkennt JEDE inhaltliche Seitenaenderung —
 auch eine, die (noch) kein zitiertes Element beruehrt (z.B. ein neuer Schritt).
 """
+
 from __future__ import annotations
 
 import difflib
@@ -89,9 +90,7 @@ def _excerpt(old_text: str, new_text: str) -> str:
     """Unified-Diff-Auszug baseline vs. live (gekappt, fuer Issue/CLI)."""
     old = [line[:MAX_LINE_CHARS] for line in old_text.splitlines()]
     new = [line[:MAX_LINE_CHARS] for line in new_text.splitlines()]
-    delta = list(
-        difflib.unified_diff(old, new, fromfile="baseline", tofile="live", lineterm="", n=1)
-    )
+    delta = list(difflib.unified_diff(old, new, fromfile="baseline", tofile="live", lineterm="", n=1))
     if len(delta) > MAX_EXCERPT_LINES:
         rest = len(delta) - MAX_EXCERPT_LINES
         delta = delta[:MAX_EXCERPT_LINES] + [f"… ({rest} weitere Diff-Zeilen gekappt)"]
@@ -167,11 +166,11 @@ class DiffReport:
     lassen; Umgebungsbefunde (env) und new/removed sind Hinweise."""
 
     proc_id: str
-    changed: list[str] = field(default_factory=list)    # inhaltliche Aenderung
-    dead: list[str] = field(default_factory=list)       # 404/410 (Datenproblem)
-    env: list[str] = field(default_factory=list)        # blockiert/netzfehler/anders
-    new: list[str] = field(default_factory=list)        # in sources, nicht in baseline
-    removed: list[str] = field(default_factory=list)    # in baseline, nicht in sources
+    changed: list[str] = field(default_factory=list)  # inhaltliche Aenderung
+    dead: list[str] = field(default_factory=list)  # 404/410 (Datenproblem)
+    env: list[str] = field(default_factory=list)  # blockiert/netzfehler/anders
+    new: list[str] = field(default_factory=list)  # in sources, nicht in baseline
+    removed: list[str] = field(default_factory=list)  # in baseline, nicht in sources
     unchanged: list[str] = field(default_factory=list)
     # Je geaenderter URL ein unified-diff-Auszug baseline vs. live (nur wenn die
     # Baseline eine Textdatei traegt; alte Baselines liefern keinen Auszug).
@@ -184,9 +183,7 @@ class DiffReport:
 
     @property
     def touched(self) -> bool:
-        return bool(
-            self.changed or self.dead or self.env or self.new or self.removed
-        )
+        return bool(self.changed or self.dead or self.env or self.new or self.removed)
 
 
 def report_to_dict(rep: DiffReport) -> dict:
@@ -233,9 +230,7 @@ def diff_process(proc: ProcessSource, fetch) -> DiffReport:
                 if text_file:
                     p = FINGERPRINTS / text_file
                     if p.exists():
-                        rep.excerpts[url] = _excerpt(
-                            p.read_text(encoding="utf-8"), _norm_lines(md)
-                        )
+                        rep.excerpts[url] = _excerpt(p.read_text(encoding="utf-8"), _norm_lines(md))
         elif state == reach.DEAD:
             rep.dead.append(url)
         else:

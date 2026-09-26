@@ -16,6 +16,7 @@ Jeder Snapshot landet unter reports/raw/<id>/ mit meta.json (URL, Abrufdatum,
 Extraktor, HTTP-Status, tri-state Erreichbarkeit, SPA-Verdacht). Diese Snapshots
 sind der EINZIGE Belegkorpus fuer das Grounding-Gate.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,9 +48,7 @@ _RETRY_ATTEMPTS = 3
 _RETRY_BASE_DELAY = 2.0
 
 
-def _ssr_fetch(
-    client: httpx.Client, url: str, *, sleep=time.sleep
-) -> tuple[str, int, str, str]:
+def _ssr_fetch(client: httpx.Client, url: str, *, sleep=time.sleep) -> tuple[str, int, str, str]:
     """Ein SSR-Abruf: (markdown, http_status, raw_html, tri_state).
 
     http_status 0 + state netzfehler, wenn der Request gar nicht durchkommt.
@@ -76,9 +75,12 @@ def _ssr_fetch(
         raw = ""
         if state == reach.OK:
             raw = r.text
-            md = trafilatura.extract(
-                raw, url=url, output_format="markdown", include_links=True, include_tables=True
-            ) or ""
+            md = (
+                trafilatura.extract(
+                    raw, url=url, output_format="markdown", include_links=True, include_tables=True
+                )
+                or ""
+            )
         return md, r.status_code, raw, state
     return last
 
@@ -145,9 +147,7 @@ def crawl_process(proc: ProcessSource, cfg: SourcesConfig) -> Path:
             note = "" if ok else f"  !! {state}" + (" / SPA-App-Shell" if spa else "")
             print(f"  [{proc.id}] {url} -> {fname} ({status}/{state}, {len(md)} Zeichen){note}")
             time.sleep(delay)
-    (outdir / "meta.json").write_text(
-        json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    (outdir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     return outdir
 
 

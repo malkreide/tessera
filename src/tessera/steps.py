@@ -16,6 +16,7 @@ Die eigentlichen Transformationen rufen dieselben Funktionen wie bisher
 validierten Grenzen hinzu. pydantic/crawl4ai werden erst hier (lazy) importiert;
 `component.py` und `contracts.py` bleiben stdlib-rein und dependency-frei testbar.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -139,7 +140,11 @@ def build_pipeline(proc) -> list[Component]:
     return [
         Component("load", _load, check_output=_load_ok),
         Component("extract", lambda c: _extract(proc, c), check_output=_draft_ok),
-        Component("to_contract", lambda d: _to_contract(proc, d), check_output=lambda core: contracts.core_contract(core.process)),
+        Component(
+            "to_contract",
+            lambda d: _to_contract(proc, d),
+            check_output=lambda core: contracts.core_contract(core.process),
+        ),
         Component("ground", _ground, check_output=lambda g: contracts.grounded_ok(g.process)),
         Component("screen", _screen, check_output=lambda g: contracts.grounded_ok(g.process)),
     ]

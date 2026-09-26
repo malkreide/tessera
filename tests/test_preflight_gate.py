@@ -8,6 +8,7 @@ verfaellt nach MAX_GATE_AGE_DAYS: robots.txt kann sich aendern, ein altes
 
 Aufruf: python tests/test_preflight_gate.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import json

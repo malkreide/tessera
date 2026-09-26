@@ -11,6 +11,7 @@ Geprueft wird der Auswahl-Kern (dependency-frei, ohne pydantic/LLM):
 
 Aufruf: python tests/test_registry.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import sys
@@ -75,17 +76,22 @@ def test_specialized_wins_for_its_process() -> None:
 def test_first_match_wins() -> None:
     saved = _isolated()
     try:
+
         class _First:
             name = "first"
+
             def handles(self, proc) -> bool:
                 return True
+
             def extract(self, proc, corpus: str):  # pragma: no cover
                 return {}
 
         class _Second:
             name = "second"
+
             def handles(self, proc) -> bool:
                 return True
+
             def extract(self, proc, corpus: str):  # pragma: no cover
                 return {}
 
@@ -105,8 +111,10 @@ def test_add_without_touching_existing() -> None:
 
         class _Baugesuch:
             name = "baugesuch"
+
             def handles(self, proc) -> bool:
                 return proc.id == "baugesuch"
+
             def extract(self, proc, corpus: str):  # pragma: no cover
                 return {}
 

@@ -8,6 +8,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **ruff cleanup, and the first lint gate** (`.github/workflows/lint.yml`).
+  Until now no linter ran in this repository. Four parts:
+  - **Pin:** `ruff==0.16.9` in `constraints.txt` — the repo's single source
+    for exact pins; the `dev` extra carries the range `>=0.16,<0.17` like the
+    other dependencies. `tests/test_reproducibility.py` now covers `lint.yml`
+    too, so the workflow cannot install an unpinned ruff. A version gate holds
+    the pin against the running binary before the gates run; it was checked
+    against a ruff 0.15.8 earlier on `PATH` and fired.
+  - **Findings:** all 21 under the rule set pinned in #50 fixed — 13
+    automatically (import order, unused imports `sys`, `copy`,
+    `HIGH_RISK_RATIONALE`, placeholder-less f-strings), 7× `E741` renamed
+    (`l` → `link`; the `TypeVar`s `I`/`O` in `component.py` → `InT`/`OutT`,
+    used only inside that module), 1× `E731` (a lambda redefined on every loop
+    pass in `preflight.py` → one local function, same precedence).
+  - **Format:** first `ruff format` pass over 39 files at `line-length = 110`,
+    now explicit. Measured, not chosen: the pass changed 1269 lines at 88,
+    717 at 100, **638 at 110** and 691 at 120.
+  - **Proof it is behaviour-neutral:** 27 of the 39 changed Python files have
+    an identical AST before and after; 4 differ only in import order (same set
+    of imports, rest of the AST identical); the remaining 8 are the intended
+    edits above. All 16 test scripts of `contract-check.yml` pass before and
+    after.
 - **ruff rule set pinned explicitly** (`[tool.ruff.lint]`: `E, F, W, I, UP`,
   without `E501` — the set the portfolio's servers use). Without `select`,
   ruff's default applied, and that default grew from 59 rules (0.15.8:

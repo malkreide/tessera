@@ -1,0 +1,63 @@
+name: lint
+
+# Die beiden ruff-Gates. Bis hierher lief in diesem Repo kein Linter: `ruff`
+# stand ungepinnt im dev-Extra, ohne Regelsatz und ohne Job, der ihn faehrt.
+#
+# Die Version kommt aus constraints.txt — derselben einen Wahrheitsquelle wie
+# die Laufzeit-Deps der Crons. Deshalb steht auch diese Datei in
+# tests/test_reproducibility.py: ein Paket, das hier installiert wird, muss
+# dort exakt gepinnt sein.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.11"
+
+      # Exakt gepinnt, nicht mit Obergrenze: `ruff format --check` hat kein
+      # `select` — dort ist das Ergebnis selbst das Kriterium, und jede
+      # Version, die am Formatter dreht, faerbt unberuehrten Code rot.
+      - name: Ruff (exakt gepinnt via constraints.txt)
+        run: python -m pip install --quiet -c constraints.txt ruff
+
+      # Der Pin gegen das LAUFENDE Programm, vor den Gates. Ein anderes ruff
+      # weiter vorne im PATH oder ein still gescheiterter Install liessen die
+      # Gates sonst auf einer Version laufen, die niemand gepinnt hat.
+      - name: Ruff version gate
+        run: |
+          want=$(sed -n 's/^ruff==\([0-9][0-9.]*\)[[:space:]]*$/\1/p' constraints.txt)
+          have=$(ruff --version | awk '{print $2}')
+          if [ -z "$want" ]; then
+            echo "::error::constraints.txt pinnt ruff nicht exakt (erwartet: ruff==X.Y.Z)"
+            exit 1
+          fi
+          if [ "$want" != "$have" ]; then
+            echo "::error::Pin ruff==$want, aber es laeuft ruff $have"
+            exit 1
+          fi
+          echo "ruff $have = Pin"
+
+      - name: Lint
+        run: ruff check src/ tests/ scripts/
+
+      # Zweites, eigenstaendiges Gate. Ein gruenes `ruff check` belegt kein
+      # gruenes Format; eigener Schritt, damit im Log steht, welches ausloeste.
+      - name: Format
+        run: ruff format --check src/ tests/ scripts/
