@@ -40,3 +40,20 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tessera"]
+
+# Regelsatz explizit. Ohne `select` gilt ruffs Default — und der ist mit 0.16
+# von 59 auf 413 Regeln gewachsen (gemessen: 0.15.8 aktiviert E4/E7/E9/F, 0.16.x
+# zusaetzlich B, SIM, RUF, PL, DTZ, …). Da `ruff` im dev-Extra ungepinnt ist,
+# entschied bisher die zufaellig installierte Version, was «sauber» heisst.
+# Derselbe Satz wie in den Servern des Portfolios.
+#
+# Bewusst OHNE `line-length`: Dieses Repo wurde nie mit `ruff format`
+# formatiert (39 von 40 Dateien weichen bei 88, 100, 110 und 120 ab). Eine
+# Breite hier waere eine Behauptung ohne Messung. Sie kommt mit dem ersten
+# Formatlauf, zusammen mit einem Gate in der CI.
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
