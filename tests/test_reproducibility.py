@@ -8,10 +8,10 @@ ziehen — genau das, was die Lock-Datei verhindern soll.
 
 Aufruf: python tests/test_reproducibility.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -19,6 +19,7 @@ CONSTRAINTS = ROOT / "constraints.txt"
 WORKFLOWS = [
     ROOT / ".github" / "workflows" / "link-rot.yml",
     ROOT / ".github" / "workflows" / "change-diff.yml",
+    ROOT / ".github" / "workflows" / "lint.yml",
 ]
 
 _PIN = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([0-9][A-Za-z0-9.+!-]*)$")

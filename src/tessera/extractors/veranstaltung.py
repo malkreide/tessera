@@ -25,6 +25,7 @@ feldweise Merge der Maschinerie keine belegte Handuebersetzung verdraengt.
 stdlib-rein: pydantic/LLM werden erst in `extract(...)` (lazy) importiert, damit
 die Registry ohne Runtime-Deps importierbar und der Auswahl-Kern testbar bleibt.
 """
+
 from __future__ import annotations
 
 from ..registry import register

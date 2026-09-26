@@ -12,6 +12,7 @@ Zwei Ebenen:
 KARDINALREGEL ist hier Schema-Wissen: Labels/Descriptions duerfen keine
 bindenden Zahlen tragen; Fristen/Gebuehren existieren nur als Reference.
 """
+
 from __future__ import annotations
 
 from typing import Literal

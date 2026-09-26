@@ -1,4 +1,5 @@
 """Konfiguration: kuratierte Quellenliste (sources.yaml) als striktes Schema."""
+
 from __future__ import annotations
 
 import re

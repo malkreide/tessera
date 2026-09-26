@@ -19,6 +19,7 @@ Fehler): eine kanonische Datei aus dem Ziel-Repo darf einer neueren/aelteren
 Contract-Generation angehoeren, ohne dass tessera sie faelschlich ablehnt — der
 Hinweis signalisiert nur, dass tessera ggf. nachzuziehen ist.
 """
+
 from __future__ import annotations
 
 import re

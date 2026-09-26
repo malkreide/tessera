@@ -10,6 +10,7 @@ Aufruf:
 Exit-Code 0 = alle Erwartungen erfuellt, 1 = mindestens eine Abweichung.
 Geeignet als CI-Schritt.
 """
+
 from __future__ import annotations
 
 import sys

@@ -11,6 +11,7 @@ Deckt ab:
   (c) der Merge ist stabil ueber step_id/reference_id/actor.id (index-unabhaengig),
   (d) nicht sauber mergebare Faelle werfen MergeConflict (Aufrufer ueberspringt).
 """
+
 from __future__ import annotations
 
 import sys
@@ -21,8 +22,9 @@ sys.path.insert(0, str(ROOT / "src"))
 
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from tessera.merge import MergeConflict, merge_process, normalize_i18n  # noqa: E402
 from validate_contract import Report, validate  # noqa: E402
+
+from tessera.merge import MergeConflict, merge_process, normalize_i18n  # noqa: E402
 
 
 def _contract_ok(doc: dict) -> Report:
@@ -73,9 +75,7 @@ def _existing() -> dict:
                 "retrieved_at": "2026-01-01",
             }
         ],
-        "actors": [
-            {"id": "halter", "label": {"de": "Halter:in", "en": "Owner"}, "type": "antragsteller"}
-        ],
+        "actors": [{"id": "halter", "label": {"de": "Halter:in", "en": "Owner"}, "type": "antragsteller"}],
         "source_url": "https://www.stadt-zuerich.ch/hund",
         "retrieved_at": "2026-01-01",
         "disclaimer_key": "process.disclaimer.unofficial",
@@ -277,7 +277,12 @@ def test_e_actor_remapped_across_umlaut_transliteration() -> None:
     extraction = {
         "id": "fundsache",
         "steps": [
-            {"step_id": 2, "actor": "Fundbüro", "label": {"de": "Gegen Ausweis aushaendigen"}, "depends_on": [1]},
+            {
+                "step_id": 2,
+                "actor": "Fundbüro",
+                "label": {"de": "Gegen Ausweis aushaendigen"},
+                "depends_on": [1],
+            },
         ],
     }
     merged, report = merge_process(existing, extraction)
@@ -405,9 +410,7 @@ def test_f_suspect_step_pair_not_merged() -> None:
     s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
     assert s2["label"]["de"] == "Registrierung pruefen"
     assert "type" not in s2, s2  # nichts aus der fremden Fassung uebernommen
-    assert any("steps[2]" in p and "Hund entwurmen" in p for p in report.suspect_pairs), (
-        report.suspect_pairs
-    )
+    assert any("steps[2]" in p and "Hund entwurmen" in p for p in report.suspect_pairs), report.suspect_pairs
     # Es gibt weiterhin genau EINEN Schritt 2 (keine Duplikat-ID angehaengt).
     assert [s["step_id"] for s in merged["steps"]].count(2) == 1
 

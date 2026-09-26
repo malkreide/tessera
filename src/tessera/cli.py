@@ -1,19 +1,20 @@
 """tessera CLI — schlichte Schleife ueber die kuratierten Leistungen.
 
-    tessera preflight [--id ...]   Katalog-Abdeckung + robots/ToU-Check (Pflicht)
-    tessera crawl     [--id ...]   Quellseiten -> Markdown-Snapshots
-    tessera extract   [--id ...]   Snapshots -> Vertrags-JSON (LLM, Grounding-Gate)
-    tessera validate  [--id ...]   Vertrags-Validator auf out/<id>.json
-    tessera verify    [--id ...] [--online]
-                                   Re-Verifikation: Label<->Wert (netzfrei) und
-                                   mit --online Link-Rot (tri-state) + Beleg-Drift
-    tessera pr        [--id ...]   Draft-PR-Bundle bauen / einreichen
-    tessera fingerprint [--id ...] Aenderungs-Baseline schreiben (reports/fingerprints/)
-    tessera diff      [--id ...] [--fail-on-change]
-                                   Live-Quellseiten gegen die Baseline diffen
-                                   (v2 Aenderungs-Erkennung; ergaenzt `verify`)
-    tessera run       [--id ...]   alles oben in Reihenfolge
+tessera preflight [--id ...]   Katalog-Abdeckung + robots/ToU-Check (Pflicht)
+tessera crawl     [--id ...]   Quellseiten -> Markdown-Snapshots
+tessera extract   [--id ...]   Snapshots -> Vertrags-JSON (LLM, Grounding-Gate)
+tessera validate  [--id ...]   Vertrags-Validator auf out/<id>.json
+tessera verify    [--id ...] [--online]
+                               Re-Verifikation: Label<->Wert (netzfrei) und
+                               mit --online Link-Rot (tri-state) + Beleg-Drift
+tessera pr        [--id ...]   Draft-PR-Bundle bauen / einreichen
+tessera fingerprint [--id ...] Aenderungs-Baseline schreiben (reports/fingerprints/)
+tessera diff      [--id ...] [--fail-on-change]
+                               Live-Quellseiten gegen die Baseline diffen
+                               (v2 Aenderungs-Erkennung; ergaenzt `verify`)
+tessera run       [--id ...]   alles oben in Reihenfolge
 """
+
 from __future__ import annotations
 
 import argparse
@@ -75,9 +76,7 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
             continue
         process, flags = result.process, result.flags
         out_json = OUT / f"{proc.id}.json"
-        out_json.write_text(
-            json.dumps(process, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+        out_json.write_text(json.dumps(process, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         (OUT / f"{proc.id}{FLAGS_SUFFIX}").write_text(
             json.dumps(flags, indent=2, ensure_ascii=False), encoding="utf-8"
         )
@@ -120,9 +119,7 @@ def cmd_verify(cfg: SourcesConfig, ids: list[str] | None, online: bool = False) 
         import httpx  # noqa: PLC0415 — nur im Online-Modus
 
         ua = cfg.crawler.user_agent
-        client = httpx.Client(
-            headers={"User-Agent": ua}, timeout=30, follow_redirects=True
-        )
+        client = httpx.Client(headers={"User-Agent": ua}, timeout=30, follow_redirects=True)
         fetch = verify_mod.make_http_fetcher(client)
     try:
         for proc in _procs(cfg, ids):
@@ -135,14 +132,11 @@ def cmd_verify(cfg: SourcesConfig, ids: list[str] | None, online: bool = False) 
             rep = verify_mod.verify_process(process, fetch=fetch)
             report_path = verify_mod.write_report(rep)
             lv, dead, drift = len(rep.label_value), len(rep.dead_links), len(rep.drift_hits)
-            print(
-                f"  [{proc.id}] -> {report_path} "
-                f"(Label<->Wert: {lv}, tote Links: {dead}, Drift: {drift})"
-            )
+            print(f"  [{proc.id}] -> {report_path} (Label<->Wert: {lv}, tote Links: {dead}, Drift: {drift})")
             for f in rep.label_value:
                 print(f"    ⚠ Reference {f.reference_id} «{f.label}»: {f.detail}")
-            for l in rep.dead_links:
-                print(f"    ❌ toter Link: {l.url} ({l.status})")
+            for link in rep.dead_links:
+                print(f"    ❌ toter Link: {link.url} ({link.status})")
             for d in rep.drift_hits:
                 print(f"    ❌ Drift: Reference {d.reference_id} «{d.label}» — {d.source_url}")
             if rep.data_problem:
@@ -161,9 +155,7 @@ def _make_ssr_fetcher(cfg: SourcesConfig):
 
     from . import crawl  # noqa: PLC0415
 
-    client = httpx.Client(
-        headers={"User-Agent": cfg.crawler.user_agent}, timeout=30, follow_redirects=True
-    )
+    client = httpx.Client(headers={"User-Agent": cfg.crawler.user_agent}, timeout=30, follow_redirects=True)
 
     def fetch(url: str):
         md, _status, _raw, state = crawl._ssr_fetch(client, url)
@@ -296,14 +288,23 @@ COMMANDS = {
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tessera", description=__doc__)
     parser.add_argument("command", choices=[*COMMANDS, "verify", "fingerprint", "diff", "run"])
-    parser.add_argument("--id", action="append", dest="ids", metavar="LEISTUNG",
-                        help="nur diese Leistung(en) verarbeiten")
-    parser.add_argument("--online", action="store_true",
-                        help="nur fuer `verify`: Live-Erreichbarkeit + Beleg-Drift pruefen")
-    parser.add_argument("--fail-on-change", action="store_true",
-                        help="nur fuer `diff`: Exit 1 auch bei inhaltlicher Seitenaenderung")
-    parser.add_argument("--json", action="store_true", dest="as_json",
-                        help="nur fuer `diff`: maschinenlesbare Zusammenfassung nach stdout")
+    parser.add_argument(
+        "--id", action="append", dest="ids", metavar="LEISTUNG", help="nur diese Leistung(en) verarbeiten"
+    )
+    parser.add_argument(
+        "--online", action="store_true", help="nur fuer `verify`: Live-Erreichbarkeit + Beleg-Drift pruefen"
+    )
+    parser.add_argument(
+        "--fail-on-change",
+        action="store_true",
+        help="nur fuer `diff`: Exit 1 auch bei inhaltlicher Seitenaenderung",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="nur fuer `diff`: maschinenlesbare Zusammenfassung nach stdout",
+    )
     args = parser.parse_args(argv)
 
     cfg = load_sources()

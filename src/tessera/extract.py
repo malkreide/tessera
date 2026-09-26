@@ -25,6 +25,7 @@ den Parameter bewusst weg (siehe `_supports_sampling`); Reproduzierbarkeit laeuf
 dort ueber Prompt und `effort`, nicht ueber Sampling. temperature=0 hat ohnehin
 nie bit-identische Outputs garantiert.
 """
+
 from __future__ import annotations
 
 import os
@@ -175,9 +176,7 @@ def build_extract_prompt(proc: ProcessSource, corpus: str, domain_hint: str = ""
     )
 
 
-def build_review_prompt(
-    proc: ProcessSource, corpus: str, draft_json: str, domain_hint: str = ""
-) -> str:
+def build_review_prompt(proc: ProcessSource, corpus: str, draft_json: str, domain_hint: str = "") -> str:
     """Review-Prompt (rein, ohne LLM-Aufruf — testbar). Traegt Entwurf + Korpus.
 
     `domain_hint` wie in `build_extract_prompt`; leer -> Prompt unveraendert."""
@@ -232,18 +231,20 @@ def extract_process(proc: ProcessSource, corpus: str, domain_hint: str = "") -> 
     # temperature nur setzen, wo der Provider es akzeptiert (siehe Docstring).
     settings = ModelSettings(temperature=TEMPERATURE) if _supports_sampling(model) else None
 
-    draft = Agent(
-        model, output_type=XProcess, instructions=INSTRUCTIONS, model_settings=settings
-    ).run_sync(build_extract_prompt(proc, corpus, domain_hint)).output
+    draft = (
+        Agent(model, output_type=XProcess, instructions=INSTRUCTIONS, model_settings=settings)
+        .run_sync(build_extract_prompt(proc, corpus, domain_hint))
+        .output
+    )
 
     if not _review_enabled():
         return draft
 
     # Review-/Repair-Pass: Entwurf gegen denselben Korpus pruefen. Das
     # Grounding-Gate filtert danach ohnehin jedes nicht belegte Element.
-    reviewed = Agent(
-        model, output_type=XProcess, instructions=REVIEW_INSTRUCTIONS, model_settings=settings
-    ).run_sync(
-        build_review_prompt(proc, corpus, draft.model_dump_json(indent=2), domain_hint)
-    ).output
+    reviewed = (
+        Agent(model, output_type=XProcess, instructions=REVIEW_INSTRUCTIONS, model_settings=settings)
+        .run_sync(build_review_prompt(proc, corpus, draft.model_dump_json(indent=2), domain_hint))
+        .output
+    )
     return reviewed

@@ -24,6 +24,7 @@ erzeugt (sonst sauber uebersprungen, nicht stillschweigend bestanden).
 
 Aufruf: python tests/test_pipeline_integration.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import sys
@@ -33,10 +34,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from validate_contract import Report, validate  # noqa: E402
+
 from tessera import contracts  # noqa: E402
 from tessera.grounding import Corpus, apply_gate  # noqa: E402
 from tessera.merge import merge_process  # noqa: E402
-from validate_contract import Report, validate  # noqa: E402
 
 # to_contract braucht pydantic (Runtime-Dep). Fehlt es (CI ohne Deps), wird der
 # Faithfulness-Test sauber uebersprungen — die Strecke selbst testet die Fixture.
@@ -219,14 +221,24 @@ def test_gated_output_merges_without_regression() -> None:
         "id": PROC_ID,
         "lebenslage_ref": PROC_ID,
         "city": "zh",
-        "title": {"de": "Umzug melden", "en": "Report a move", "fr": "Annoncer un demenagement", "it": "Notificare un trasloco"},
+        "title": {
+            "de": "Umzug melden",
+            "en": "Report a move",
+            "fr": "Annoncer un demenagement",
+            "it": "Notificare un trasloco",
+        },
         "description": {"de": "Adressaenderung bei einem Umzug.", "en": "Address change on moving."},
         "target_audience": "bevoelkerung",
         "steps": [
             {
                 "step_id": 1,
                 "actor": "Einwohner:in",
-                "label": {"de": "Neue Adresse beim Kreisbuero melden", "en": "Report new address", "fr": "Annoncer la nouvelle adresse", "it": "Notificare il nuovo indirizzo"},
+                "label": {
+                    "de": "Neue Adresse beim Kreisbuero melden",
+                    "en": "Report new address",
+                    "fr": "Annoncer la nouvelle adresse",
+                    "it": "Notificare il nuovo indirizzo",
+                },
                 "depends_on": [],
             },
         ],

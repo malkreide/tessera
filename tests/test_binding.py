@@ -3,6 +3,7 @@
 
 Aufruf: python tests/test_binding.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import sys
@@ -31,11 +32,11 @@ def test_label_kind() -> None:
 
 
 def test_quote_substantiates_time() -> None:
-    assert quote_substantiates("time", "innert zehn Tagen melden")      # wordnum + unit
-    assert quote_substantiates("time", "Sie haben 14 Tage Zeit")        # digit + unit
-    assert quote_substantiates("time", "bis am 30. Juni einreichen")    # date
-    assert quote_substantiates("time", "gueltig bis 2027-12-31")        # ISO-date
-    assert not quote_substantiates("time", "online oder am Schalter")   # keine Dauer
+    assert quote_substantiates("time", "innert zehn Tagen melden")  # wordnum + unit
+    assert quote_substantiates("time", "Sie haben 14 Tage Zeit")  # digit + unit
+    assert quote_substantiates("time", "bis am 30. Juni einreichen")  # date
+    assert quote_substantiates("time", "gueltig bis 2027-12-31")  # ISO-date
+    assert not quote_substantiates("time", "online oder am Schalter")  # keine Dauer
 
 
 def test_quote_substantiates_money() -> None:
@@ -88,7 +89,7 @@ def test_strict_lint_ignores_plain_structure_text() -> None:
         "Gesuch einreichen",
         "Registrierung pruefen",
         "Veranlagung der Hundeabgabe",
-        "Meldefrist bei Zuzug",          # benennt den Wert, traegt ihn nicht
+        "Meldefrist bei Zuzug",  # benennt den Wert, traegt ihn nicht
         "Unterlagen am Schalter abgeben",
         "Tag der offenen Tuer besuchen",  # 'Tag' ohne Zahl davor
     ):

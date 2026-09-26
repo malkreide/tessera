@@ -39,6 +39,7 @@ die Datei dann lieber, als sie zu verarmen.
 Reine stdlib (kein pydantic), damit die Tests ohne Dependency-Install in der CI
 laufen — wie `tests/test_grounding.py`.
 """
+
 from __future__ import annotations
 
 import difflib
@@ -406,7 +407,11 @@ def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
     # Top-Level i18n/Freitext (title, description) feldweise mergen; retrieved_at
     # ist Provenienz und gewinnt immer aus der Extraktion (frisches Crawl-Datum).
     out = _merge_i18n_fields(
-        out, incoming, PROCESS_I18N_FIELDS, path="", report=report,
+        out,
+        incoming,
+        PROCESS_I18N_FIELDS,
+        path="",
+        report=report,
         always_update=("retrieved_at",),
     )
     # path="" erzeugt fuehrende Punkte -> aufraeumen.

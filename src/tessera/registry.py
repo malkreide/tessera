@@ -31,6 +31,7 @@ verdraengen (Regression-Guard). Uebersetzungen fuellt allein die Maschinerie.
 Reiner Auswahl-Kern (stdlib, dependency-frei testbar): `handles`/`get_extractor`
 rufen kein pydantic; der LLM-Aufruf im generischen Extraktor ist lazy.
 """
+
 from __future__ import annotations
 
 from typing import Protocol, runtime_checkable

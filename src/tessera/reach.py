@@ -11,14 +11,15 @@ Dieses Modul klassifiziert nur — es macht keine Requests (kein httpx-Import),
 damit es ueberall (auch in der dependency-freien CI) importierbar ist. Der
 HTTP-Aufruf und das Mapping von Exceptions passieren beim Aufrufer (verify.py).
 """
+
 from __future__ import annotations
 
 # Zustaende. DATA_PROBLEM markiert, welche als echte Datenfehler gelten.
-OK = "ok"               # 2xx — erreichbar
-DEAD = "tot"            # 404/410 — Ziel existiert nicht mehr (DATENproblem)
-BLOCKED = "blockiert"   # 401/403/407/451 — Policy/Auth (UMGEBUNG, kein Datenfehler)
+OK = "ok"  # 2xx — erreichbar
+DEAD = "tot"  # 404/410 — Ziel existiert nicht mehr (DATENproblem)
+BLOCKED = "blockiert"  # 401/403/407/451 — Policy/Auth (UMGEBUNG, kein Datenfehler)
 NETERROR = "netzfehler"  # Verbindung/Timeout/DNS/Proxy (UMGEBUNG, kein Datenfehler)
-OTHER = "anders"        # uebrige Status (z.B. 5xx) — unklar, als Hinweis behandeln
+OTHER = "anders"  # uebrige Status (z.B. 5xx) — unklar, als Hinweis behandeln
 
 # Nur diese gelten als echte Datenfehler (harter Stopp moeglich). Block/Netzfehler
 # sind Umgebungsbefunde und sollen einen Lauf NICHT als Datenfehler scheitern lassen.

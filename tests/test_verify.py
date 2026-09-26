@@ -5,6 +5,7 @@ Der HTTP-Fetch wird injiziert (Fake-Fetcher), sodass kein Netz/httpx noetig ist.
 
 Aufruf: python tests/test_verify.py — Exit 0 = alle Tests gruen.
 """
+
 from __future__ import annotations
 
 import sys
@@ -16,10 +17,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from tessera import reach  # noqa: E402
 from tessera.verify import Fetched, verify_process  # noqa: E402
 
-LIVE_PAGE = (
-    "Sie muessen Ihren Hund innert zehn Tagen melden. "
-    "Die jaehrliche Hundeabgabe betraegt CHF 175."
-)
+LIVE_PAGE = "Sie muessen Ihren Hund innert zehn Tagen melden. Die jaehrliche Hundeabgabe betraegt CHF 175."
 
 
 def _process() -> dict:
@@ -55,6 +53,7 @@ def _process() -> dict:
 def _fetcher(mapping):
     def fetch(url):
         return mapping.get(url, Fetched(state=reach.NETERROR))
+
     return fetch
 
 
@@ -67,10 +66,14 @@ def test_offline_label_value_only() -> None:
 
 
 def test_online_drift_and_ok() -> None:
-    fetch = _fetcher({
-        "https://example.org/hund": Fetched(state=reach.OK, status=200, text=LIVE_PAGE),
-        "https://example.org/abgabe": Fetched(state=reach.OK, status=200, text="Andere Seite ohne das Zitat."),
-    })
+    fetch = _fetcher(
+        {
+            "https://example.org/hund": Fetched(state=reach.OK, status=200, text=LIVE_PAGE),
+            "https://example.org/abgabe": Fetched(
+                state=reach.OK, status=200, text="Andere Seite ohne das Zitat."
+            ),
+        }
+    )
     rep = verify_process(_process(), fetch=fetch)
     by_id = {d.reference_id: d for d in rep.drifts}
     assert by_id[1].kind == "ok"
@@ -79,12 +82,14 @@ def test_online_drift_and_ok() -> None:
 
 
 def test_dead_link_is_data_problem() -> None:
-    fetch = _fetcher({
-        "https://example.org/hund": Fetched(state=reach.DEAD, status=404),
-        "https://example.org/abgabe": Fetched(state=reach.OK, status=200, text=LIVE_PAGE),
-    })
+    fetch = _fetcher(
+        {
+            "https://example.org/hund": Fetched(state=reach.DEAD, status=404),
+            "https://example.org/abgabe": Fetched(state=reach.OK, status=200, text=LIVE_PAGE),
+        }
+    )
     rep = verify_process(_process(), fetch=fetch)
-    assert any(l.state == reach.DEAD for l in rep.links)
+    assert any(link.state == reach.DEAD for link in rep.links)
     assert rep.data_problem
     # Ref 1 verweist auf die tote Seite -> Drift 'unerreichbar' (nicht 'drift').
     by_id = {d.reference_id: d for d in rep.drifts}
@@ -93,22 +98,26 @@ def test_dead_link_is_data_problem() -> None:
 
 def test_blocked_is_not_data_problem() -> None:
     # Policy-Block (403) ist ein Umgebungsbefund, KEIN Datenproblem.
-    fetch = _fetcher({
-        "https://example.org/hund": Fetched(state=reach.BLOCKED, status=403),
-        "https://example.org/abgabe": Fetched(state=reach.BLOCKED, status=403),
-    })
+    fetch = _fetcher(
+        {
+            "https://example.org/hund": Fetched(state=reach.BLOCKED, status=403),
+            "https://example.org/abgabe": Fetched(state=reach.BLOCKED, status=403),
+        }
+    )
     rep = verify_process(_process(), fetch=fetch)
-    assert any(l.state == reach.BLOCKED for l in rep.links)
+    assert any(link.state == reach.BLOCKED for link in rep.links)
     assert not rep.data_problem  # tri-state: Umgebung != Daten
 
 
 def test_spa_shell_is_ungeprueft_not_drift() -> None:
     # App-Shell ohne Inhalt: Zitat nicht auffindbar, aber als 'ungeprueft'
     # gemeldet (braucht Rendering) — nicht faelschlich als Drift.
-    fetch = _fetcher({
-        "https://example.org/hund": Fetched(state=reach.OK, status=200, text="", spa=True),
-        "https://example.org/abgabe": Fetched(state=reach.OK, status=200, text="", spa=True),
-    })
+    fetch = _fetcher(
+        {
+            "https://example.org/hund": Fetched(state=reach.OK, status=200, text="", spa=True),
+            "https://example.org/abgabe": Fetched(state=reach.OK, status=200, text="", spa=True),
+        }
+    )
     rep = verify_process(_process(), fetch=fetch)
     kinds = {d.reference_id: d.kind for d in rep.drifts}
     assert kinds[1] == "ungeprueft" and kinds[2] == "ungeprueft"

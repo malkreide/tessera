@@ -22,6 +22,7 @@ Der PR-Body ist Reviewer-UI und Sicherheitsflaeche zugleich:
 Modul-Importe sind reine stdlib (httpx lazy in open_draft_pr, config nur
 TYPE_CHECKING), damit `build_pr_body` in der dependency-freien CI testbar ist.
 """
+
 from __future__ import annotations
 
 import json
@@ -36,13 +37,13 @@ if TYPE_CHECKING:  # nur Typhinweise — kein Laufzeit-Import von config (pydant
     from .config import ProcessSource
 
 from .merge import MergeConflict, MergeReport, merge_process
-from .screening import FLAG_PREFIX as INJECTION_FLAG_PREFIX
 from .risk import (
     HIGH_RISK_DISCLAIMER_KEY,
     HIGH_RISK_RATIONALE,
     is_high_risk,
     is_high_risk_disclaimer,
 )
+from .screening import FLAG_PREFIX as INJECTION_FLAG_PREFIX
 
 # Repo-Wurzel ohne config-Import (src/tessera/pr.py -> parents[2]), damit das
 # Modul stdlib-importierbar bleibt (wie verify.py/diff.py/preflight.py).
@@ -145,8 +146,7 @@ def _reference_table(refs: list[dict]) -> list[str]:
         icon = "✅" if status == "verifiziert" else "⚠️"
         quote = (r.get("source_quote") or "").strip()
         lines.append(
-            f"| {r.get('reference_id')} | {_md(label_de)} | {url} "
-            f"| {_md_code(quote)} | {icon} {status} |"
+            f"| {r.get('reference_id')} | {_md(label_de)} | {url} | {_md_code(quote)} | {icon} {status} |"
         )
     lines.append("")
     return lines
@@ -173,15 +173,11 @@ def build_merge_warning(report: MergeReport, path: str) -> str:
     if report.added:
         lines += _bullets(report.added)
     if report.refreshed:
-        lines.append(
-            f"- Provenienz aktualisiert (frisches Crawl-Datum gewinnt): "
-            f"**{len(report.refreshed)}**"
-        )
+        lines.append(f"- Provenienz aktualisiert (frisches Crawl-Datum gewinnt): **{len(report.refreshed)}**")
         lines += _bullets(report.refreshed)
     if report.remapped_actors:
         lines.append(
-            f"- Actor-Rollen auf bestehende `actors[].id` abgebildet: "
-            f"**{len(report.remapped_actors)}**"
+            f"- Actor-Rollen auf bestehende `actors[].id` abgebildet: **{len(report.remapped_actors)}**"
         )
         lines += _bullets(report.remapped_actors)
     if report.suspect_pairs:
@@ -212,8 +208,7 @@ def build_merge_warning(report: MergeReport, path: str) -> str:
     lines += [
         "",
         "> Bitte den Diff gegen den Ziel-Branch genau pruefen: es darf **kein**",
-        "> belegter i18n-/description-Text verloren gehen (CI-Guard "
-        "`npm run check:regression`).",
+        "> belegter i18n-/description-Text verloren gehen (CI-Guard `npm run check:regression`).",
         "",
     ]
     return "\n".join(lines)
@@ -442,9 +437,7 @@ def open_draft_pr(
         if existing.status_code == 200:
             existing_sha = existing.json()["sha"]
             try:
-                existing_doc = json.loads(
-                    base64.b64decode(existing.json()["content"]).decode("utf-8")
-                )
+                existing_doc = json.loads(base64.b64decode(existing.json()["content"]).decode("utf-8"))
                 final_process, report = merge_process(existing_doc, process)
             except (MergeConflict, json.JSONDecodeError, ValueError) as exc:
                 # Lieber UEBERSPRINGEN als die handgepflegte Datei verarmen.
@@ -481,21 +474,22 @@ def open_draft_pr(
 
         content = json.dumps(final_process, indent=2, ensure_ascii=False) + "\n"
 
-        base_sha = (
-            client.get(f"{api}/git/ref/heads/{default_branch}").raise_for_status().json()
-        )["object"]["sha"]
+        base_sha = (client.get(f"{api}/git/ref/heads/{default_branch}").raise_for_status().json())["object"][
+            "sha"
+        ]
         # Branch anlegen — oder, wenn er aus einem frueheren (Teil-)Lauf schon
         # existiert (der Name ist tagesdatiert), idempotent auf base zuruecksetzen,
         # statt mit 422 abzubrechen. Zurueckgesetzt wird aber NUR ein Branch,
         # dessen Head ein tessera-Commit ist: hat ein Mensch dort nachgearbeitet
         # (fremde Commit-Message), wird abgebrochen statt still ueberschrieben.
-        created = client.post(
-            f"{api}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": base_sha}
-        )
+        created = client.post(f"{api}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": base_sha})
         if created.status_code == 422:
             head_msg = str(
-                client.get(f"{api}/commits/{branch}").raise_for_status().json()
-                .get("commit", {}).get("message", "")
+                client.get(f"{api}/commits/{branch}")
+                .raise_for_status()
+                .json()
+                .get("commit", {})
+                .get("message", "")
             )
             if not head_msg.startswith("feat(prozesse):"):
                 first_line = head_msg.splitlines()[0] if head_msg else "?"
@@ -541,9 +535,11 @@ def open_draft_pr(
             # haben wir oben aktualisiert, also den bestehenden PR melden statt
             # abzubrechen.
             owner = target.split("/", 1)[0]
-            existing = client.get(
-                f"{api}/pulls", params={"head": f"{owner}:{branch}", "state": "open"}
-            ).raise_for_status().json()
+            existing = (
+                client.get(f"{api}/pulls", params={"head": f"{owner}:{branch}", "state": "open"})
+                .raise_for_status()
+                .json()
+            )
             if existing:
                 url = existing[0]["html_url"]
                 print(f"  [{proc.id}] Bestehender Draft-PR aktualisiert: {url}")

@@ -18,6 +18,7 @@ reports/verify/<id>.md und liefert ein VerifyReport zurueck. Der HTTP-Fetch ist
 injizierbar (`fetch`-Callable), damit der netzfreie Teil ohne httpx testbar ist;
 `import httpx` passiert ausschliesslich im echten Fetcher (lazy).
 """
+
 from __future__ import annotations
 
 import re
@@ -36,8 +37,13 @@ REPORTS = ROOT / "reports" / "verify"
 # App-Shell-Marker echter SPAs: gerendert kommt nur eine Huelle, der Inhalt erst
 # per JS. Substring-Suche im Roh-HTML.
 _SPA_MARKERS = (
-    "window.__nuxt__", "__nuxt_data__", "__next_data__", 'id="__next"',
-    "data-server-rendered", "ng-version", "window.__initial_state__",
+    "window.__nuxt__",
+    "__nuxt_data__",
+    "__next_data__",
+    'id="__next"',
+    "data-server-rendered",
+    "ng-version",
+    "window.__initial_state__",
     "data-reactroot",
 )
 # Unter so wenig lesbarem Text gehen wir von einer leeren Huelle aus.
@@ -51,10 +57,10 @@ _SCRIPT_STYLE = re.compile(r"<(script|style)\b[^>]*>.*?</\1>", re.IGNORECASE | r
 class Fetched:
     """Ergebnis eines URL-Abrufs (vom Fetcher geliefert)."""
 
-    state: str            # reach.OK / DEAD / BLOCKED / NETERROR / OTHER
+    state: str  # reach.OK / DEAD / BLOCKED / NETERROR / OTHER
     status: int | None = None
-    text: str = ""        # lesbarer Text (nur sinnvoll bei state == OK)
-    spa: bool = False     # App-Shell vermutet (Inhalt erst per JS)
+    text: str = ""  # lesbarer Text (nur sinnvoll bei state == OK)
+    spa: bool = False  # App-Shell vermutet (Inhalt erst per JS)
 
 
 @dataclass
@@ -70,7 +76,7 @@ class DriftFinding:
     reference_id: object
     label: str
     source_url: str
-    kind: str             # 'ok' | 'drift' | 'ungeprueft' | 'unerreichbar'
+    kind: str  # 'ok' | 'drift' | 'ungeprueft' | 'unerreichbar'
     detail: str = ""
 
 
@@ -91,7 +97,7 @@ class VerifyReport:
 
     @property
     def dead_links(self) -> list[LinkState]:
-        return [l for l in self.links if l.state == reach.DEAD]
+        return [link for link in self.links if link.state == reach.DEAD]
 
     @property
     def drift_hits(self) -> list[DriftFinding]:
@@ -124,6 +130,7 @@ def extract_text(raw_html: str) -> str:
     """Roh-HTML -> lesbarer Text. Trafilatura, wenn verfuegbar; sonst Tag-Strip."""
     try:
         import trafilatura  # noqa: PLC0415
+
         out = trafilatura.extract(raw_html, include_links=True, include_tables=True)
         if out:
             return out
@@ -189,9 +196,7 @@ def verify_process(process: dict, *, fetch=None) -> VerifyReport:
         quote = ref.get("source_quote") or ""
         mismatch = label_value_mismatch(_ref_label(ref), quote)
         if mismatch:
-            rep.label_value.append(
-                LabelValueFinding(ref.get("reference_id"), _ref_label(ref), mismatch)
-            )
+            rep.label_value.append(LabelValueFinding(ref.get("reference_id"), _ref_label(ref), mismatch))
 
     if fetch is None:
         return rep
@@ -229,22 +234,37 @@ def verify_process(process: dict, *, fetch=None) -> VerifyReport:
         f = fetched.get(url) if isinstance(url, str) else None
         rid, label = ref.get("reference_id"), _ref_label(ref)
         if f is None or f.state != reach.OK:
-            rep.drifts.append(DriftFinding(
-                rid, label, str(url), "unerreichbar",
-                f"Seite {f.state if f else 'unbekannt'} — Drift nicht pruefbar (Umgebung)",
-            ))
+            rep.drifts.append(
+                DriftFinding(
+                    rid,
+                    label,
+                    str(url),
+                    "unerreichbar",
+                    f"Seite {f.state if f else 'unbekannt'} — Drift nicht pruefbar (Umgebung)",
+                )
+            )
         elif Corpus(f.text).contains(quote):
             rep.drifts.append(DriftFinding(rid, label, str(url), "ok", "Zitat unveraendert auffindbar"))
         elif f.spa:
-            rep.drifts.append(DriftFinding(
-                rid, label, str(url), "ungeprueft",
-                "JS-SPA / App-Shell — Zitat nur per Browser-Rendering pruefbar",
-            ))
+            rep.drifts.append(
+                DriftFinding(
+                    rid,
+                    label,
+                    str(url),
+                    "ungeprueft",
+                    "JS-SPA / App-Shell — Zitat nur per Browser-Rendering pruefbar",
+                )
+            )
         else:
-            rep.drifts.append(DriftFinding(
-                rid, label, str(url), "drift",
-                "Zitat NICHT mehr woertlich auf der Seite — Quelle hat sich geaendert",
-            ))
+            rep.drifts.append(
+                DriftFinding(
+                    rid,
+                    label,
+                    str(url),
+                    "drift",
+                    "Zitat NICHT mehr woertlich auf der Seite — Quelle hat sich geaendert",
+                )
+            )
     return rep
 
 
@@ -266,9 +286,9 @@ def render_report(rep: VerifyReport) -> str:
 
     if rep.online:
         lines += ["", "## Erreichbarkeit (tri-state)", "", "| URL | Status | Befund |", "|---|---|---|"]
-        for l in rep.links:
-            code = l.status if l.status is not None else "—"
-            lines.append(f"| {l.url} | **{l.state}** ({code}) | {l.detail} |")
+        for link in rep.links:
+            code = link.status if link.status is not None else "—"
+            lines.append(f"| {link.url} | **{link.state}** ({code}) | {link.detail} |")
 
         lines += ["", "## Beleg-Drift", ""]
         if rep.drifts:
@@ -287,8 +307,7 @@ def render_report(rep: VerifyReport) -> str:
         "",
         f"- Datenproblem (harter Stopp): **{'JA' if rep.data_problem else 'nein'}** "
         f"({len(rep.dead_links)} tote Link(s), {len(rep.drift_hits)} Drift-Treffer)",
-        "- Umgebungsbefunde (Block/Netzfehler/SPA-ungeprueft) zaehlen bewusst NICHT "
-        "als Datenproblem.",
+        "- Umgebungsbefunde (Block/Netzfehler/SPA-ungeprueft) zaehlen bewusst NICHT als Datenproblem.",
         "",
     ]
     return "\n".join(lines)
