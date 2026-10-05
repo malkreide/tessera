@@ -18,6 +18,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Covered by `tests/test_reproducibility.py`. Motivation: `kita-platz` and
   `veranstaltung` had no baseline, so `change-diff` skipped them silently — for
   `veranstaltung` (high risk) a source change would have gone unnoticed.
+- **`tessera eval` — measure the extraction against the hand-modelled target
+  file** (`src/tessera/evaluate.py`, `cli.cmd_eval`; covered by
+  `tests/test_evaluate.py`, wired into `contract-check.yml`). Until now every
+  gate was verified against fixtures only; how good a real extraction is was
+  unknown. The human-reviewed v0 files in `maschinerie-zuerich` are a ready
+  yardstick. `eval` pairs steps (and references) greedily by the merge guard's
+  label similarity — every pair is listed in the report — and reports step
+  recall/precision, unpaired hand steps as **possible gaps** (the omission the
+  grounding gate does not treat as an error), edges between paired steps as
+  **exact / shortcut / reversed / unsupported** plus missed hand edges,
+  reference pairing and `source_url` differences, actors against the hand
+  file's `actors[]`, gate dropout from the flags file, and the strict
+  cardinal-rule lint on **both** sides (hits in the hand file are the
+  false-positive baseline). Reads the hand file read-only from `TARGET_REPO`
+  (`GITHUB_TOKEN` optional) or locally via `--against PATH`; 401/403/network
+  errors are reported as environment findings, not tracebacks. Writes only
+  `reports/eval/<id>.md` — never `out/`, never a PR.
+- **Bridged edges are visible; hard stop for high-risk cases.** When the
+  grounding gate drops a step, its successors inherit its predecessors — a
+  direct sequence the source does not back. `grounding.apply_gate` now flags
+  every edge the rewiring *creates* (edges that already existed directly do
+  not count) and every predecessor lost without replacement
+  (`BRIDGE_FLAG_PREFIX`). The PR body lists them in their own section with a
+  checklist item; for high-risk cases `contracts.no_bridged_edges_high_risk`
+  at the `ground` boundary stops the pipeline (no `out/` artifact).
+- **Plausibility hints for what the gate does not check**
+  (`src/tessera/plausibility.py`, new `plausibility` component between
+  `ground` and `screen`; `tests/test_plausibility.py`). Order: an edge whose
+  predecessor quote stands behind the successor quote on *every* shared page
+  is flagged. Actor: a role whose normalised form (as in the merge's actor
+  reconciliation) appears nowhere in the corpus is flagged. Flag, not gate —
+  the process is never changed; the PR body unlocks a checklist item.
+  `grounding.Corpus.find` added for comparable quote positions.
+
+### Removed
+- **No more Leichte Sprache from the extraction.** `CLAUDE.md` excludes
+  automatic Leichte-Sprache generation for v1, yet the prompts asked the LLM to
+  fill `ls` — the only LLM free text without any mechanical gate. `XText` now
+  carries `de` only (`extra="forbid"` rejects `ls`), `_i18n` never writes
+  `ls`, the prompts and the `veranstaltung` hint no longer mention it, and
+  `contracts.struktur_only` treats a non-empty `ls` as a contract violation.
+  The PR body's `ls` review section and checklist item are gone. The data
+  contract is unchanged: `ls` stays a canonical locale key, filled by hand in
+  the Maschinerie and preserved by the merge.
+
+### Fixed
+- **High-risk governance note in the PR body.** It claimed tessera does
+  "**not** extract [the process] automatically in v1" — false since
+  `veranstaltung` was enabled. A tessera PR is by definition automatically
+  extracted; the note now says so.
 
 ### Changed
 - **ruff cleanup, and the first lint gate** (`.github/workflows/lint.yml`).
