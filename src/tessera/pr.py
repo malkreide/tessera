@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:  # nur Typhinweise — kein Laufzeit-Import von config (pydantic/yaml)
     from .config import ProcessSource
 
+from .grounding import BRIDGE_FLAG_PREFIX
 from .merge import MergeConflict, MergeReport, merge_process
 from .risk import (
     HIGH_RISK_DISCLAIMER_KEY,
@@ -254,10 +255,24 @@ def build_pr_body(
     lines.append("")
     if refs:
         lines += _reference_table(refs)
+    bridges = [f for f in flags if str(f).startswith(BRIDGE_FLAG_PREFIX)]
+    other_flags = [f for f in flags if not str(f).startswith(BRIDGE_FLAG_PREFIX)]
+    if bridges:
+        lines += [
+            "## ❌ Ueberbrueckte Kanten — Graph pruefen",
+            "",
+            "Das Grounding-Gate hat Schritte verworfen; deren Nachfolger haben die",
+            "Vorgaenger geerbt. Die folgenden Kanten zeigen damit eine Direktabfolge,",
+            "die die Quelle **nicht** belegt. Bitte gegen die Originalseite pruefen:",
+            "Schritt belegen und ergaenzen oder die Kante korrigieren.",
+            "",
+        ]
+        lines += [f"- {_md(f)}" for f in bridges]
+        lines.append("")
     lines += ["## Grounding-Gate / offene Punkte", ""]
-    if flags:
+    if other_flags:
         # Flags tragen LLM-Anteile (Labels/Zitate) -> neutralisiert interpolieren.
-        lines += [f"- ⚠️ {_md(f)}" for f in flags]
+        lines += [f"- ⚠️ {_md(f)}" for f in other_flags]
     else:
         lines.append("- Keine: alle Schritte und References sind woertlich belegt.")
     lines += [
@@ -270,6 +285,11 @@ def build_pr_body(
             "- [ ] **INJECTION-Verdacht geprueft**: Die geflaggten Quelltext-Stellen "
             "(oben) enthalten keine Anweisungen, die die Extraktion gesteuert haben "
             "koennten; Schritte/References gegen die Originalseite plausibilisiert"
+        )
+    if bridges:
+        lines.append(
+            "- [ ] **Ueberbrueckte Kanten geprueft**: jede oben gelistete Kante entspricht "
+            "der offiziellen Abfolge oder wurde korrigiert"
         )
     lines += [
         "- [ ] Schritte und Reihenfolge entsprechen der offiziellen Darstellung",

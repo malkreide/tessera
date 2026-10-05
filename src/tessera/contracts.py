@@ -27,6 +27,8 @@ import sys
 from pathlib import Path
 
 from .binding import BINDING_VALUE
+from .grounding import BRIDGE_FLAG_PREFIX
+from .risk import is_high_risk
 
 _LOCALES_TRANSLATED = ("en", "fr", "it")
 
@@ -210,3 +212,18 @@ def grounded_ok(process: object) -> list[str]:
     rep = Report(Path("component"))
     validate(process, rep)
     return list(rep.errors)
+
+
+def no_bridged_edges_high_risk(process: object, flags: list[str]) -> list[str]:
+    """Hochrisiko: keine Kante, die erst das Rewiring des Grounding-Gates erzeugt
+    hat. Eine solche Kante zeigt eine Direktabfolge, die die Quelle nicht belegt
+    (z.B. Gesuch -> Entscheid, obwohl die Fachstellen-Pruefung dazwischen
+    verworfen wurde). Im Normalfall ein Flag fuer den Reviewer; bei einem
+    reputationskritischen Rechtsfall ein harter Stopp — kein Muell in out/."""
+    if not isinstance(process, dict) or not is_high_risk(process.get("id")):
+        return []
+    return [
+        f"HOCHRISIKO — Graph durch verworfene Schritte ueberbrueckt: {f}"
+        for f in flags
+        if str(f).startswith(BRIDGE_FLAG_PREFIX)
+    ]

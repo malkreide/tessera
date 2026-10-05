@@ -17,6 +17,7 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from tessera.grounding import BRIDGE_FLAG_PREFIX  # noqa: E402
 from tessera.merge import MergeReport  # noqa: E402
 from tessera.pr import (  # noqa: E402
     MAX_BODY_CHARS,
@@ -136,6 +137,24 @@ def test_json_block_included_by_default() -> None:
     body = build_pr_body(PROC, _process(), [], META)
     assert "````json" in body  # 4-Backtick-Fence (Zitate mit ``` sprengen nichts)
     assert '"schema_version": "0.1.0"' in body
+
+
+def test_bridged_edges_get_own_section_and_checklist() -> None:
+    bridge = f"{BRIDGE_FLAG_PREFIX}: Kante 1 -> 3 ueberbrueckt den verworfenen Schritt 2"
+    other = "Schritt 2 «Erfunden» ohne Belegstelle -> VERWORFEN (Grounding-Gate)."
+    body = build_pr_body(PROC, _process(), [bridge, other], META)
+    rendered = body.split("## JSON")[0]
+    section = rendered.split("## ❌ Ueberbrueckte Kanten")[1].split("## Grounding-Gate")[0]
+    assert _md(bridge) in section  # neutralisiert interpoliert (`>` escaped)
+    general = rendered.split("## Grounding-Gate / offene Punkte")[1].split("## Reviewer-Checkliste")[0]
+    assert "Kante 1" not in general  # nicht doppelt gelistet
+    assert "VERWORFEN" in general
+    assert "**Ueberbrueckte Kanten geprueft**" in rendered
+
+
+def test_no_bridge_section_without_bridges() -> None:
+    body = build_pr_body(PROC, _process(), ["Reference 2 «x»: kein Zitat"], META)
+    assert "Ueberbrueckte Kanten" not in body
 
 
 def test_high_risk_governance_note_matches_reality() -> None:

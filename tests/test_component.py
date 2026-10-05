@@ -164,6 +164,28 @@ def test_struktur_only_flags_leichte_sprache() -> None:
     assert contracts.struktur_only({"title": {"de": "Titel", "ls": ""}}) == []
 
 
+def test_bridged_edges_stop_only_high_risk() -> None:
+    from tessera.grounding import BRIDGE_FLAG_PREFIX  # noqa: PLC0415
+
+    flags = [f"{BRIDGE_FLAG_PREFIX}: Kante 1 -> 3 ueberbrueckt den verworfenen Schritt 2", "anderes Flag"]
+    # Hochrisiko: jede ueberbrueckte Kante ist eine Grenzverletzung (harter Stopp).
+    problems = contracts.no_bridged_edges_high_risk({"id": "veranstaltung"}, flags)
+    assert len(problems) == 1 and "Kante 1 -> 3" in problems[0], problems
+    # Normalfall: nur Flag fuer den Reviewer, kein Stopp.
+    assert contracts.no_bridged_edges_high_risk({"id": "hund-anmelden"}, flags) == []
+    # Hochrisiko ohne Ueberbrueckung: gueltig.
+    assert contracts.no_bridged_edges_high_risk({"id": "veranstaltung"}, ["anderes Flag"]) == []
+
+    # Verdrahtung: die `ground`-Grenze der echten Strecke prueft diesen Vertrag.
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from tessera import steps  # noqa: PLC0415
+
+    ground = next(c for c in steps.build_pipeline(SimpleNamespace(id="veranstaltung")) if c.name == "ground")
+    grounded = steps.Grounded(corpus=None, process={"id": "veranstaltung"}, flags=flags)
+    assert any("HOCHRISIKO — Graph" in p for p in ground.check_output(grounded))
+
+
 def test_core_contract_missing_field() -> None:
     problems = contracts.core_contract({"title": {"de": "x", "en": "", "fr": "", "it": ""}})
     assert any("Pflichtfeld fehlt" in p for p in problems), problems
