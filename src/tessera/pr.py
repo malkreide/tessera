@@ -240,10 +240,14 @@ def build_high_risk_warning(process: dict) -> str:
             f"  - ⚠️ aktueller `disclaimer_key`: {_md_code(process.get('disclaimer_key'))} "
             "— erscheint **nicht** als Hochrisiko-Hinweis; bitte pruefen"
         )
+    # Ein tessera-PR entsteht nur fuer eine in sources.yaml freigeschaltete
+    # Leistung — die Fassung hier ist also IMMER automatisch extrahiert.
     lines += [
         "",
-        "> Governance: dieser Prozess existiert als **handmodellierter v0-Inhalt** "
-        "in der Maschinerie; tessera extrahiert ihn in v1 **nicht** automatisch.",
+        "> Governance: dieser Prozess existiert zusaetzlich als **handmodellierter "
+        "v0-Inhalt** in der Maschinerie. Die Fassung in diesem PR ist **automatisch "
+        "extrahiert** — eine bewusste Hochrisiko-Ausnahme (`sources.yaml`); Merge "
+        "ausschliesslich durch einen Menschen.",
         "",
     ]
     return "\n".join(lines)

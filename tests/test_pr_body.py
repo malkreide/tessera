@@ -143,6 +143,18 @@ def test_json_block_included_by_default() -> None:
     assert '"schema_version": "0.1.0"' in body
 
 
+def test_high_risk_governance_note_matches_reality() -> None:
+    # Ein tessera-PR fuer einen Hochrisiko-Fall ist per Definition automatisch
+    # extrahiert; die Warnung darf das Gegenteil nicht behaupten.
+    process = _process()
+    process["id"] = process["lebenslage_ref"] = "veranstaltung"
+    process["disclaimer_key"] = "Prozesse.disclaimerHochrisiko"
+    body = build_pr_body(SimpleNamespace(id="veranstaltung"), process, [], META)
+    assert "HOCHRISIKO-RECHTSFALL" in body
+    assert "**nicht** automatisch" not in body
+    assert "**automatisch extrahiert**" in body
+
+
 def test_merge_warning_renders_suspect_pairs() -> None:
     report = MergeReport()
     report.suspect_pairs.append(
