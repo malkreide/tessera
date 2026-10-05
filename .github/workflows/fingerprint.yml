@@ -1,0 +1,155 @@
+name: fingerprint
+
+# Schreibt die v2-Aenderungs-Baseline (reports/fingerprints/<id>.json + Texte)
+# fuer die angegebenen Leistungen und reicht sie als DRAFT-PR ein.
+#
+# Warum ein Workflow: `tessera fingerprint` muss die amtlichen Quellseiten live
+# abrufen. Laeuft das auf demselben GitHub-Runner wie der woechentliche
+# change-diff.yml, sind Fingerprint- und Diff-Zeit-Hashes aus derselben
+# Umgebung (gleicher SSR-Pfad, gleiche gepinnten Deps) — und es braucht keine
+# lokale Session mit offener Netz-Policy.
+#
+# Nur manuell (workflow_dispatch), kein Cron: eine Baseline wird bewusst gesetzt
+# (erstmals, oder nach einer bestaetigten Re-Extraktion), nie implizit.
+#
+# Leitplanken:
+# - Schreibt NIE nach main: Commit auf einen neuen Branch fingerprint/run-<id>,
+#   Merge nur durch einen Menschen (Human-in-the-Loop).
+# - Keine leere Baseline: liefert eine angeforderte Leistung keine einzige
+#   erreichbare URL (Block/Netzfehler/SPA), bricht der Lauf ohne Commit ab —
+#   Umgebungsbefunde werden nicht eingefroren (siehe diff.write_fingerprints).
+# - Die Leistungs-IDs kommen als ENV, nicht per ${{ }}-Interpolation ins Skript
+#   (keine Shell-Injection ueber das Eingabefeld).
+
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: "Leistungs-IDs aus sources.yaml, durch Leerzeichen getrennt (z.B. kita-platz veranstaltung)"
+        required: true
+        type: string
+
+permissions:
+  contents: write # Branch mit der Baseline pushen (nie main)
+  pull-requests: write # Draft-PR oeffnen
+
+concurrency:
+  group: fingerprint
+  cancel-in-progress: false
+
+jobs:
+  fingerprint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.11"
+      # Gleiche schlanke Deps wie change-diff.yml (gleicher SSR-Fetch, damit die
+      # Hashes vergleichbar sind), exakt gepinnt via constraints.txt.
+      - name: Laufzeit-Deps (schlank, exakt gepinnt via constraints.txt)
+        run: python -m pip install --quiet -c constraints.txt httpx trafilatura pyyaml pydantic
+      - name: Eingabe pruefen
+        id: ids
+        env:
+          IDS: ${{ inputs.ids }}
+        run: |
+          set -euo pipefail
+          args=()
+          for id in $IDS; do
+            if ! [[ "$id" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+              echo "::error::Keine kebab-case-ID: '$id'"
+              exit 1
+            fi
+            args+=( --id "$id" )
+          done
+          if [ ${#args[@]} -eq 0 ]; then
+            echo "::error::Keine Leistungs-ID angegeben."
+            exit 1
+          fi
+          echo "args=${args[*]}" >> "$GITHUB_OUTPUT"
+      - name: Fingerprint schreiben
+        run: PYTHONPATH=src python -m tessera.cli fingerprint ${{ steps.ids.outputs.args }}
+      # Eine Baseline ohne einzige URL waere wertlos (diff haette nichts zu
+      # vergleichen) und wuerde die "keine Baseline"-Warnung verdecken.
+      - name: Keine leere Baseline
+        env:
+          IDS: ${{ inputs.ids }}
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          bad = []
+          for pid in os.environ["IDS"].split():
+              doc = json.load(open(f"reports/fingerprints/{pid}.json", encoding="utf-8"))
+              n = len(doc["urls"])
+              print(f"{pid}: {n} URL(s) in der Baseline")
+              if n == 0:
+                  bad.append(pid)
+          if bad:
+              print(f"::error::Keine erreichbare Quell-URL fuer: {', '.join(bad)} — nichts committet.")
+              sys.exit(1)
+          PY
+      - name: Baseline als Artefakt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: fingerprints
+          path: reports/fingerprints/
+          if-no-files-found: ignore
+      - name: Branch pushen
+        id: push
+        env:
+          IDS: ${{ inputs.ids }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain -- reports/fingerprints)" ]; then
+            echo "Baseline unveraendert — kein Branch, kein PR."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          branch="fingerprint/run-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add reports/fingerprints
+          git commit -m "chore(fingerprints): Aenderungs-Baseline fuer ${IDS}"
+          git push origin "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Draft-PR oeffnen
+        if: steps.push.outputs.changed == 'true'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        env:
+          BRANCH: ${{ steps.push.outputs.branch }}
+          IDS: ${{ inputs.ids }}
+        with:
+          script: |
+            const { BRANCH, IDS } = process.env;
+            const base = context.payload.repository.default_branch;
+            const body = [
+              `Aenderungs-Baseline (\`tessera fingerprint\`) fuer: ${IDS.split(/\s+/).filter(Boolean).map(i => '`' + i + '`').join(', ')}.`,
+              '',
+              `Erzeugt vom Workflow \`fingerprint\` · [Lauf](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+              '',
+              '**Review-Checkliste**',
+              '- [ ] Jede erwartete Quell-URL aus `sources.yaml` ist in der Baseline (fehlende = Umgebungsbefund im Lauf-Log)',
+              '- [ ] Die Texte unter `reports/fingerprints/<id>/` sind der erwartete amtliche Seiteninhalt (keine Fehler- oder Cookie-Seite)',
+              '',
+              'Hinweis: PRs, die mit dem `GITHUB_TOKEN` erstellt werden, starten keine weiteren Workflows.',
+              'Die Baseline ist reine Diff-Basis (kein Vertrags-Output); der naechste `change-diff`-Lauf nach dem Merge prueft sie.',
+            ].join('\n');
+            try {
+              const pr = await github.rest.pulls.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                head: BRANCH, base, draft: true,
+                title: `chore(fingerprints): Aenderungs-Baseline fuer ${IDS.trim()}`,
+                body,
+              });
+              core.notice(`Draft-PR #${pr.data.number} geoeffnet: ${pr.data.html_url}`);
+            } catch (e) {
+              // Z.B. wenn "Allow GitHub Actions to create pull requests" in den
+              // Repo-Einstellungen aus ist. Der Branch ist gepusht; PR von Hand.
+              const url = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/compare/${base}...${BRANCH}?expand=1`;
+              core.warning(`Draft-PR konnte nicht automatisch geoeffnet werden (${e.message}). Branch ist gepusht — PR von Hand: ${url}`);
+            }

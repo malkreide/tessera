@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`fingerprint.yml`** — manually dispatched workflow (`workflow_dispatch`,
+  input `ids`) that runs `tessera fingerprint` on the same GitHub runner as the
+  weekly `change-diff.yml` (same SSR path, same pinned deps, so baseline and
+  diff hashes come from one environment) and files the result as a **draft PR**
+  on a branch `fingerprint/run-<id>` — never to `main`. Aborts without a commit
+  if a requested service yields no reachable URL (environment findings are not
+  frozen into a baseline); IDs are validated as kebab-case and passed via ENV.
+  Covered by `tests/test_reproducibility.py`. Motivation: `kita-platz` and
+  `veranstaltung` had no baseline, so `change-diff` skipped them silently — for
+  `veranstaltung` (high risk) a source change would have gone unnoticed.
+
 ### Changed
 - **ruff cleanup, and the first lint gate** (`.github/workflows/lint.yml`).
   Until now no linter ran in this repository. Four parts:
