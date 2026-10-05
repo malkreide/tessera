@@ -1,0 +1,24 @@
+{
+  "id": "veranstaltung",
+  "retrieved_at": "2026-10-05",
+  "urls": [
+    {
+      "url": "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen.html",
+      "sha256": "fce3e7a08d1e94a021d827512de894bb0cbc1acf79af2950cac53a346a96afa0",
+      "chars": 929,
+      "text_file": "veranstaltung/01-veranstaltungen.txt"
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/fest-sportveranstaltung-quartierfest.html",
+      "sha256": "0123c2d64a302ee7637939288e6bc12d25ab9a2ae5a08eacb2ed6c3b9ae32bed",
+      "chars": 2886,
+      "text_file": "veranstaltung/02-fest-sportveranstaltung-quartierfest.txt"
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/infrastruktur-sicherheit.html",
+      "sha256": "0beec242e8a6fb955594d38cbc7ddf0703f7e0277298605b0a3e9a557cd515ac",
+      "chars": 3266,
+      "text_file": "veranstaltung/03-infrastruktur-sicherheit.txt"
+    }
+  ]
+}
