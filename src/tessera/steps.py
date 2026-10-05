@@ -8,8 +8,8 @@ jede Grenze wird gegen einen Teil-Vertrag validiert (`contracts.py`). Eine
 Verletzung stoppt den Schritt HART (`ComponentError`) — kein stilles
 Weiterreichen fehlerhafter Zwischenstaende.
 
-    load  ->  extract  ->  to_contract  ->  ground  ->  screen
-    Korpus    XProcess     Kern-Vertrag    gegatet     + Screening-Flags
+    load  ->  extract  ->  to_contract  ->  ground  ->  plausibility  ->  screen
+    Korpus    XProcess     Kern-Vertrag    gegatet     + Hinweis-Flags    + Screening-Flags
 
 Die eigentlichen Transformationen rufen dieselben Funktionen wie bisher
 (crawl/extract/schema/grounding/screening) — die Component-Schicht fuegt nur die
@@ -53,6 +53,8 @@ class Grounded:
     corpus: CrawlCorpus
     process: dict
     flags: list[str] = field(default_factory=list)
+    # Interne Schritt-Belegstellen (nicht publiziert) — fuer die Reihenfolge-Probe.
+    step_quotes: dict = field(default_factory=dict)
 
 
 def _load(proc) -> CrawlCorpus:
@@ -121,7 +123,24 @@ def _ground(core: Core) -> Grounded:
         core.doc_quotes,
         corpus_by_url=corpus_by_url,
     )
-    return Grounded(corpus=corpus, process=process, flags=flags)
+    return Grounded(corpus=corpus, process=process, flags=flags, step_quotes=core.step_quotes)
+
+
+def _plausibility(grounded: Grounded) -> Grounded:
+    from . import grounding, plausibility  # noqa: PLC0415
+
+    # Was das Gate nicht prueft (Kanten, Akteure), mechanisch gegenpruefen —
+    # Flag, kein Gate: der Prozess bleibt unveraendert.
+    corpus = grounded.corpus
+    pages = {u: grounding.Corpus(t) for u, t in corpus.url_texts.items()}
+    hints = plausibility.order_flags(grounded.process, grounded.step_quotes, pages)
+    hints += plausibility.actor_flags(grounded.process, corpus.text)
+    return Grounded(
+        corpus=corpus,
+        process=grounded.process,
+        flags=grounded.flags + hints,
+        step_quotes=grounded.step_quotes,
+    )
 
 
 def _screen(grounded: Grounded) -> Grounded:
@@ -131,7 +150,9 @@ def _screen(grounded: Grounded) -> Grounded:
     # Grounding-Gate beweist Herkunft, nicht Legitimitaet; injizierter Seitentext
     # wuerde es bestehen. Befund vorne anstellen (prominent).
     flags = screening.screen_url_texts(grounded.corpus.url_texts) + grounded.flags
-    return Grounded(corpus=grounded.corpus, process=grounded.process, flags=flags)
+    return Grounded(
+        corpus=grounded.corpus, process=grounded.process, flags=flags, step_quotes=grounded.step_quotes
+    )
 
 
 def build_pipeline(proc) -> list[Component]:
@@ -152,6 +173,7 @@ def build_pipeline(proc) -> list[Component]:
                 contracts.grounded_ok(g.process) + contracts.no_bridged_edges_high_risk(g.process, g.flags)
             ),
         ),
+        Component("plausibility", _plausibility, check_output=lambda g: contracts.grounded_ok(g.process)),
         Component("screen", _screen, check_output=lambda g: contracts.grounded_ok(g.process)),
     ]
 
