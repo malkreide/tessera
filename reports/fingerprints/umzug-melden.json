@@ -1,26 +1,30 @@
 {
   "id": "umzug-melden",
-  "retrieved_at": "2026-06-29",
+  "retrieved_at": "2026-10-05",
   "urls": [
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden.html",
       "sha256": "ade4e03a4eed85be6196ef64bee6a248300da60cc50b8259e5d18c22aefd518f",
-      "chars": 52
+      "chars": 52,
+      "text_file": "umzug-melden/01-umziehen-melden.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/zuzug.html",
-      "sha256": "d49fa61c37fcaebf772c0809c1a7b4e35f5dc8fd57fd25c6abb3231a0608b852",
-      "chars": 3194
+      "sha256": "f9b5ae8c4ea5e518935c08607459dc2a4813485a105a28bf7a44e284a6274a08",
+      "chars": 3204,
+      "text_file": "umzug-melden/02-zuzug.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/umzug.html",
-      "sha256": "8d4c4386e0a3261c19f15629ce73527470a7ba2340737903332b4a937900c361",
-      "chars": 2141
+      "sha256": "5d5178a5cdbada63fc10ac30046f19eb8e5d888dfc9035a76e8b94f594961c79",
+      "chars": 2147,
+      "text_file": "umzug-melden/03-umzug.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/wegzug.html",
-      "sha256": "de6f7738e240ffb68f2ec5aae2b55aaa3f7f1723db47a5258b4e1beb89bd0cab",
-      "chars": 2117
+      "sha256": "a95ec4c2b7aeaa5e81023a7db434d329addf7da296f12e38165db44b2f40d6d4",
+      "chars": 2163,
+      "text_file": "umzug-melden/04-wegzug.txt"
     }
   ]
 }
