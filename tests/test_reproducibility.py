@@ -19,6 +19,7 @@ CONSTRAINTS = ROOT / "constraints.txt"
 WORKFLOWS = [
     ROOT / ".github" / "workflows" / "link-rot.yml",
     ROOT / ".github" / "workflows" / "change-diff.yml",
+    ROOT / ".github" / "workflows" / "fingerprint.yml",
     ROOT / ".github" / "workflows" / "lint.yml",
 ]
 

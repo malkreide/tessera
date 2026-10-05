@@ -24,5 +24,12 @@ menschlich reviewte Vertrags-Output via Draft-PR.
 `tessera fingerprint --id <leistung>` schreibt JSON **und** Textdateien neu
 und entfernt nicht mehr geführte `.txt` (das Verzeichnis gehört vollständig
 dem Fingerprint). Nach einem bestätigten Re-Extraktions-Lauf ausführen und
-committen. Ältere Hash-only-Baselines bleiben gültig; sie liefern lediglich
+committen.
+
+Ohne lokale Session mit offener Netz-Policy: Actions → **fingerprint** →
+«Run workflow» mit den Leistungs-IDs (z.B. `kita-platz veranstaltung`). Der
+Workflow läuft auf demselben Runner wie `change-diff.yml` (vergleichbare
+Hashes), bricht bei einer Leistung ohne erreichbare URL ohne Commit ab und
+reicht die Baseline als Draft-PR auf einem eigenen Branch ein — nie nach
+`main`. Ältere Hash-only-Baselines bleiben gültig; sie liefern lediglich
 keine Diff-Auszüge, bis der nächste `fingerprint`-Lauf die Texte ergänzt.

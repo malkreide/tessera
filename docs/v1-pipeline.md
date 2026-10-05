@@ -306,6 +306,13 @@ und neu/entfernt sind Hinweise (kein Issue). Ergaenzt `verify`: jenes prueft
 Drift einzelner zitierter Belege, dieses jede Seitenaenderung (auch noch nicht
 zitierte, z.B. ein neuer Schritt).
 
+Eine Baseline setzen oder erneuern geht auch ohne lokale Session: der manuell
+gestartete Workflow `fingerprint.yml` (`workflow_dispatch`, Eingabe `ids`)
+faehrt `tessera fingerprint` auf demselben Runner wie `change-diff.yml`, bricht
+ohne Commit ab, wenn eine Leistung keine einzige erreichbare URL liefert
+(Umgebungsbefunde werden nicht eingefroren), und reicht das Ergebnis als
+Draft-PR auf einem Branch `fingerprint/run-<id>` ein — nie nach `main`.
+
 ### Schema-Versionierung
 
 `SCHEMA_VERSION` liegt zentral in `src/tessera/contract.py` (eine Wahrheitsquelle)
