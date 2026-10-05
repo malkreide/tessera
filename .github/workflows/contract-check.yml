@@ -44,6 +44,10 @@ jobs:
         run: python tests/test_pr_body.py
       - name: Injection-Screening-Tests (Flag, kein Gate, stdlib)
         run: python tests/test_screening.py
+      - name: Plausibilitaets-Tests (Reihenfolge + Akteur, Flag, kein Gate, stdlib)
+        run: python tests/test_plausibility.py
+      - name: Bewertungs-Tests (eval, Extraktion vs. Handdatei, stdlib)
+        run: python tests/test_evaluate.py
       - name: Hochrisiko-Tests (erhoehter Review, stdlib)
         run: python tests/test_risk.py
       - name: Aenderungs-Diff-Tests (Fingerprint/Diff, stdlib)

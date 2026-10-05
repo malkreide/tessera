@@ -12,7 +12,10 @@ tessera fingerprint [--id ...] Aenderungs-Baseline schreiben (reports/fingerprin
 tessera diff      [--id ...] [--fail-on-change]
                                Live-Quellseiten gegen die Baseline diffen
                                (v2 Aenderungs-Erkennung; ergaenzt `verify`)
-tessera run       [--id ...]   alles oben in Reihenfolge
+tessera eval      [--id ...] [--against PFAD]
+                               out/<id>.json gegen die handmodellierte Zieldatei
+                               messen -> reports/eval/<id>.md (kein PR)
+tessera run       [--id ...]   preflight..pr in Reihenfolge (ohne verify/eval)
 """
 
 from __future__ import annotations
@@ -65,7 +68,7 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
     rc = 0
     for proc in _procs(cfg, ids):
         print(f"Extrahiere {proc.id} …")
-        # Validierte Component-Kette (load->extract->to_contract->ground->screen).
+        # Validierte Component-Kette (load->extract->to_contract->ground->plausibility->screen).
         # Jede Grenze prueft Ein-/Ausgabe; eine Verletzung stoppt DIESE Leistung
         # hart (kein Muell in out/), die Schleife laeuft mit der naechsten weiter.
         try:
@@ -276,6 +279,78 @@ def cmd_pr(cfg: SourcesConfig, ids: list[str] | None) -> int:
     return rc
 
 
+def _fetch_canonical(proc_id: str) -> tuple[dict | None, str]:
+    """Liest die handmodellierte Zieldatei aus TARGET_REPO (nur lesend, Default-
+    Branch). GITHUB_TOKEN ist optional (oeffentliches Repo) und wird nie
+    geloggt. (None, Grund), wenn es keine Handdatei gibt."""
+    import os  # noqa: PLC0415
+
+    import httpx  # noqa: PLC0415
+
+    from .pr import DEFAULT_TARGET, TARGET_PATH  # noqa: PLC0415
+
+    target = os.environ.get("TARGET_REPO", DEFAULT_TARGET)
+    path = f"{TARGET_PATH}/{proc_id}.json"
+    headers = {"Accept": "application/vnd.github.raw+json", "User-Agent": "tessera/0.1"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    source = f"`{target}:{path}` (Default-Branch)"
+    try:
+        r = httpx.get(f"https://api.github.com/repos/{target}/contents/{path}", headers=headers, timeout=30)
+    except httpx.HTTPError as exc:
+        return None, f"{source} nicht abrufbar ({exc.__class__.__name__}) — Umgebungsbefund"
+    if r.status_code == 404:
+        return None, f"keine Handdatei {source}"
+    if r.status_code != 200:
+        # 401/403/429: Rechte, Policy oder Rate-Limit — Umgebung, kein Datenbefund.
+        return None, f"{source}: HTTP {r.status_code} — Umgebungsbefund; lokal mit --against PFAD bewerten"
+    try:
+        return r.json(), source
+    except ValueError:
+        return None, f"{source}: kein gueltiges JSON"
+
+
+def cmd_eval(cfg: SourcesConfig, ids: list[str] | None, against: str | None = None) -> int:
+    """Misst out/<id>.json gegen die handmodellierte Zieldatei (Recall/Precision
+    der Schritte, Kanten, References, Akteure, Gate-Ausfall, strenger Lint).
+    Schreibt nur reports/eval/<id>.md — nie out/, nie einen PR."""
+    from pathlib import Path  # noqa: PLC0415
+
+    from . import evaluate  # noqa: PLC0415
+
+    procs = _procs(cfg, ids)
+    if against and len(procs) != 1:
+        print("--against braucht genau eine Leistung (--id).", file=sys.stderr)
+        return 1
+    rc = 0
+    for proc in procs:
+        out_json = OUT / f"{proc.id}.json"
+        if not out_json.exists():
+            print(f"  [{proc.id}] out/{proc.id}.json fehlt — zuerst `tessera extract`.", file=sys.stderr)
+            rc = 1
+            continue
+        if against:
+            canonical, source = json.loads(Path(against).read_text(encoding="utf-8")), f"`{against}`"
+        else:
+            canonical, source = _fetch_canonical(proc.id)
+            if canonical is None:
+                print(f"  [{proc.id}] {source} — kein Massstab, uebersprungen.", file=sys.stderr)
+                rc = 1
+                continue
+        flags_file = OUT / f"{proc.id}{FLAGS_SUFFIX}"
+        flags = json.loads(flags_file.read_text(encoding="utf-8")) if flags_file.exists() else []
+        extracted = json.loads(out_json.read_text(encoding="utf-8"))
+        rep = evaluate.evaluate(extracted, canonical, flags)
+        path = evaluate.write_report(rep, source)
+        print(
+            f"  [{proc.id}] -> {path} (Recall {evaluate.pct(rep.step_recall)}, "
+            f"Precision {evaluate.pct(rep.step_precision)}, Gate-Ausfall {evaluate.pct(rep.gate_dropout)}, "
+            f"Kanten umgekehrt {len(rep.edges_reversed)})"
+        )
+    return rc
+
+
 COMMANDS = {
     "preflight": cmd_preflight,
     "crawl": cmd_crawl,
@@ -287,7 +362,7 @@ COMMANDS = {
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="tessera", description=__doc__)
-    parser.add_argument("command", choices=[*COMMANDS, "verify", "fingerprint", "diff", "run"])
+    parser.add_argument("command", choices=[*COMMANDS, "verify", "fingerprint", "diff", "eval", "run"])
     parser.add_argument(
         "--id", action="append", dest="ids", metavar="LEISTUNG", help="nur diese Leistung(en) verarbeiten"
     )
@@ -305,6 +380,11 @@ def main(argv: list[str] | None = None) -> int:
         dest="as_json",
         help="nur fuer `diff`: maschinenlesbare Zusammenfassung nach stdout",
     )
+    parser.add_argument(
+        "--against",
+        metavar="PFAD",
+        help="nur fuer `eval`: lokale Handdatei statt der Zieldatei aus TARGET_REPO",
+    )
     args = parser.parse_args(argv)
 
     cfg = load_sources()
@@ -321,6 +401,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_fingerprint(cfg, args.ids)
     if args.command == "diff":
         return cmd_diff(cfg, args.ids, fail_on_change=args.fail_on_change, as_json=args.as_json)
+    if args.command == "eval":
+        return cmd_eval(cfg, args.ids, against=args.against)
     return COMMANDS[args.command](cfg, args.ids)
 
 
