@@ -94,6 +94,13 @@ class Corpus:
         q = normalize(quote)
         return bool(q) and q in self._norm
 
+    def find(self, quote: str) -> int:
+        """Position des Zitats im normalisierten Korpus, -1 wenn nicht enthalten.
+        Gleiche Normalisierung wie `contains` — Positionen zweier Zitate auf
+        derselben Seite sind damit vergleichbar."""
+        q = normalize(quote)
+        return self._norm.find(q) if q else -1
+
 
 # Mindestlaenge eines Zitats nach Normalisierung. Darunter ist ein Substring-
 # Treffer kein Beleg («Anmeldung» steht auf jeder Seite). Der Prompt verlangt

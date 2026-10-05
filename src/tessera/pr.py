@@ -36,6 +36,7 @@ if TYPE_CHECKING:  # nur Typhinweise — kein Laufzeit-Import von config (pydant
 
 from .grounding import BRIDGE_FLAG_PREFIX
 from .merge import MergeConflict, MergeReport, merge_process
+from .plausibility import ACTOR_FLAG_PREFIX, ORDER_FLAG_PREFIX
 from .risk import (
     HIGH_RISK_DISCLAIMER_KEY,
     HIGH_RISK_RATIONALE,
@@ -290,6 +291,11 @@ def build_pr_body(
         lines.append(
             "- [ ] **Ueberbrueckte Kanten geprueft**: jede oben gelistete Kante entspricht "
             "der offiziellen Abfolge oder wurde korrigiert"
+        )
+    if any(str(f).startswith((ORDER_FLAG_PREFIX, ACTOR_FLAG_PREFIX)) for f in flags):
+        lines.append(
+            "- [ ] **Reihenfolge-/Akteur-Hinweise geprueft**: geflaggte Kanten und Rollen "
+            "(oben) gegen die Originalseite plausibilisiert"
         )
     lines += [
         "- [ ] Schritte und Reihenfolge entsprechen der offiziellen Darstellung",

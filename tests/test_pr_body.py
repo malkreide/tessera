@@ -19,6 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from tessera.grounding import BRIDGE_FLAG_PREFIX  # noqa: E402
 from tessera.merge import MergeReport  # noqa: E402
+from tessera.plausibility import ACTOR_FLAG_PREFIX, ORDER_FLAG_PREFIX  # noqa: E402
 from tessera.pr import (  # noqa: E402
     MAX_BODY_CHARS,
     _md,
@@ -155,6 +156,16 @@ def test_bridged_edges_get_own_section_and_checklist() -> None:
 def test_no_bridge_section_without_bridges() -> None:
     body = build_pr_body(PROC, _process(), ["Reference 2 «x»: kein Zitat"], META)
     assert "Ueberbrueckte Kanten" not in body
+    assert "Reihenfolge-/Akteur-Hinweise geprueft" not in body
+
+
+def test_plausibility_hints_unlock_checklist_item() -> None:
+    for flag in (
+        f"{ORDER_FLAG_PREFIX}: Kante 3 -> 1 widerspricht der Textreihenfolge",
+        f"{ACTOR_FLAG_PREFIX}: Rolle «Steueramt» kommt im Quelltext nicht vor",
+    ):
+        body = build_pr_body(PROC, _process(), [flag], META)
+        assert "**Reihenfolge-/Akteur-Hinweise geprueft**" in body, flag
 
 
 def test_high_risk_governance_note_matches_reality() -> None:
