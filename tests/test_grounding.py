@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from validate_contract import Report, validate  # noqa: E402
 
-from tessera.grounding import Corpus, apply_gate, normalize  # noqa: E402
+from tessera.grounding import BRIDGE_FLAG_PREFIX, Corpus, apply_gate, normalize  # noqa: E402
 
 CORPUS_TEXT = """
 # Hundekontrolle
@@ -132,6 +132,32 @@ def test_step_drop_and_rewire() -> None:
     assert step3["depends_on"] == [1], step3["depends_on"]  # Nachfolger erbt Vorgaenger
     assert any("Schritt 2" in f for f in flags)
     assert any("Bedingung" in f for f in flags)  # Bedingung an verworfener Kante geflaggt
+    # Die geerbte Kante 1 -> 3 ist im Quelltext nicht belegt -> eigenes Flag.
+    bridges = [f for f in flags if f.startswith(BRIDGE_FLAG_PREFIX)]
+    assert len(bridges) == 1, bridges
+    assert "Kante 1 -> 3" in bridges[0] and "Schritt 2" in bridges[0], bridges
+
+
+def test_no_bridge_flag_when_edge_already_direct() -> None:
+    # Schritt 3 haengt direkt an 1 UND an 2; 2 (Kind von 1) wird verworfen. Die
+    # Kante 1 -> 3 bestand schon — das Rewiring erfindet hier nichts.
+    process, quotes = _process()
+    process["steps"][2]["depends_on"] = [1, 2]
+    _, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    assert not [f for f in flags if f.startswith(BRIDGE_FLAG_PREFIX)], flags
+
+
+def test_bridge_flag_when_predecessor_lost() -> None:
+    # Der verworfene Vorgaenger war selbst ein Start-Schritt: der Nachfolger
+    # verliert ihn ersatzlos -> der Graph ist abgeschnitten, das wird gemeldet.
+    process, quotes = _process()
+    quotes[1] = ""  # Start-Schritt 1 verworfen
+    process["steps"][2]["depends_on"] = [1]
+    gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    step3 = next(s for s in gated["steps"] if s["step_id"] == 3)
+    assert step3["depends_on"] == [], step3["depends_on"]
+    bridges = [f for f in flags if f.startswith(BRIDGE_FLAG_PREFIX)]
+    assert any("Schritt 3 verliert Vorgaenger 1" in f for f in bridges), bridges
 
 
 def test_transitive_rewire() -> None:

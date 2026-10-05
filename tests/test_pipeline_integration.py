@@ -375,6 +375,22 @@ def test_to_contract_emits_high_risk_disclaimer() -> None:
     assert low["disclaimer_key"] == "Prozesse.disclaimer", low["disclaimer_key"]
 
 
+def test_schema_rejects_leichte_sprache() -> None:
+    """Das Extraktionsschema kennt kein `ls` mehr: liefert das Modell trotzdem
+    Leichte Sprache, ist das ein Schemafehler (extra="forbid"), kein stilles
+    Durchreichen ungegateten Freitexts. Ohne pydantic uebersprungen."""
+    if not HAVE_PYDANTIC:
+        raise _Skip("pydantic nicht installiert (CI ohne Runtime-Deps)")
+
+    from pydantic import ValidationError  # noqa: PLC0415
+
+    try:
+        XText(de="Hund anmelden", ls="Sie melden den Hund an.")
+    except ValidationError:
+        return
+    raise AssertionError("XText akzeptiert `ls` — Leichte Sprache muss abgewiesen werden")
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

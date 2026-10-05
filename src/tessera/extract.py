@@ -83,10 +83,8 @@ REGELN (verbindlich):
    DAG sein (keine Zyklen, kein Selbstbezug). Bedingte Kanten (z.B. Ausgang
    einer Entscheidung) als {step_id, condition}.
 
-4. SPRACHE: Deutsch mit Schweizer Rechtschreibung (kein ß). Feld `ls` =
-   Leichte Sprache: kurze Saetze, direkte Anrede («Sie melden den Hund an.»),
-   nur fuellen, soweit der Inhalt aus der Quelle belegt ist — sonst leer
-   lassen. KEINE Uebersetzungen in andere Sprachen.
+4. SPRACHE: Deutsch mit Schweizer Rechtschreibung (kein ß). Nur das Feld
+   `de`; KEINE Uebersetzungen und KEINE Leichte Sprache.
 
 5. actor: kurze, konsistente Rollenbezeichnung (z.B. «Halter:in»,
    «Steueramt», «Kreisbuero») — so, wie die Quelle die Stelle nennt. Verwende
@@ -138,7 +136,7 @@ Pruefe und korrigiere:
 
 5. ZUSATZFELDER: Ergaenze fehlende, belegbare `documents` (mit woertlichem
    source_quote) und setze `type` je Schritt, wo eindeutig — beides nur belegt
-   bzw. eindeutig, sonst weglassen. `preconditions`/`ls` fuellen, soweit belegt.
+   bzw. eindeutig, sonst weglassen. `preconditions` fuellen, soweit belegt.
 
 Behalte step_ids stabiler Schritte moeglichst bei. Sprache: Deutsch, Schweizer
 Rechtschreibung (kein ß). Gib NUR das korrigierte XProcess aus.
