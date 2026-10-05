@@ -207,7 +207,7 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   `check:regression`, `check:links` gruen.
 - **PR-Body als Reviewer-UI:** Reference-Tabelle (Label | Deep-Link | Zitat |
   Status) fuer die Kernpruefung «steht das Zitat woertlich auf der verlinkten
-  Seite?», gesammelte `ls`-Texte zur inhaltlichen Pruefung, LLM-Text stets
+  Seite?», LLM-Text stets
   markdown-neutralisiert (kein Mention/Checklist/Link aus extrahiertem Text),
   JSON-Block faellt ueber `pr.MAX_BODY_CHARS` auf einen Hinweis zurueck
   (GitHub-Limit 65 536). Ein bestehender Tagesbranch wird nur zurueckgesetzt,

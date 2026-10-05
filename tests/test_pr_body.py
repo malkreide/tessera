@@ -91,19 +91,14 @@ def test_reference_table_absent_without_refs() -> None:
     assert "Kernpruefung" not in body
 
 
-def test_ls_section_lists_all_ls_texts() -> None:
+def test_no_ls_review_section() -> None:
+    # tessera erzeugt keine Leichte Sprache mehr. Ein `ls` im Body kann nur aus
+    # der handgepflegten Zieldatei stammen (Merge) — bereits menschlich
+    # geprueft, also kein eigener Review-Abschnitt und kein Checklisten-Punkt.
     body = build_pr_body(PROC, _process(), [], META)
-    assert "## Leichte Sprache (`ls`)" in body
-    assert "- `title`: `Sie melden den Hund an.`" in body
-    assert "- `steps[1].label`: `Sie gehen zum Amt.`" in body
-
-
-def test_ls_section_absent_without_ls() -> None:
-    process = _process()
-    process["title"].pop("ls")
-    process["steps"][0]["label"].pop("ls")
-    body = build_pr_body(PROC, process, [], META)
-    assert "## Leichte Sprache" not in body
+    rendered = body.split("## JSON")[0]
+    assert "## Leichte Sprache" not in rendered
+    assert "Leichte Sprache (`ls`) ist inhaltlich korrekt" not in rendered
 
 
 def test_llm_text_is_markdown_neutralized() -> None:

@@ -8,9 +8,7 @@ Der PR-Body ist Reviewer-UI und Sicherheitsflaeche zugleich:
 
 * **Review-Ergonomie:** Die teuerste Reviewer-Pruefung (Zitat woertlich auf der
   verlinkten Seite?) bekommt eine eigene Reference-Tabelle (Label | Deep-Link |
-  Zitat | Status); alle Leichte-Sprache-Texte (`ls`) stehen gesammelt zur
-  inhaltlichen Pruefung — sie sind der einzige LLM-Freitext ohne mechanisches
-  Gate (nur Zahlen-Lint).
+  Zitat | Status).
 * **Markdown-Neutralisierung:** LLM-/Quelltext (Labels, Zitate, Flags) wird nie
   roh interpoliert — `_md`/`_md_code` escapen Markdown-Steuerzeichen und
   entschaerfen @-Mentions, damit extrahierter Text weder Checklisten faelschen
@@ -92,39 +90,6 @@ def _bullets(items: list[str], limit: int = 12) -> list[str]:
     if len(items) > limit:
         shown.append(f"  - … und {len(items) - limit} weitere")
     return shown
-
-
-def _collect_ls(process: dict) -> list[tuple[str, str]]:
-    """Sammelt alle Leichte-Sprache-Texte (`ls`) mit Fundstelle — der einzige
-    LLM-Freitext ohne mechanisches Gate; der Reviewer prueft ihn gesammelt."""
-    out: list[tuple[str, str]] = []
-
-    def add(where: str, obj: object) -> None:
-        if isinstance(obj, dict):
-            ls = obj.get("ls")
-            if isinstance(ls, str) and ls.strip():
-                out.append((where, ls.strip()))
-
-    add("title", process.get("title"))
-    add("description", process.get("description"))
-    for i, p in enumerate(process.get("preconditions") or []):
-        add(f"preconditions[{i}]", p)
-    for s in process.get("steps") or []:
-        if not isinstance(s, dict):
-            continue
-        sid = s.get("step_id", "?")
-        add(f"steps[{sid}].label", s.get("label"))
-        add(f"steps[{sid}].description", s.get("description"))
-        for d in s.get("depends_on") or []:
-            if isinstance(d, dict):
-                add(f"steps[{sid}].depends_on[{d.get('step_id')}].condition", d.get("condition"))
-        for j, doc in enumerate(s.get("documents") or []):
-            if isinstance(doc, dict):
-                add(f"steps[{sid}].documents[{j}].label", doc.get("label"))
-    for r in process.get("references") or []:
-        if isinstance(r, dict):
-            add(f"references[{r.get('reference_id')}].label", r.get("label"))
-    return out
 
 
 def _reference_table(refs: list[dict]) -> list[str]:
@@ -289,18 +254,6 @@ def build_pr_body(
     lines.append("")
     if refs:
         lines += _reference_table(refs)
-    ls_texts = _collect_ls(process)
-    if ls_texts:
-        lines += [
-            "## Leichte Sprache (`ls`) — inhaltlich pruefen",
-            "",
-            "Die `ls`-Texte sind der einzige LLM-Freitext ohne mechanisches Gate",
-            "(nur der Zahlen-Lint greift). Bitte gesammelt auf Korrektheit und",
-            "wirklich einfache Sprache pruefen:",
-            "",
-        ]
-        lines += [f"- `{where}`: {_md_code(text)}" for where, text in ls_texts]
-        lines.append("")
     lines += ["## Grounding-Gate / offene Punkte", ""]
     if flags:
         # Flags tragen LLM-Anteile (Labels/Zitate) -> neutralisiert interpolieren.
@@ -324,7 +277,6 @@ def build_pr_body(
         "- [ ] Jede verifizierte Reference: Zitat stimmt woertlich mit der verlinkten Seite ueberein "
         "(Tabelle oben: Klick auf den Deep-Link, Zitat vergleichen)",
         "- [ ] Unverifizierte References: pruefen, belegen oder entfernen",
-        "- [ ] Leichte Sprache (`ls`) ist inhaltlich korrekt und wirklich einfach",
         "- [ ] `lebenslage_ref` verlinkt korrekt auf die bestehende Lebenslage",
         "",
         "Validierung: `scripts/validate_contract.py` (tessera) bestanden — bitte",

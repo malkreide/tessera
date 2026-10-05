@@ -29,12 +29,14 @@ StepType = Literal["start", "input", "prozess", "entscheidung", "loop", "warten"
 
 
 class XText(BaseModel):
-    """Deutscher Text plus optional Leichte Sprache (ls)."""
+    """Nur deutscher Text. Leichte Sprache (`ls`) erzeugt tessera bewusst NICHT:
+    automatische Leichte-Sprache-Generierung ist in v1 ausgeschlossen (CLAUDE.md),
+    und sie waere LLM-Freitext ohne jedes mechanische Gate. `extra="forbid"`
+    weist ein vom Modell trotzdem geliefertes `ls` als Schemafehler ab."""
 
     model_config = ConfigDict(extra="forbid")
 
     de: str = Field(min_length=1)
-    ls: str = ""
 
 
 class XCondDep(BaseModel):
@@ -110,12 +112,10 @@ class XProcess(BaseModel):
 
 def _i18n(x: XText, *, with_empty: bool = True) -> dict:
     """XText -> kanonisches i18n-Objekt. en/fr/it bleiben leer (Uebersetzung
-    ausstehend — wird NICHT maschinell geraten); ls nur, wenn vorhanden."""
+    ausstehend — wird NICHT maschinell geraten); `ls` traegt tessera nie."""
     out: dict = {"de": x.de.strip()}
     if with_empty:
         out.update({"en": "", "fr": "", "it": ""})
-    if x.ls.strip():
-        out["ls"] = x.ls.strip()
     return out
 
 

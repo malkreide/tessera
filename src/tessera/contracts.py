@@ -139,6 +139,13 @@ def struktur_only(process: object) -> list[str]:
                             "liefert struktur-only (de + leere en/fr/it); der Merge "
                             "der Maschinerie fuellt Uebersetzungen, tessera nie."
                         )
+                ls = node.get("ls")
+                if isinstance(ls, str) and ls.strip():
+                    problems.append(
+                        f"{path}.ls: Leichte Sprache {ls!r} — tessera erzeugt keine "
+                        "Leichte Sprache (in v1 ausgeschlossen, CLAUDE.md); sie waere "
+                        "LLM-Freitext ohne Gate."
+                    )
             for key, val in node.items():
                 walk(val, f"{path}.{key}" if path else str(key))
         elif isinstance(node, list):

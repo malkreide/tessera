@@ -151,6 +151,19 @@ def test_struktur_only_flags_translation() -> None:
     assert contracts.struktur_only(ok) == []
 
 
+def test_struktur_only_flags_leichte_sprache() -> None:
+    # tessera erzeugt keine Leichte Sprache (in v1 ausgeschlossen); ein `ls`
+    # aus dem Extraktionspfad ist ein Vertragsbruch, auch tief im Graphen.
+    filled = {
+        "title": {"de": "Titel", "en": "", "fr": "", "it": ""},
+        "steps": [{"label": {"de": "Schritt", "ls": "Sie tun etwas."}}],
+    }
+    problems = contracts.struktur_only(filled)
+    assert any("steps[0].label.ls" in p for p in problems), problems
+    # Leeres ls ist kein Bruch.
+    assert contracts.struktur_only({"title": {"de": "Titel", "ls": ""}}) == []
+
+
 def test_core_contract_missing_field() -> None:
     problems = contracts.core_contract({"title": {"de": "x", "en": "", "fr": "", "it": ""}})
     assert any("Pflichtfeld fehlt" in p for p in problems), problems
