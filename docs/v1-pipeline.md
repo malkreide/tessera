@@ -10,7 +10,7 @@
 ## Was schon steht (Kontext — nicht mehr zu tun)
 
 - **CLI / Mechanik:** `tessera preflight | crawl | extract | validate | verify |
-  pr | run` (`src/tessera/`, schlichte Schleife, kein Orchestrierungs-Framework).
+  eval | pr | run` (`src/tessera/`, schlichte Schleife, kein Orchestrierungs-Framework).
 - **Gates im Code:** Grounding-Gate (`grounding.py`), Label↔Wert-Gate
   (`binding.py`), feldweiser Merge gegen Handdaten (`merge.py`),
   Hochrisiko-Registry (`risk.py`), tri-state Re-Verifikation (`verify.py`,
@@ -154,6 +154,21 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   Flags/im PR-Body und schaltet dort einen zusaetzlichen
   Injection-Checklisten-Punkt frei. Menschlicher Review bleibt die
   eigentliche Verteidigung.
+- **Ueberbrueckte Kanten:** Verwirft das Gate einen Schritt, erben seine
+  Nachfolger dessen Vorgaenger — eine Direktabfolge, die die Quelle nicht
+  belegt. Jede so NEU entstandene Kante (und jeder ersatzlos verlorene
+  Vorgaenger) wird geflaggt (`grounding.BRIDGE_FLAG_PREFIX`) und erscheint im
+  PR-Body in einem eigenen Abschnitt mit Checklisten-Punkt. **Bei
+  Hochrisiko-Faellen stoppt die Strecke hart** (`contracts.
+  no_bridged_edges_high_risk`, kein `out/`-Artefakt).
+- **Plausibilitaet (Flag, kein Gate):** Was das Gate nicht prueft, wird
+  mechanisch gegengeprueft (`plausibility.py`): eine Kante, deren
+  Vorgaenger-Zitat auf JEDER gemeinsamen Seite hinter dem Nachfolger-Zitat
+  steht (Reihenfolge), und eine Rolle, die in keiner Schreibweise im Korpus
+  vorkommt (Akteur). Der Prozess bleibt unveraendert.
+- **Keine Leichte Sprache:** Die Extraktion erzeugt kein `ls` (in v1
+  ausgeschlossen, `CLAUDE.md`); ein geliefertes `ls` ist ein Schemafehler bzw.
+  ein Bruch von `contracts.struktur_only`. `ls` fuellt die Maschinerie von Hand.
 - **Test-Setting:**
   ```bash
   tessera extract --id hund-anmelden
@@ -162,6 +177,23 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   ```
 - **Review (Mensch):** Schritte/Reihenfolge gegen die Originalseite; Geflaggtes
   bleibt offen, nicht von Hand „reparieren".
+
+### B.3a — Messen (Pilot-Kennzahlen, vor dem PR)
+- **Aktion:** `tessera eval --id <id>` — misst `out/<id>.json` gegen die
+  handmodellierte Zieldatei in `maschinerie-zuerich` (lesend; `GITHUB_TOKEN`
+  optional) oder lokal mit `--against PFAD`. Schreibt nur
+  `reports/eval/<id>.md`, nie `out/`, nie einen PR.
+- **Kennzahlen:** Schritt-Recall/-Precision (Paarung ueber die Label-
+  Aehnlichkeit des Merge-Guards, alle Paare im Report ausgewiesen), ungepaarte
+  Handschritte als moegliche **Luecken**, Kanten **exakt / Abkuerzung /
+  umgekehrt / unbelegt**, References, Akteure gegen `actors[]`, Gate-Ausfall
+  aus der Flags-Datei, strenger Lint auf **beiden** Seiten (Treffer in der
+  Handdatei = Fehlalarm-Basis).
+- **Zweck:** Erst diese Zahlen entscheiden, ob die Extraktion brauchbar ist
+  und welche weitere Massnahme dringend ist (z.B. ob `veranstaltung`
+  freigeschaltet bleibt). Report als Pilot-Beleg bewusst committen.
+- **Ohne Handdatei** (404) oder bei 401/403/Netzfehler: Umgebungsbefund,
+  Leistung uebersprungen — kein Traceback, kein Raten.
 
 ### B.4 — Validate (Eingangs-Gate)
 - **Aktion:** `python scripts/validate_contract.py out/<id>.json`; optional
@@ -275,6 +307,7 @@ Bewusst **nicht** in v1 (`CLAUDE.md`):
 | Unit (stdlib, key-frei) | jeder Commit / CI | `tests/*.py`, `run_checks.py` | alle gruen |
 | Integration (key-frei) | jeder Commit / CI | `test_pipeline_integration.py` | Gate-Verhalten korrekt |
 | Vertrags-Gate | vor jedem PR | `validate_contract.py` (Exit 0) | gueltig |
+| Messung gegen Handdatei | Pilot / vor PR | `tessera eval` -> `reports/eval/<id>.md` | Kennzahlen dokumentiert (kein Schwellwert vorab) |
 | Beleg-Hygiene | vor PR + woechentlich (`link-rot.yml`) | `tessera verify --online` | keine tot/Drift |
 | Aenderungs-Diff (v2) | woechentlich (`change-diff.yml`) | `tessera diff` vs. `reports/fingerprints/<id>.json` | keine inhaltliche Aenderung |
 | Ziel-Repo-CI | im Draft-PR | `validate:prozesse`, `check:regression`, `check:links` | gruen |

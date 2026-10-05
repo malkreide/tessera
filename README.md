@@ -127,6 +127,12 @@ tessera run --id hund-anmelden
 # Re-verification (propose-only, never writes to out/): label↔value checks;
 # with --online also tri-state link-rot (dead/blocked/net-error) + quote drift
 tessera verify  --id hund-anmelden --online
+
+# Measure the extraction against the hand-modelled target file (no PR, never
+# writes to out/): step recall/precision, edge agreement, gate dropout, strict
+# lint on both sides -> reports/eval/<id>.md. Reads the file from TARGET_REPO,
+# or locally with --against PATH.
+tessera eval    --id hund-anmelden
 ```
 
 Without `GITHUB_TOKEN` no PR is submitted; the finished bundle (JSON +

@@ -186,6 +186,29 @@ def test_bridged_edges_stop_only_high_risk() -> None:
     assert any("HOCHRISIKO — Graph" in p for p in ground.check_output(grounded))
 
 
+def test_plausibility_component_wired_and_flag_only() -> None:
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from tessera import steps  # noqa: PLC0415
+
+    pipeline = steps.build_pipeline(SimpleNamespace(id="hund-anmelden"))
+    names = [c.name for c in pipeline]
+    assert names == ["load", "extract", "to_contract", "ground", "plausibility", "screen"], names
+
+    corpus = steps.CrawlCorpus(
+        text="Die Anmeldung beim Kreisbuero ist online moeglich.",
+        meta=[],
+        url_texts={"https://example.org/a": "Die Anmeldung beim Kreisbuero ist online moeglich."},
+        usable_meta=[],
+    )
+    process = {"id": "hund-anmelden", "steps": [{"step_id": 1, "actor": "Steueramt", "depends_on": []}]}
+    grounded = steps.Grounded(corpus=corpus, process=process, flags=["vorher"], step_quotes={})
+    plaus = next(c for c in pipeline if c.name == "plausibility")
+    out = plaus.transform(grounded)
+    assert out.process is process  # Flag, kein Gate: Prozess unveraendert
+    assert out.flags[0] == "vorher" and any("Steueramt" in f for f in out.flags[1:]), out.flags
+
+
 def test_core_contract_missing_field() -> None:
     problems = contracts.core_contract({"title": {"de": "x", "en": "", "fr": "", "it": ""}})
     assert any("Pflichtfeld fehlt" in p for p in problems), problems
