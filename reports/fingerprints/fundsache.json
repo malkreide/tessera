@@ -1,31 +1,36 @@
 {
   "id": "fundsache",
-  "retrieved_at": "2026-06-29",
+  "retrieved_at": "2026-10-05",
   "urls": [
     {
       "url": "https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero.html",
-      "sha256": "abd45217209185f0dab1ded4e318438cb660797a72c1e89732b4ed7e1c28993a",
-      "chars": 1176
+      "sha256": "41f395e252c77cfb37d0779cc9caa25cc61b6ac3e61ac75afd7bd0d5918a21aa",
+      "chars": 1188,
+      "text_file": "fundsache/01-fundbuero.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/verloren.html",
       "sha256": "546d5a3af1faa041a0e76d9af3343b648014fbcbc75b2d24fb0a3942e94e5587",
-      "chars": 2260
+      "chars": 2260,
+      "text_file": "fundsache/02-verloren.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/gefunden.html",
       "sha256": "28aaefd11105676a5c8b3abcef1e4bb0c60644bd9cc1c98c57544d5febe616cc",
-      "chars": 595
+      "chars": 595,
+      "text_file": "fundsache/03-gefunden.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/versteigerung.html",
-      "sha256": "4131e663e2ad255d6d044adae5e6820be463ff579bdc1c84dd5eb8f43f1048ae",
-      "chars": 611
+      "sha256": "85fa4ca92366c66261816885f654419c33d24505746a18f0a91430b7987ba4e3",
+      "chars": 578,
+      "text_file": "fundsache/04-versteigerung.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/rechtsgrundlage.html",
       "sha256": "50c8b7f9335574a14ca8b62cfa945a07e04444233d9d15a76f8a143c8b7b2ad4",
-      "chars": 1903
+      "chars": 1903,
+      "text_file": "fundsache/05-rechtsgrundlage.txt"
     }
   ]
 }
