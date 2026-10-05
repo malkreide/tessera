@@ -67,7 +67,7 @@ die exakte Quellseite und das WOERTLICHE source_quote. Niemals als Wert in einem
 Schritt-Label oder einer Bedingung.
 
 STRUKTUR-ONLY: Jedes i18n-Feld traegt `de`; en/fr/it bleiben LEER (Uebersetzungen
-fuellt allein die Maschinerie). Feld `ls` (Leichte Sprache) nur, soweit belegt.
+fuellt allein die Maschinerie). Keine Leichte Sprache.
 """
 
 

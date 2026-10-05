@@ -145,7 +145,13 @@ def build_pipeline(proc) -> list[Component]:
             lambda d: _to_contract(proc, d),
             check_output=lambda core: contracts.core_contract(core.process),
         ),
-        Component("ground", _ground, check_output=lambda g: contracts.grounded_ok(g.process)),
+        Component(
+            "ground",
+            _ground,
+            check_output=lambda g: (
+                contracts.grounded_ok(g.process) + contracts.no_bridged_edges_high_risk(g.process, g.flags)
+            ),
+        ),
         Component("screen", _screen, check_output=lambda g: contracts.grounded_ok(g.process)),
     ]
 

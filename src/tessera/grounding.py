@@ -8,6 +8,13 @@ Quelltext belegbar sein. Nicht belegbar heisst:
 * Schritt    -> wird VERWORFEN (nicht geraten); seine Nachfolger erben seine
   Vorgaenger, damit der Graph ein DAG bleibt; Flag fuer den Reviewer.
 
+Das Rewiring ist selbst eine Behauptung: eine geerbte Kante zeigt eine
+Direktabfolge, die so nirgends belegt ist. Jede dadurch NEU entstandene Kante
+(und jeder Schritt, der dabei einen Vorgaenger ersatzlos verliert) bekommt
+deshalb ein eigenes Flag mit BRIDGE_FLAG_PREFIX — der PR-Body zeigt sie in einem
+eigenen Abschnitt, und bei Hochrisiko-Faellen stoppt die Strecke daran hart
+(contracts.no_bridged_edges_high_risk).
+
 Zwei zusaetzliche Schaerfen:
 
 * **Per-URL-Grounding (References):** Ist `corpus_by_url` uebergeben, muss das
@@ -30,6 +37,11 @@ from __future__ import annotations
 import re
 
 from .binding import label_value_mismatch
+
+# Praefix der Flags fuer Kanten, die erst durch das Rewiring entstanden sind (bzw.
+# Vorgaenger, die ersatzlos wegfielen). PR-Body und Hochrisiko-Vertrag erkennen
+# sie daran.
+BRIDGE_FLAG_PREFIX = "UEBERBRUECKTE KANTE"
 
 # Typografische Varianten, die Extraktoren austauschbar liefern.
 _QUOTE_MAP = str.maketrans(
@@ -210,11 +222,34 @@ def apply_gate(
         return out
 
     ref_ids = {r["reference_id"] for r in references}
+    bridge_flags: list[str] = []
     for step in kept:
+        sid = step["step_id"]
+        # Kanten, die ohnehin direkt bestehen, sind durch das Rewiring nicht neu.
+        direct = {_dep_id(d) for d in step.get("depends_on", []) if _dep_id(d) not in dropped}
         new_deps: list = []
         seen_ids: set[int] = set()
         for dep in step.get("depends_on", []):
-            for resolved in resolve(dep, frozenset()):
+            resolved_deps = resolve(dep, frozenset())
+            did = _dep_id(dep)
+            if did in dropped:
+                # Ueberbrueckung SICHTBAR machen: der Graph zeigt sonst eine
+                # Direktabfolge, die so nirgends belegt ist.
+                if not resolved_deps:
+                    bridge_flags.append(
+                        f"{BRIDGE_FLAG_PREFIX}: Schritt {sid} verliert Vorgaenger {did} "
+                        "(verworfen, ohne eigene Vorgaenger) — der Graph ist an dieser "
+                        "Stelle abgeschnitten. OFFEN fuer Review."
+                    )
+                for resolved in resolved_deps:
+                    rid = _dep_id(resolved)
+                    if rid not in direct:
+                        bridge_flags.append(
+                            f"{BRIDGE_FLAG_PREFIX}: Kante {rid} -> {sid} ueberbrueckt den "
+                            f"verworfenen Schritt {did} — diese Direktabfolge ist im "
+                            "Quelltext nicht belegt. OFFEN fuer Review."
+                        )
+            for resolved in resolved_deps:
                 rid = _dep_id(resolved)
                 if rid not in seen_ids:
                     seen_ids.add(rid)
@@ -254,6 +289,9 @@ def apply_gate(
                 step["documents"] = kept_docs
             else:
                 step.pop("documents")
+
+    # Mehrere verworfene Pfade koennen auf dieselbe Kante fuehren -> einmal melden.
+    flags += list(dict.fromkeys(bridge_flags))
 
     out = dict(process)
     out["steps"] = kept
