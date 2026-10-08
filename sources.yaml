@@ -2,10 +2,10 @@
 # Es gibt KEINEN Discovery-Agenten; neue Leistungen werden hier manuell ergaenzt.
 #
 # v1 startet bewusst mit rechtlich risikoarmen Leistungen (hund-anmelden,
-# umzug-melden). Ab v2 ist als bewusste Ausnahme EIN Hochrisiko-Fall
-# (veranstaltung) mit maximalem Gate freigeschaltet — erhoehter Review, nur als
-# Draft-PR, Merge ausschliesslich durch einen Menschen. baugesuch und sozialhilfe
-# bleiben ausgeschlossen (existenzielles bzw. streitanfaelligstes Risiko).
+# umzug-melden). Der Hochrisiko-Fall veranstaltung ist als Ausnahme vorgesehen
+# (maximales Gate, nur Draft-PR, Merge ausschliesslich durch einen Menschen),
+# derzeit aber BIS ZUM PILOT GESPERRT (`paused`, siehe dort). baugesuch und
+# sozialhilfe bleiben ausgeschlossen (existenzielles bzw. streitanfaelligstes Risiko).
 #
 # Felder:
 #   id                kebab-case, identisch zur lebenslage_ref in der Maschinerie
@@ -14,6 +14,10 @@
 #   official_urls     exakte Quell-URLs — am 2026-06-11 manuell auf HTTP 200 geprueft
 #   catalog_keywords  Stichwoerter fuer den Abdeckungs-Abgleich (I14Y / eCH-0070)
 #   notes             Hinweise fuer Reviewer:innen
+#   paused            optional: Grund, aus dem die automatische Extraktion gesperrt
+#                     ist (crawl/extract/pr verweigern die Leistung). Ueberwachung
+#                     (preflight/verify/fingerprint/diff/eval) laeuft weiter.
+#                     Freischalten = Zeile entfernen.
 
 catalog:
   # I14Y Public API (Behoerdenleistungen, ohne Auth) — wird KONSUMIERT, nicht entdeckt.
@@ -126,9 +130,13 @@ processes:
       - "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/fest-sportveranstaltung-quartierfest.html"
       - "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/infrastruktur-sicherheit.html"
     catalog_keywords: ["veranstaltung", "bewilligung", "anlass", "fest"]
+    # Maintainer-Entscheid 2026-10-08: erst den Pilot mit einer risikoarmen
+    # Leistung live fahren und mit `tessera eval` messen, dann ueber die
+    # Freischaltung dieses Hochrisiko-Falls entscheiden.
+    paused: "bis zum Pilot — erst hund-anmelden live extrahieren und mit `tessera eval` messen"
     notes: >-
-      HOCHRISIKO — bewusst als einzige Ausnahme freigeschaltet (Draft-PR, Merge
-      nur durch Menschen). Erhoehter Gate greift automatisch (risk.py): JEDE
+      HOCHRISIKO — als einzige Ausnahme vorgesehen (Draft-PR, Merge nur durch
+      Menschen), derzeit gesperrt (`paused`). Erhoehter Gate greift automatisch (risk.py): JEDE
       bindende Reference (Vorlauffrist, Gebuehr, Auflagen, Rekursfrist) muss
       `verifiziert` UND woertlich belegt sein — eine ungrounded bindende
       Reference ist hier ein Validator-FEHLER, kein Hinweis. Die Vorlauffrist
@@ -143,5 +151,5 @@ processes:
 
 # NICHT freigeschaltet: baugesuch (Baubewilligung), sozialhilfe — beide bleiben
 # bewusst von der Automatik ausgeschlossen (hoechstes bzw. existenzielles Risiko).
-# veranstaltung ist als einzige Hochrisiko-Ausnahme aktiv (siehe oben). Weitere
-# Leistungen nur nach Rueckfrage.
+# veranstaltung ist die einzige vorgesehene Hochrisiko-Ausnahme, derzeit bis zum
+# Pilot gesperrt (siehe oben). Weitere Leistungen nur nach Rueckfrage.

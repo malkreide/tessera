@@ -106,6 +106,7 @@ def _browser_fetch(url: str, ua: str) -> tuple[str, int] | None:
 
 def crawl_process(proc: ProcessSource, cfg: SourcesConfig) -> Path:
     """Crawlt alle official_urls einer Leistung. Gibt das Snapshot-Verzeichnis zurueck."""
+    preflight.require_extraction_enabled(proc)  # hartes Gate: pausierte Leistung nicht crawlen
     preflight.require_allowed(proc)  # hartes Gate: kein Crawl ohne Preflight-Freigabe
 
     ua = cfg.crawler.user_agent

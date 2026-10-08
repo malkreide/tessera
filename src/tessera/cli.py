@@ -37,6 +37,27 @@ def _procs(cfg: SourcesConfig, ids: list[str] | None):
     return [cfg.by_id(i) for i in ids]
 
 
+def _procs_for_extraction(cfg: SourcesConfig, ids: list[str] | None, command: str):
+    """Wie `_procs`, aber ohne in sources.yaml pausierte Leistungen (`paused`).
+    Ohne --id werden sie sichtbar uebersprungen; explizit per --id verlangt,
+    bricht der Befehl hart ab (kein stilles Ignorieren eines Auftrags)."""
+    from . import preflight  # noqa: PLC0415
+
+    procs = _procs(cfg, ids)
+    if ids:
+        for proc in procs:
+            preflight.require_extraction_enabled(proc)
+        return procs
+    active = []
+    for proc in procs:
+        reason = preflight.paused_reason(proc)
+        if reason:
+            print(f"  [{proc.id}] uebersprungen ({command}): Extraktion gesperrt — {reason}", file=sys.stderr)
+        else:
+            active.append(proc)
+    return active
+
+
 def cmd_preflight(cfg: SourcesConfig, ids: list[str] | None) -> int:
     from . import preflight  # noqa: PLC0415
 
@@ -54,7 +75,7 @@ def cmd_preflight(cfg: SourcesConfig, ids: list[str] | None) -> int:
 def cmd_crawl(cfg: SourcesConfig, ids: list[str] | None) -> int:
     from . import crawl  # noqa: PLC0415
 
-    for proc in _procs(cfg, ids):
+    for proc in _procs_for_extraction(cfg, ids, "crawl"):
         print(f"Crawle {proc.id} …")
         crawl.crawl_process(proc, cfg)
     return 0
@@ -66,7 +87,7 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
 
     OUT.mkdir(exist_ok=True)
     rc = 0
-    for proc in _procs(cfg, ids):
+    for proc in _procs_for_extraction(cfg, ids, "extract"):
         print(f"Extrahiere {proc.id} …")
         # Validierte Component-Kette (load->extract->to_contract->ground->plausibility->screen).
         # Jede Grenze prueft Ein-/Ausgabe; eine Verletzung stoppt DIESE Leistung
@@ -94,6 +115,11 @@ def cmd_validate(cfg: SourcesConfig, ids: list[str] | None) -> int:
     for proc in _procs(cfg, ids):
         out_json = OUT / f"{proc.id}.json"
         if not out_json.exists():
+            if getattr(proc, "paused", ""):
+                # Pausiert -> bewusst nicht extrahiert; das ist kein Fehler
+                # (sonst scheiterte `tessera run` ohne --id an jeder Sperre).
+                print(f"  [{proc.id}] keine Ausgabe — Extraktion gesperrt (sources.yaml).", file=sys.stderr)
+                continue
             print(f"  [{proc.id}] out/{proc.id}.json fehlt — zuerst `tessera extract`.", file=sys.stderr)
             rc = 1
             continue
@@ -256,7 +282,7 @@ def cmd_pr(cfg: SourcesConfig, ids: list[str] | None) -> int:
     from .crawl import RAW  # noqa: PLC0415
 
     rc = 0
-    for proc in _procs(cfg, ids):
+    for proc in _procs_for_extraction(cfg, ids, "pr"):
         out_json = OUT / f"{proc.id}.json"
         flags_file = OUT / f"{proc.id}{FLAGS_SUFFIX}"
         if not out_json.exists():
