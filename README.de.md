@@ -121,9 +121,10 @@ ruff format --check src/ tests/ scripts/
 ```bash
 # Pre-flight (Pflicht vor jedem Crawl): Inventar-Abdeckung (I14Y, eCH-0070)
 # und robots.txt/Nutzungsbedingungen prüfen — schreibt nach reports/. Beides ist
-# ein Crawl-Gate: eine Domain wird erst gecrawlt, wenn der Maintainer in
-# sources.yaml (`terms_of_use`) eine Prüfung mit `erlaubt` erfasst hat, deren
-# geprüfte Fassung noch live ist.
+# ein Gate für jeden automatisierten Abruf (crawl, fingerprint, diff, verify
+# --online): eine Domain wird erst abgerufen, wenn der Maintainer in sources.yaml
+# (`terms_of_use`) eine Prüfung mit `erlaubt` erfasst hat, deren geprüfte
+# Fassung noch live ist.
 tessera preflight
 
 # Einzelne Schritte (jeweils optional auf eine Leistung begrenzbar)

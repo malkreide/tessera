@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`fingerprint`, `diff` and `verify --online` are behind the robots/ToU
+  gate too.** Until now only `crawl` was gated; the monitoring commands fetched
+  the source pages without either check, and `fingerprint` even committed their
+  full text. `preflight.crawl_gate_reason` is now the one gate for every
+  automated fetch (freshness, robots, terms of use; `paused` deliberately not
+  included — it stops extraction, not monitoring). `diff` reports a gated
+  service as `{"id", "gated": reason}` without fetching it (notice, no error
+  exit); `fingerprint` writes no baseline and exits 1; `verify --online` checks
+  a gated service offline only, and for a released one fetches only the
+  domains of its `official_urls` (`verify.restrict_hosts`) — a reference deep
+  link to any other domain is never requested and reported as the new state
+  `nicht-freigegeben` (policy, not a data problem). The three workflows run
+  `tessera preflight` first (the gate file is git-ignored). The `change-diff`
+  issue script treats gated services as "not checked": it no longer closes an
+  open issue as resolved when nothing was checked, and lists gated services in
+  the issue (script exercised with Node against a fake GitHub API).
+  `link-rot` installs `trafilatura` (already pinned) for the same page text as
+  locally; the `extract_text` fallback now decodes HTML entities.
+
 ### Added
 - **Terms of use are a crawl gate (ToU gate).** Until now the preflight only
   listed one terms-of-use link per domain with the note "manual review

@@ -31,5 +31,12 @@ Ohne lokale Session mit offener Netz-Policy: Actions → **fingerprint** →
 Workflow läuft auf demselben Runner wie `change-diff.yml` (vergleichbare
 Hashes), bricht bei einer Leistung ohne erreichbare URL ohne Commit ab und
 reicht die Baseline als Draft-PR auf einem eigenen Branch ein — nie nach
-`main`. Ältere Hash-only-Baselines bleiben gültig; sie liefern lediglich
+`main`.
+
+Robots-/ToU-Gate: eine Baseline (also Volltext der Quellseiten) entsteht nur
+für Leistungen, deren Domains freigegeben sind (`terms_of_use` in
+`sources.yaml`, siehe `reports/scraping-compliance.md`). Ist eine angeforderte
+Leistung gesperrt, schreibt `tessera fingerprint` nichts und endet mit Exit 1;
+der Workflow scheitert dann ohne Commit. Die bereits committeten Baselines
+bleiben davon unberührt. Ältere Hash-only-Baselines bleiben gültig; sie liefern lediglich
 keine Diff-Auszüge, bis der nächste `fingerprint`-Lauf die Texte ergänzt.

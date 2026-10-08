@@ -221,6 +221,11 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
 - **Tri-State (Kern):** nur **`tot`** (404/410) und echter **Drift** sind
   Datenprobleme (Exit 1, Stopp). `blockiert`/`netzfehler`/SPA-`ungeprueft` sind
   **Umgebungsbefunde** und lassen den Lauf bewusst nicht scheitern.
+- **Gate:** `--online` steht hinter dem robots-/ToU-Gate (B.1). Eine gesperrte
+  Leistung wird nur netzfrei geprueft (Hinweis, kein Fehler). Fuer eine
+  freigegebene werden nur die Domains ihrer `official_urls` abgerufen; ein
+  Reference-Deep-Link auf eine andere Domain bleibt unangefragt
+  (`nicht-freigegeben` — Policy, kein Datenproblem).
   ```bash
   tessera verify --id hund-anmelden --online; echo "exit=$?"   # 0 erwartet
   ```
@@ -354,12 +359,22 @@ und neu/entfernt sind Hinweise (kein Issue). Ergaenzt `verify`: jenes prueft
 Drift einzelner zitierter Belege, dieses jede Seitenaenderung (auch noch nicht
 zitierte, z.B. ein neuer Schritt).
 
+**Gate:** `diff` und `fingerprint` stehen hinter dem robots-/ToU-Gate (B.1).
+`diff` ruft eine gesperrte Leistung nicht ab und meldet sie in `--json` als
+`{"id", "gated": grund}`; der Cron behandelt das als «nicht geprueft» — er
+schliesst ein offenes Issue dann **nicht** als erledigt und listet die
+gesperrten Leistungen im Issue. `fingerprint` schreibt fuer eine gesperrte
+Leistung keine Baseline (Exit 1). Weil das Gate-File git-ignoriert ist, laeuft
+in allen drei Workflows (`change-diff`, `link-rot`, `fingerprint`) zuerst
+`tessera preflight`.
+
 Eine Baseline setzen oder erneuern geht auch ohne lokale Session: der manuell
 gestartete Workflow `fingerprint.yml` (`workflow_dispatch`, Eingabe `ids`)
 faehrt `tessera fingerprint` auf demselben Runner wie `change-diff.yml`, bricht
 ohne Commit ab, wenn eine Leistung keine einzige erreichbare URL liefert
-(Umgebungsbefunde werden nicht eingefroren), und reicht das Ergebnis als
-Draft-PR auf einem Branch `fingerprint/run-<id>` ein — nie nach `main`.
+(Umgebungsbefunde werden nicht eingefroren) oder vom Gate gesperrt ist, und
+reicht das Ergebnis als Draft-PR auf einem Branch `fingerprint/run-<id>` ein —
+nie nach `main`.
 
 ### Schema-Versionierung
 
