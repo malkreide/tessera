@@ -59,12 +59,36 @@ class ProcessSource(BaseModel):
         return v
 
 
+class TermsOfUseReview(BaseModel):
+    """Pruefung der Nutzungsbedingungen einer Quell-Domain — eine rechtliche
+    Einschaetzung des MAINTAINERS, nie vom Code gesetzt. Ob die Pruefung
+    ausreicht (Datum, Begruendung, Fassung noch live), entscheidet das ToU-Gate
+    in preflight.tou_check; hier nur Form und Wertebereich."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    verdict: Literal["ausstehend", "erlaubt", "verboten"] = "ausstehend"
+    reviewed_at: str = ""  # YYYY-MM-DD der Pruefung
+    version_marker: str = ""  # woertliche Kennung der gepruefte Fassung (z.B. Versionszeile)
+    basis: str = ""  # Begruendung / Beleg (z.B. schriftliche Zustimmung vom …)
+
+    @field_validator("url")
+    @classmethod
+    def _https(cls, v: str) -> str:
+        if not v.startswith("https://"):
+            raise ValueError(f"nur https-URLs erlaubt: {v!r}")
+        return v
+
+
 class SourcesConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     catalog: CatalogConfig
     crawler: CrawlerConfig
     processes: list[ProcessSource]
+    # Domain -> ToU-Pruefung. Eine Domain ohne Eintrag ist NICHT freigegeben.
+    terms_of_use: dict[str, TermsOfUseReview] = {}
 
     def by_id(self, proc_id: str) -> ProcessSource:
         for p in self.processes:
