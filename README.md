@@ -66,9 +66,12 @@ human-reviewed** processes. That is legitimate (a human modelled and checked the
 they carry the highest reputation risk: a wrong deadline or fee that someone relies on
 is real harm.
 
-As of v2, exactly ONE high-risk case — `veranstaltung` — is deliberately enabled for
-automated extraction, under the maximal gate: output only as a **draft PR**, merged by
-a human alone. `baugesuch` and `sozialhilfe` stay excluded (existential and most
+As of v2, exactly ONE high-risk case — `veranstaltung` — is foreseen for automated
+extraction, under the maximal gate: output only as a **draft PR**, merged by a human
+alone. **It is currently paused until the pilot** (`paused` in `sources.yaml`): first
+extract a low-risk service live and measure it with `tessera eval`, then decide.
+Monitoring (`verify`, `fingerprint`, `diff`) keeps running. `baugesuch` and
+`sozialhilfe` stay excluded (existential and most
 litigious risk respectively; see `sources.yaml`). The registry `src/tessera/risk.py`
 still lists all three — enablement is controlled solely by `sources.yaml`, so the
 heightened gate fires for any of the three wherever it touches the pipeline.

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`veranstaltung` paused until the pilot** (maintainer decision). The
+  high-risk case is no longer extracted automatically until a low-risk service
+  (`hund-anmelden`) has run live and been measured with `tessera eval`. New
+  optional per-service field `paused: "<reason>"` in `sources.yaml` (instead of
+  removing the service, which would also have stopped the weekly `change-diff`
+  monitoring and orphaned its fresh fingerprint baseline): `crawl`, `extract`
+  and `pr` refuse a paused service — skipped with a notice without `--id`, a
+  hard stop with `--id` — and `crawl_process` / `steps.run_extract` enforce it
+  again so neither a direct call nor stale snapshots trigger anything.
+  `preflight`, `verify`, `fingerprint`, `diff` and `eval` keep reading and
+  monitoring it; `validate` does not count a paused service's missing output
+  as an error. Gate logic in `preflight.paused_reason` /
+  `require_extraction_enabled` (stdlib, `tests/test_preflight_gate.py`).
+  Re-enabling = removing the `paused` line.
+
 ### Added
 - **`fingerprint.yml`** — manually dispatched workflow (`workflow_dispatch`,
   input `ids`) that runs `tessera fingerprint` on the same GitHub runner as the
