@@ -7,13 +7,14 @@ ueber den NORMALISIERTEN Seitentext (grounding.normalize) plus Zeichenzahl.
 Normalisierung heisst: rein kosmetische Aenderungen (Whitespace, Typografie,
 Markdown-Deko, unsichtbare Zeichen) loesen KEINEN Treffer aus — nur inhaltliche.
 
-Zusaetzlich (v2, 6b) legt `fingerprint` je URL den normalisierten Seitentext
-ZEILENWEISE als committete Textdatei ab (reports/fingerprints/<id>/NN-slug.txt).
-Meldet `diff` eine Aenderung, liefert er daraus einen unified-diff-AUSZUG
-(baseline vs. live) mit — das source-change-Issue zeigt dann, WAS sich
-geaendert hat, nicht nur WO. Der Hash bleibt unveraendert ueber den
-Gesamt-Normaltext berechnet (bestehende Baselines bleiben gueltig); alte
-Baselines ohne Textdatei liefern schlicht keinen Auszug.
+Zusaetzlich legt `fingerprint` je URL den normalisierten Seitentext ZEILENWEISE
+als Textdatei ab — NUR LOKAL, git-ignoriert (reports/raw/fingerprints/<id>/
+NN-slug.txt). Seitentext amtlicher Quellen gehoert nicht ins oeffentliche Repo
+(Nutzungsbedingungen: nur Ansehen/Eigengebrauch). Meldet `diff` eine Aenderung
+und liegt die lokale Textdatei vor, liefert er daraus einen unified-diff-AUSZUG
+(baseline vs. live); ohne sie — etwa im CI-Cron — wird die Aenderung weiterhin
+gemeldet, nur ohne Auszug. Der Hash laeuft ueber den Gesamt-Normaltext; die
+committete Baseline enthaelt nur Hash und Zeichenzahl, keinen Inhalt.
 
 Zwei Befehle:
   * `tessera fingerprint`  schreibt/aktualisiert die Baseline (nach einem Lauf).
@@ -48,7 +49,10 @@ if TYPE_CHECKING:  # nur fuer Typhinweise — kein Laufzeit-Import von config (p
 
 # Repo-Wurzel ohne config-Import ableiten (src/tessera/diff.py -> parents[2]).
 ROOT = Path(__file__).resolve().parents[2]
-FINGERPRINTS = ROOT / "reports" / "fingerprints"
+FINGERPRINTS = ROOT / "reports" / "fingerprints"  # committet: nur Hash + Zeichenzahl
+# Lokale Diff-Basis (Seitentext), unter dem git-ignorierten reports/raw/ — nie
+# im oeffentlichen Repo. text_file in der Baseline ist relativ hierzu.
+TEXTS = ROOT / "reports" / "raw" / "fingerprints"
 
 
 def _norm(md: str) -> str:
@@ -122,23 +126,24 @@ def build_entries(proc: ProcessSource, fetch, retrieved_at: str) -> list[dict]:
         if state == reach.OK and md.strip():
             entry["sha256"] = _sha(md)
             entry["chars"] = len(_norm(md))
-            entry["text"] = _norm_lines(md)  # fuer die committete Diff-Basis
+            entry["text"] = _norm_lines(md)  # lokale Diff-Basis (nie committet)
         out.append(entry)
     return out
 
 
 def write_fingerprints(proc_id: str, entries: list[dict], retrieved_at: str) -> Path:
-    """Committet die Baseline. Nur erreichbare URLs (mit sha256) werden gespeichert
-    — Umgebungsbefunde (Block/Netzfehler) frieren wir bewusst nicht ein.
+    """Schreibt die Baseline (committet: nur Hash + Zeichenzahl). Nur erreichbare
+    URLs (mit sha256) werden gespeichert — Umgebungsbefunde (Block/Netzfehler)
+    frieren wir bewusst nicht ein.
 
     Je URL wird zusaetzlich der zeilenweise normalisierte Seitentext als
-    Textdatei abgelegt (reports/fingerprints/<id>/NN-slug.txt, committet) —
-    die Basis fuer Diff-Auszuege. Nicht mehr gefuehrte Textdateien werden
-    entfernt (das Verzeichnis gehoert vollstaendig dem Fingerprint)."""
+    LOKALE Textdatei abgelegt (TEXTS/<id>/NN-slug.txt, git-ignoriert) — die
+    Basis fuer Diff-Auszuege, nie im oeffentlichen Repo. Nicht mehr gefuehrte
+    Textdateien werden entfernt (das Verzeichnis gehoert dem Fingerprint)."""
     FINGERPRINTS.mkdir(parents=True, exist_ok=True)
     usable = [e for e in entries if "sha256" in e]
 
-    textdir = FINGERPRINTS / proc_id
+    textdir = TEXTS / proc_id
     textdir.mkdir(parents=True, exist_ok=True)
     wanted: set[str] = set()
     urls_doc: list[dict] = []
@@ -173,7 +178,7 @@ class DiffReport:
     removed: list[str] = field(default_factory=list)  # in baseline, nicht in sources
     unchanged: list[str] = field(default_factory=list)
     # Je geaenderter URL ein unified-diff-Auszug baseline vs. live (nur wenn die
-    # Baseline eine Textdatei traegt; alte Baselines liefern keinen Auszug).
+    # lokale, git-ignorierte Textdatei vorliegt; sonst kein Auszug).
     excerpts: dict[str, str] = field(default_factory=dict)
     no_baseline: bool = False
 
@@ -224,11 +229,11 @@ def diff_process(proc: ProcessSource, fetch) -> DiffReport:
                 rep.unchanged.append(url)
             else:
                 rep.changed.append(url)
-                # Auszug nur, wenn die Baseline den Text traegt (neuere
-                # Fingerprints); alte Hash-only-Baselines bleiben gueltig.
+                # Auszug nur, wenn die LOKALE Textdatei vorliegt (git-ignoriert,
+                # fehlt z.B. im CI-Cron); sonst Meldung ohne Auszug.
                 text_file = baseline[url].get("text_file")
                 if text_file:
-                    p = FINGERPRINTS / text_file
+                    p = TEXTS / text_file
                     if p.exists():
                         rep.excerpts[url] = _excerpt(p.read_text(encoding="utf-8"), _norm_lines(md))
         elif state == reach.DEAD:

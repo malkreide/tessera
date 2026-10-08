@@ -5,20 +5,17 @@
     {
       "url": "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/hundekontrolle.html",
       "sha256": "ef2e3b7789015b0985726d81e7491fe63eef3cebd32f86af47933bdaa63b0d1f",
-      "chars": 5386,
-      "text_file": "hund-anmelden/01-hundekontrolle.txt"
+      "chars": 5386
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/hundekontrolle/anmeldung.html",
       "sha256": "2006cee2475da245a19bc8e87ab552658e149743311a47a0bf7b540f3d368ffe",
-      "chars": 302,
-      "text_file": "hund-anmelden/02-anmeldung.txt"
+      "chars": 302
     },
     {
       "url": "https://www.zh.ch/de/umwelt-tiere/tiere/haustiere-heimtiere/hunde.html",
       "sha256": "e23520f5cdcb0caafcdce0061db90fce2088ede7799f4cd1ee0ab4139a1155a1",
-      "chars": 15950,
-      "text_file": "hund-anmelden/03-hunde.txt"
+      "chars": 15950
     }
   ]
 }
