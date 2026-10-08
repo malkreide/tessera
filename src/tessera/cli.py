@@ -63,9 +63,15 @@ def cmd_preflight(cfg: SourcesConfig, ids: list[str] | None) -> int:
 
     gate = preflight.run_preflight(cfg, only=ids)
     print("Preflight abgeschlossen -> reports/coverage.md, reports/scraping-compliance.md")
-    blocked = {k: v for k, v in gate.items() if not v["allowed"]}
+    blocked = {k: v for k, v in gate.items() if not v["allowed"] or not v.get("tou_allowed")}
     for pid, entry in gate.items():
-        status = "GESPERRT (robots)" if pid in blocked else "freigegeben"
+        if not entry["allowed"]:
+            status = "GESPERRT (robots)"
+        elif not entry.get("tou_allowed"):
+            reasons = "; ".join(f"{h}: {r}" for h, r in sorted((entry.get("tou_blocked") or {}).items()))
+            status = f"GESPERRT (Nutzungsbedingungen — {reasons})"
+        else:
+            status = "freigegeben"
         print(f"  {pid}: {status}")
     if blocked:
         print("Gesperrte Leistungen NICHT crawlen — Maintainer fragen.", file=sys.stderr)
