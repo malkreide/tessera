@@ -30,8 +30,21 @@ def _iso(days_ago: int) -> str:
     return (date.today() - timedelta(days=days_ago)).isoformat()
 
 
-def _entry(*, allowed: bool = True, checked_at: object = None, blocked: list | None = None) -> dict:
+_OMIT = object()
+
+
+def _entry(
+    *,
+    allowed: bool = True,
+    checked_at: object = None,
+    blocked: list | None = None,
+    tou_allowed: object = True,
+    tou_blocked: dict | None = None,
+) -> dict:
     entry: dict = {"allowed": allowed, "blocked_urls": blocked or []}
+    if tou_allowed is not _OMIT:
+        entry["tou_allowed"] = tou_allowed
+        entry["tou_blocked"] = tou_blocked or {}
     if checked_at is not None:
         entry["checked_at"] = checked_at
     return entry
@@ -141,6 +154,110 @@ def test_sources_yaml_pauses_only_veranstaltung() -> None:
     paused = {p.id: preflight.paused_reason(p) for p in load_sources().processes}
     assert paused.get("veranstaltung"), paused
     assert [pid for pid, reason in paused.items() if reason] == ["veranstaltung"], paused
+
+
+# --- ToU-Gate (Nutzungsbedingungen, terms_of_use in sources.yaml) -------------
+
+MARKER = "Version 2.2.5; Stand 31. März 2026"
+TOU_URL = "https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html"
+LIVE = ("ok", f"Nur die Inhalte in deutscher Sprache sind rechtsverbindlich. {MARKER}")
+
+
+def _review(**overrides) -> dict:
+    review = {
+        "url": TOU_URL,
+        "verdict": "erlaubt",
+        "reviewed_at": "2026-10-01",
+        "version_marker": MARKER,
+        "basis": "schriftliche Zustimmung der Internetdienste vom 2026-09-30",
+    }
+    review.update(overrides)
+    return review
+
+
+def test_tou_gate_blocks_crawl_with_reason() -> None:
+    _with_gate(
+        _entry(
+            checked_at=_iso(0),
+            tou_allowed=False,
+            tou_blocked={"www.stadt-zuerich.ch": "ToU-Pruefung ausstehend"},
+        )
+    )
+    _expect_blocked("Nutzungsbedingungen nicht freigegeben")
+    _expect_blocked("www.stadt-zuerich.ch: ToU-Pruefung ausstehend")
+
+
+def test_gate_without_tou_field_blocks() -> None:
+    # Ein Gate-File aus der Zeit vor dem ToU-Gate ist keine Freigabe.
+    _with_gate(_entry(checked_at=_iso(0), tou_allowed=_OMIT))
+    _expect_blocked("aelteres Format")
+
+
+def test_tou_check_complete_review_passes() -> None:
+    assert preflight.tou_check(_review(), LIVE, date(2026, 10, 8)) is None
+
+
+def test_tou_check_marker_survives_typography() -> None:
+    # Geschuetztes Leerzeichen / Mehrfach-Whitespace auf der Live-Seite.
+    page = ("ok", "Version\u00a02.2.5;  Stand 31.\u00a0März 2026")
+    assert preflight.tou_check(_review(), page, date(2026, 10, 8)) is None
+
+
+def _reason(review, page=LIVE) -> str:
+    reason = preflight.tou_check(review, page, date(2026, 10, 8))
+    assert reason is not None, "Gate liess durch"
+    return reason
+
+
+def test_tou_check_missing_review_blocks() -> None:
+    assert "keine ToU-Pruefung" in _reason(None)
+
+
+def test_tou_check_pending_and_forbidden_block() -> None:
+    assert "ausstehend" in _reason(_review(verdict="ausstehend"))
+    assert "verbieten" in _reason(_review(verdict="verboten"))
+
+
+def test_tou_check_allowed_needs_date_basis_marker() -> None:
+    assert "reviewed_at" in _reason(_review(reviewed_at=""))
+    assert "Zukunft" in _reason(_review(reviewed_at="2027-01-01"))
+    assert "basis" in _reason(_review(basis="  "))
+    assert "version_marker" in _reason(_review(version_marker=""))
+
+
+def test_tou_check_unreachable_page_blocks() -> None:
+    assert "nicht abgerufen" in _reason(_review(), None)
+    # Umgezogene Seite (404) und Netzfehler: Fassung nicht bestaetigt.
+    assert "(tot)" in _reason(_review(), ("tot", ""))
+    assert "(netzfehler)" in _reason(_review(), ("netzfehler", ""))
+
+
+def test_tou_check_changed_terms_block() -> None:
+    # Die gepruefte Fassung steht nicht mehr auf der Seite -> neue Bedingungen.
+    page = ("ok", "Version 2.3.0; Stand 1. Januar 2027")
+    assert "nicht mehr auf der ToU-Seite" in _reason(_review(), page)
+
+
+def test_tou_blocked_hosts_requires_every_domain() -> None:
+    urls = ["https://www.stadt-zuerich.ch/a.html", "https://www.zh.ch/b.html", "https://www.zh.ch/c.html"]
+    # Eine Domain frei, die andere ohne Eintrag -> nur die fehlende sperrt.
+    blocked = preflight.tou_blocked_hosts(urls, {"www.stadt-zuerich.ch": None})
+    assert list(blocked) == ["www.zh.ch"] and "keine ToU-Pruefung" in blocked["www.zh.ch"], blocked
+    assert preflight.tou_blocked_hosts(urls, {"www.stadt-zuerich.ch": None, "www.zh.ch": None}) == {}
+
+
+def test_sources_yaml_lists_every_domain_for_tou_review() -> None:
+    """Jede Quell-Domain hat einen terms_of_use-Eintrag (die To-do-Liste des
+    Maintainers ist vollstaendig) und das strikte Schema akzeptiert ihn."""
+    try:
+        from tessera.config import load_sources  # noqa: PLC0415
+    except ModuleNotFoundError as exc:
+        raise _Skip(f"{exc.name} nicht installiert (CI ohne Runtime-Deps)") from exc
+    from urllib.parse import urlsplit  # noqa: PLC0415
+
+    cfg = load_sources()
+    hosts = {urlsplit(u).netloc for p in cfg.processes for u in p.official_urls}
+    assert hosts <= set(cfg.terms_of_use), hosts - set(cfg.terms_of_use)
 
 
 def main() -> int:

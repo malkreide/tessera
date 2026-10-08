@@ -31,6 +31,30 @@ crawler:
   # Rate-Limit: Pause zwischen zwei Requests in Sekunden.
   delay_seconds: 2.0
 
+# Nutzungsbedingungen je Quell-Domain — ToU-GATE. Die Einschaetzung ist eine
+# rechtliche Entscheidung des MAINTAINERS und wird nur von ihm eingetragen
+# (nie vom Code, nie von einem Agenten). Gecrawlt wird eine Leistung nur, wenn
+# fuer JEDE ihrer Domains gilt:
+#   verdict: erlaubt            (sonst: ausstehend | verboten -> gesperrt)
+#   reviewed_at: YYYY-MM-DD     Datum der Pruefung
+#   basis: "…"                  Begruendung/Beleg, z.B. «schriftliche Zustimmung
+#                               der Internetdienste vom …»
+#   version_marker: "…"         woertliche Kennung der gepruefte Fassung; muss
+#                               bei jedem preflight noch auf der Live-Seite
+#                               stehen — sonst gesperrt (Bedingungen geaendert).
+# Eine Domain ohne Eintrag ist gesperrt. Stand der Seiten beim Anlegen
+# (2026-10-08): die bisher dokumentierten ToU-Links lieferten HTTP 404; die
+# URLs unten sind die aktuellen Footer-Links der beiden Auftritte.
+terms_of_use:
+  www.stadt-zuerich.ch:
+    url: "https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html"
+    # Fassung beim Anlegen: «Version 2.2.5; Stand 31. März 2026».
+    verdict: ausstehend
+  www.zh.ch:
+    url: "https://www.zh.ch/de/nutzungshinweise.html"
+    # Fassung beim Anlegen: «Version 4.0; Stand 18.01.2024». Fragen an zhweb@zh.ch.
+    verdict: ausstehend
+
 processes:
   - id: hund-anmelden
     service_name: "Hund anmelden / Hundekontrolle"
