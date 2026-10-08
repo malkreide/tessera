@@ -21,6 +21,7 @@ injizierbar (`fetch`-Callable), damit der netzfreie Teil ohne httpx testbar ist;
 
 from __future__ import annotations
 
+import html
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -137,7 +138,9 @@ def extract_text(raw_html: str) -> str:
     except Exception:
         pass
     stripped = _SCRIPT_STYLE.sub(" ", raw_html)
-    return _TAG.sub(" ", stripped)
+    # Entities dekodieren (&auml; -> ä, &nbsp;): sonst fiele z.B. die
+    # Versionszeile der ToU-Seite («31. M&auml;rz») im Fallback durch.
+    return html.unescape(_TAG.sub(" ", stripped))
 
 
 def make_http_fetcher(client, *, results_cache: dict | None = None):
@@ -178,6 +181,23 @@ def make_http_fetcher(client, *, results_cache: dict | None = None):
     return fetch
 
 
+def restrict_hosts(fetch, allowed_hosts):
+    """Huellt einen Fetcher so ein, dass NUR freigegebene Domains abgerufen
+    werden (robots-/ToU-Gate). Jede andere URL — etwa der Deep-Link einer
+    Reference auf eine Domain ausserhalb von sources.yaml — wird gar nicht erst
+    angefragt, sondern als reach.GATED gemeldet (Policy, kein Datenproblem)."""
+    from urllib.parse import urlsplit  # noqa: PLC0415
+
+    allowed = frozenset(allowed_hosts)
+
+    def gated_fetch(url: str) -> Fetched:
+        if urlsplit(url).netloc not in allowed:
+            return Fetched(state=reach.GATED)
+        return fetch(url)
+
+    return gated_fetch
+
+
 def verify_process(process: dict, *, fetch=None) -> VerifyReport:
     """Prueft ein Vertrags-JSON. Ohne `fetch` nur netzfreie Label<->Wert-Befunde.
 
@@ -216,6 +236,7 @@ def verify_process(process: dict, *, fetch=None) -> VerifyReport:
             reach.DEAD: "Ziel existiert nicht mehr (404/410) — Re-Discovery noetig",
             reach.BLOCKED: "Policy/Auth (403/451) — Umgebung, kein Datenfehler",
             reach.NETERROR: "Verbindung/Timeout/Proxy — Umgebung, kein Datenfehler",
+            reach.GATED: "nicht abgerufen — Domain ohne robots-/ToU-Freigabe (Policy, kein Datenfehler)",
             reach.OTHER: "unerwarteter Status",
             reach.OK: "erreichbar",
         }.get(f.state, "")
@@ -234,13 +255,18 @@ def verify_process(process: dict, *, fetch=None) -> VerifyReport:
         f = fetched.get(url) if isinstance(url, str) else None
         rid, label = ref.get("reference_id"), _ref_label(ref)
         if f is None or f.state != reach.OK:
+            why = (
+                "Policy: Domain ohne robots-/ToU-Freigabe"
+                if f is not None and f.state == reach.GATED
+                else "Umgebung"
+            )
             rep.drifts.append(
                 DriftFinding(
                     rid,
                     label,
                     str(url),
                     "unerreichbar",
-                    f"Seite {f.state if f else 'unbekannt'} — Drift nicht pruefbar (Umgebung)",
+                    f"Seite {f.state if f else 'unbekannt'} — Drift nicht pruefbar ({why})",
                 )
             )
         elif Corpus(f.text).contains(quote):
@@ -307,7 +333,8 @@ def render_report(rep: VerifyReport) -> str:
         "",
         f"- Datenproblem (harter Stopp): **{'JA' if rep.data_problem else 'nein'}** "
         f"({len(rep.dead_links)} tote Link(s), {len(rep.drift_hits)} Drift-Treffer)",
-        "- Umgebungsbefunde (Block/Netzfehler/SPA-ungeprueft) zaehlen bewusst NICHT als Datenproblem.",
+        "- Umgebungsbefunde (Block/Netzfehler/SPA-ungeprueft) und nicht freigegebene "
+        "Domains (robots-/ToU-Gate) zaehlen bewusst NICHT als Datenproblem.",
         "",
     ]
     return "\n".join(lines)

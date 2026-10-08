@@ -18,6 +18,13 @@ name: link-rot
 # keine Leistung publiziert ist (out/ ist sonst git-ignoriert), ist der Lauf ein
 # sauberes No-op. Wird out/ befuellt (committete Referenzdaten oder ein
 # vorgeschalteter Restore-Schritt), prueft der Job sie automatisch mit.
+#
+# ROBOTS-/ToU-GATE: online geprueft werden nur Leistungen, deren Domains
+# freigegeben sind (robots.txt + Nutzungsbedingungen, terms_of_use in
+# sources.yaml), und nur deren official_urls-Domains — ein Deep-Link auf eine
+# andere Domain wird nicht angefragt (`nicht-freigegeben`, kein Datenfehler).
+# Gesperrte Leistungen werden nur netzfrei geprueft. Das Gate-File ist
+# git-ignoriert, darum laeuft vor verify `tessera preflight`.
 
 on:
   schedule:
@@ -33,12 +40,13 @@ jobs:
         with:
           python-version: "3.11"
       # Schlanke Installation: verify --online braucht httpx (Live-Fetch), pyyaml
-      # (sources.yaml laden) und pydantic (config-Modelle) — NICHT crawl4ai/
-      # playwright/pydantic-ai (die nur Crawl bzw. Extract benoetigen).
+      # (sources.yaml laden) und pydantic (config-Modelle); trafilatura liefert
+      # denselben Seitentext wie lokal — auch fuer die ToU-Fassungspruefung im
+      # Preflight. NICHT crawl4ai/playwright/pydantic-ai (nur Crawl bzw. Extract).
       # Versionen kommen aus der zentralen Lock-Datei constraints.txt (EINE
       # Wahrheitsquelle; Bumps bewusst als Commit, nicht implizit im Cron).
       - name: Laufzeit-Deps (schlank, exakt gepinnt via constraints.txt)
-        run: python -m pip install --quiet -c constraints.txt httpx pyyaml pydantic
+        run: python -m pip install --quiet -c constraints.txt httpx trafilatura pyyaml pydantic
       - name: Link-Rot + Beleg-Drift (nur publizierte Ausgaben)
         run: |
           shopt -s nullglob
@@ -52,6 +60,8 @@ jobs:
             exit 0
           fi
           echo "Pruefe publizierte Leistungen: ${ids[*]}"
+          # Gate-File (robots + Nutzungsbedingungen) — ohne es waere alles gesperrt.
+          PYTHONPATH=src python -m tessera.cli preflight "${ids[@]}"
           PYTHONPATH=src python -m tessera.cli verify --online "${ids[@]}"
       - name: Verify-Reports als Artefakt
         if: always()

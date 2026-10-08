@@ -20,6 +20,9 @@ DEAD = "tot"  # 404/410 — Ziel existiert nicht mehr (DATENproblem)
 BLOCKED = "blockiert"  # 401/403/407/451 — Policy/Auth (UMGEBUNG, kein Datenfehler)
 NETERROR = "netzfehler"  # Verbindung/Timeout/DNS/Proxy (UMGEBUNG, kein Datenfehler)
 OTHER = "anders"  # uebrige Status (z.B. 5xx) — unklar, als Hinweis behandeln
+# Bewusst NICHT abgerufen: die Domain hat keine Freigabe (robots/ToU-Gate,
+# preflight.crawl_gate_reason). POLICY, kein Datenfehler und kein Netzbefund.
+GATED = "nicht-freigegeben"
 
 # Nur diese gelten als echte Datenfehler (harter Stopp moeglich). Block/Netzfehler
 # sind Umgebungsbefunde und sollen einen Lauf NICHT als Datenfehler scheitern lassen.

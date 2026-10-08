@@ -260,6 +260,33 @@ def test_sources_yaml_lists_every_domain_for_tou_review() -> None:
     assert hosts <= set(cfg.terms_of_use), hosts - set(cfg.terms_of_use)
 
 
+# --- Gate fuer jeden Abruf (crawl, fingerprint, diff, verify --online) ---------
+
+
+def test_crawl_gate_reason_none_when_released() -> None:
+    _with_gate(_entry(checked_at=_iso(0)))
+    assert preflight.crawl_gate_reason(PROC) is None
+
+
+def test_crawl_gate_reason_names_blocker_without_raising() -> None:
+    _with_gate(_entry(checked_at=_iso(0), tou_allowed=False, tou_blocked={"www.zh.ch": "ausstehend"}))
+    reason = preflight.crawl_gate_reason(PROC)
+    assert reason and "hund-anmelden" in reason and "www.zh.ch: ausstehend" in reason, reason
+    _with_gate(None)
+    assert "Kein Preflight-Ergebnis" in preflight.crawl_gate_reason(PROC)
+
+
+def test_released_hosts_only_for_released_process() -> None:
+    proc = SimpleNamespace(
+        id=PROC.id,
+        official_urls=["https://www.stadt-zuerich.ch/a.html", "https://www.zh.ch/b.html"],
+    )
+    _with_gate(_entry(checked_at=_iso(0)))
+    assert preflight.released_hosts(proc) == {"www.stadt-zuerich.ch", "www.zh.ch"}
+    _with_gate(_entry(checked_at=_iso(0), tou_allowed=False, tou_blocked={"www.zh.ch": "ausstehend"}))
+    assert preflight.released_hosts(proc) == frozenset()
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0
