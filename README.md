@@ -115,10 +115,10 @@ ruff format --check src/ tests/ scripts/
 
 ```bash
 # Pre-flight (mandatory before any crawl): catalog coverage (I14Y, eCH-0070)
-# and robots.txt / terms-of-use checks — writes to reports/. Both are a crawl
-# gate: a domain is only crawled once the maintainer has recorded an `erlaubt`
-# terms-of-use review in sources.yaml (`terms_of_use`) whose reviewed version
-# is still live.
+# and robots.txt / terms-of-use checks — writes to reports/. Both gate every
+# automated fetch (crawl, fingerprint, diff, verify --online): a domain is only
+# fetched once the maintainer has recorded an `erlaubt` terms-of-use review in
+# sources.yaml (`terms_of_use`) whose reviewed version is still live.
 tessera preflight
 
 # Individual steps (each optionally limited to one service)
