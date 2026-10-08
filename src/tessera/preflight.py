@@ -4,9 +4,14 @@
    ohne Auth) und eCH-0070-Leistungsinventar (XLSX) abrufen; Abdeckung pro
    kuratierter Leistung nach reports/coverage.md schreiben.
 2. Rechtsflaeche pruefen: robots.txt jeder Quell-Domain gegen unseren
-   User-Agent auswerten, Nutzungsbedingungs-Links dokumentieren; Funde nach
-   reports/scraping-compliance.md. Bei Disallow wird die Leistung GESPERRT
-   (der Crawler verweigert sie) und fuer Rueckfrage geflaggt.
+   User-Agent auswerten; Funde nach reports/scraping-compliance.md. Bei
+   Disallow wird die Leistung GESPERRT (der Crawler verweigert sie).
+3. Nutzungsbedingungen (ToU-Gate): die rechtliche Einschaetzung trifft der
+   Maintainer und erfasst sie je Domain in sources.yaml (`terms_of_use`:
+   verdict, reviewed_at, basis, version_marker). Gecrawlt wird nur, wenn fuer
+   JEDE Domain einer Leistung `erlaubt` mit Beleg vorliegt UND die gepruefte
+   Fassung (version_marker) noch woertlich auf der Live-ToU-Seite steht —
+   geaenderte Bedingungen oder eine umgezogene Seite sperren von selbst.
 
 Das Gate VERFAELLT nach MAX_GATE_AGE_DAYS: robots.txt kann sich aendern, ein
 altes «erlaubt» ist keine Freigabe mehr — dann erst `tessera preflight` erneut.
@@ -48,13 +53,10 @@ MAX_GATE_AGE_DAYS = 7
 # UA-Token, auf das robots.txt-Regeln matchen (erste Komponente des User-Agent).
 UA_TOKEN = "tessera"
 
-# Bekannte Seiten mit rechtlichen Hinweisen / Nutzungsbedingungen je Domain.
-# Diese werden im Compliance-Report verlinkt; die inhaltliche Pruefung bleibt
-# eine dokumentierte Maintainer-Aufgabe (kein automatisches "alles ok").
-KNOWN_TERMS = {
-    "www.stadt-zuerich.ch": "https://www.stadt-zuerich.ch/de/impressum.html",
-    "www.zh.ch": "https://www.zh.ch/de/impressum-rechtliches.html",
-}
+# Moegliche Verdikte einer ToU-Pruefung (terms_of_use in sources.yaml). Nur
+# `erlaubt` gibt frei; die Einschaetzung trifft der Maintainer, nie der Code.
+TOU_VERDICTS = ("ausstehend", "erlaubt", "verboten")
+_TOU_MISSING = "keine ToU-Pruefung erfasst (terms_of_use in sources.yaml)"
 
 
 def _fetch_i14y(url: str, ua: str) -> list[str]:
@@ -138,10 +140,82 @@ def _robots_for_host(host: str, ua: str) -> tuple[urllib.robotparser.RobotFilePa
     return rp, "robots.txt geladen"
 
 
-def run_preflight(cfg: SourcesConfig, only: list[str] | None = None) -> dict[str, dict]:
-    """Fuehrt beide Checks aus, schreibt Reports und das Gate-File.
+def _fetch_tou_page(url: str, ua: str) -> tuple[str, str]:
+    """Ruft die ToU-Seite einer Domain ab: (tri_state, lesbarer Text).
+    Netzfehler -> netzfehler; Statuscodes ueber reach.classify_status."""
+    import httpx  # noqa: PLC0415 — lazy, Modul bleibt stdlib-importierbar
 
-    Rueckgabe: {proc_id: {"allowed": bool, "blocked_urls": [...]}}
+    from . import reach  # noqa: PLC0415
+    from .verify import extract_text  # noqa: PLC0415
+
+    try:
+        r = httpx.get(url, headers={"User-Agent": ua}, timeout=30, follow_redirects=True)
+    except httpx.HTTPError:
+        return reach.NETERROR, ""
+    state = reach.classify_status(r.status_code)
+    return state, (extract_text(r.text) if state == reach.OK else "")
+
+
+def tou_check(review: dict | None, page: tuple[str, str] | None, today: date | None = None) -> str | None:
+    """Prueft eine ToU-Pruefung (Eintrag aus terms_of_use) gegen die Live-Seite.
+
+    Rueckgabe: None = freigegeben, sonst der Sperrgrund. Freigegeben ist eine
+    Domain NUR, wenn der Maintainer `erlaubt` mit Datum, Begruendung (`basis`)
+    und `version_marker` erfasst hat UND dieser Marker noch woertlich auf der
+    erreichbaren ToU-Seite steht. Aendert sich die Fassung oder zieht die Seite
+    um, sperrt das Gate von selbst — eine alte Freigabe gilt nicht fuer neue
+    Bedingungen."""
+    from . import reach  # noqa: PLC0415
+    from .grounding import normalize  # noqa: PLC0415
+
+    if not review:
+        return _TOU_MISSING
+    verdict = str(review.get("verdict") or "ausstehend")
+    basis = str(review.get("basis") or "").strip()
+    reviewed_at = str(review.get("reviewed_at") or "").strip()
+    if verdict == "verboten":
+        return f"Nutzungsbedingungen verbieten die Nutzung (geprueft {reviewed_at or '—'}): {basis or '—'}"
+    if verdict != "erlaubt":
+        return "ToU-Pruefung ausstehend — der Maintainer entscheidet (terms_of_use in sources.yaml)"
+    try:
+        if date.fromisoformat(reviewed_at) > (today or date.today()):
+            return f"reviewed_at {reviewed_at!r} liegt in der Zukunft"
+    except ValueError:
+        return f"reviewed_at fehlt oder ist kein Datum (YYYY-MM-DD): {reviewed_at!r}"
+    if not basis:
+        return "Begruendung (basis) fehlt — «erlaubt» braucht einen nachvollziehbaren Beleg"
+    marker = str(review.get("version_marker") or "").strip()
+    if not marker:
+        return "version_marker fehlt — ohne Kennung der gepruefte Fassung ist eine Aenderung nicht erkennbar"
+    if page is None:
+        return "ToU-Seite nicht abgerufen"
+    state, text = page
+    if state != reach.OK:
+        return f"ToU-Seite {review.get('url')} nicht pruefbar ({state}) — gepruefte Fassung nicht bestaetigt"
+    if normalize(marker) not in normalize(text):
+        return (
+            f"gepruefte Fassung «{marker}» steht nicht mehr auf der ToU-Seite — "
+            "Nutzungsbedingungen geaendert? erneut pruefen"
+        )
+    return None
+
+
+def tou_blocked_hosts(urls: list[str], reasons_by_host: dict[str, str | None]) -> dict[str, str]:
+    """Sperrgruende je Domain einer Leistung: jede ihrer Quell-Domains muss
+    freigegeben sein. Eine Domain ohne Eintrag gilt als nicht geprueft."""
+    out: dict[str, str] = {}
+    for host in sorted({urlsplit(u).netloc for u in urls}):
+        reason = reasons_by_host.get(host, _TOU_MISSING)
+        if reason is not None:
+            out[host] = reason
+    return out
+
+
+def run_preflight(cfg: SourcesConfig, only: list[str] | None = None) -> dict[str, dict]:
+    """Fuehrt alle Checks aus, schreibt Reports und das Gate-File.
+
+    Rueckgabe: {proc_id: {"allowed": bool, "blocked_urls": [...],
+    "tou_allowed": bool, "tou_blocked": {domain: grund}, "checked_at": ...}}
     """
     today = date.today().isoformat()
     ua = cfg.crawler.user_agent
@@ -201,6 +275,13 @@ def run_preflight(cfg: SourcesConfig, only: list[str] | None = None) -> dict[str
     robots: dict[str, tuple[urllib.robotparser.RobotFileParser | None, str]] = {
         h: _robots_for_host(h, ua) for h in hosts
     }
+    # ToU-Gate: Pruefung des Maintainers (terms_of_use) gegen die Live-Seite.
+    reviews = {h: r.model_dump() for h, r in cfg.terms_of_use.items()}
+    tou_reasons: dict[str, str | None] = {}
+    for h in hosts:
+        review = reviews.get(h)
+        page = _fetch_tou_page(review["url"], ua) if review and review.get("url") else None
+        tou_reasons[h] = tou_check(review, page)
 
     clines = [
         "# Scraping-Compliance (robots.txt & Nutzungsbedingungen)",
@@ -216,16 +297,28 @@ def run_preflight(cfg: SourcesConfig, only: list[str] | None = None) -> dict[str
         "",
         "## Domains",
         "",
-        "| Domain | robots.txt | Nutzungsbedingungen |",
-        "|---|---|---|",
+        "| Domain | robots.txt | Nutzungsbedingungen | ToU-Pruefung (Maintainer) | ToU-Gate |",
+        "|---|---|---|---|---|",
     ]
+
+    def cell(text: object) -> str:
+        return str(text).replace("|", "/").replace("\n", " ")
+
     for h in hosts:
         _, note = robots[h]
-        terms = KNOWN_TERMS.get(h, "—")
-        terms_md = (
-            f"[{terms}]({terms}) — manuelle Pruefung Maintainer" if terms != "—" else "— (Link nachtragen)"
-        )
-        clines.append(f"| {h} | {note} | {terms_md} |")
+        review = reviews.get(h)
+        if review:
+            url = review.get("url") or ""
+            terms_md = f"[{url}]({url})" if url else "— (URL nachtragen)"
+            marker = review.get("version_marker") or "—"
+            review_md = (
+                f"{review.get('verdict')} (geprueft {review.get('reviewed_at') or '—'}; Fassung «{marker}»)"
+            )
+        else:
+            terms_md, review_md = "— (nicht erfasst)", "—"
+        reason = tou_reasons[h]
+        gate_md = "frei" if reason is None else f"**GESPERRT** — {reason}"
+        clines.append(f"| {h} | {note} | {cell(terms_md)} | {cell(review_md)} | {cell(gate_md)} |")
 
     clines += ["", "## Geprüfte URLs", "", "| Leistung | URL | robots-Verdikt |", "|---|---|---|"]
     for p in procs:
@@ -236,12 +329,34 @@ def run_preflight(cfg: SourcesConfig, only: list[str] | None = None) -> dict[str
             if not allowed:
                 blocked.append(u)
             clines.append(f"| `{p.id}` | {u} | {'erlaubt' if allowed else '**DISALLOW — nicht crawlen**'} |")
-        gate[p.id] = {"allowed": not blocked, "blocked_urls": blocked, "checked_at": today}
+        tou_blocked = tou_blocked_hosts(p.official_urls, tou_reasons)
+        gate[p.id] = {
+            "allowed": not blocked,
+            "blocked_urls": blocked,
+            "tou_allowed": not tou_blocked,
+            "tou_blocked": tou_blocked,
+            "checked_at": today,
+        }
+
+    clines += [
+        "",
+        "## Crawl-Gate je Leistung",
+        "",
+        "| Leistung | robots | Nutzungsbedingungen |",
+        "|---|---|---|",
+    ]
+    for pid, entry in gate.items():
+        robots_md = "frei" if entry["allowed"] else "**GESPERRT**"
+        tou_md = "frei" if entry["tou_allowed"] else "**GESPERRT** (" + ", ".join(entry["tou_blocked"]) + ")"
+        clines.append(f"| `{pid}` | {robots_md} | {tou_md} |")
     clines += [
         "",
         "Verdikt-Logik: Eine Leistung wird nur gecrawlt, wenn ALLE ihre URLs",
-        "fuer unseren User-Agent erlaubt sind. Bei Disallow: Leistung gesperrt,",
-        "Flag im Report — Ruecksprache mit dem Maintainer noetig.",
+        "fuer unseren User-Agent erlaubt sind (robots.txt) UND fuer JEDE ihrer",
+        "Domains eine ToU-Pruefung des Maintainers mit Verdikt «erlaubt», Datum,",
+        "Begruendung und Fassungs-Kennung vorliegt, deren Fassung noch auf der",
+        "Live-Seite steht (terms_of_use in sources.yaml). Sonst: gesperrt —",
+        "Ruecksprache mit dem Maintainer noetig.",
         "",
     ]
     (REPORTS / "scraping-compliance.md").write_text("\n".join(clines), encoding="utf-8")
@@ -291,6 +406,19 @@ def require_allowed(proc: ProcessSource) -> None:
         raise SystemExit(
             f"[{proc.id}] robots.txt verbietet das Crawlen von {entry['blocked_urls']} — "
             "Leistung gesperrt; bitte Maintainer fragen (siehe reports/scraping-compliance.md)."
+        )
+    # ToU-Gate: nur ein ausdrueckliches True gibt frei. Ein Gate-File ohne das
+    # Feld (aelteres Format) ist KEINE Freigabe.
+    tou_ok = entry.get("tou_allowed")
+    if tou_ok is not True:
+        if tou_ok is None:
+            detail = "Preflight-Ergebnis ohne ToU-Pruefung (aelteres Format) — `tessera preflight` erneut ausfuehren"
+        else:
+            blocked = entry.get("tou_blocked") or {}
+            detail = "; ".join(f"{h}: {r}" for h, r in sorted(blocked.items())) or "ohne Grund gesperrt"
+        raise SystemExit(
+            f"[{proc.id}] Nutzungsbedingungen nicht freigegeben — {detail}. Crawl gesperrt "
+            "(siehe reports/scraping-compliance.md; Pruefung erfassen: terms_of_use in sources.yaml)."
         )
 
 
