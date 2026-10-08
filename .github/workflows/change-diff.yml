@@ -18,6 +18,12 @@ name: change-diff
 #
 # NETZ-POLICY: braucht ausgehendes HTTPS zu den Quelldomains. Ist die Policy zu,
 # faellt alles als 'netzfehler'/'blockiert' an (kein Issue) und der Lauf ist No-op.
+#
+# ROBOTS-/ToU-GATE: diff ruft nur Leistungen ab, deren Domains freigegeben sind
+# (robots.txt + Nutzungsbedingungen, terms_of_use in sources.yaml). Das Gate-File
+# ist git-ignoriert, darum laeuft hier zuerst `tessera preflight`. Gesperrte
+# Leistungen erscheinen in diff.json als {"id", "gated"} — sie wurden NICHT
+# geprueft, also schliesst der Lauf ein offenes Issue dann NICHT als erledigt.
 
 on:
   schedule:
@@ -43,6 +49,11 @@ jobs:
       # Wahrheitsquelle; Bumps bewusst als Commit, nicht implizit im Cron).
       - name: Laufzeit-Deps (schlank, exakt gepinnt via constraints.txt)
         run: python -m pip install --quiet -c constraints.txt httpx trafilatura pyyaml pydantic
+      # Gate-File erzeugen (robots + Nutzungsbedingungen). Faellt der Katalog-Teil
+      # (I14Y/eCH) aus, ist das nur ein Report-Befund; das Gate wird trotzdem
+      # geschrieben.
+      - name: Preflight (robots- und ToU-Gate)
+        run: PYTHONPATH=src python -m tessera.cli preflight
       - name: Aenderungs-Diff (JSON, nur Leistungen mit Baseline)
         id: diff
         run: |
@@ -74,6 +85,12 @@ jobs:
 
             // Befunde: inhaltliche Aenderung oder toter Link (Umgebung ignorieren).
             const actionable = reports.filter(r => (r.changed && r.changed.length) || (r.dead && r.dead.length));
+            // Vom robots-/ToU-Gate gesperrt: NICHT geprueft (kein Befund, aber
+            // auch keine Entwarnung).
+            const gated = reports.filter(r => r.gated);
+            if (gated.length) {
+              core.warning(`Nicht geprueft (robots-/ToU-Gate): ${gated.map(r => r.id).join(', ')}`);
+            }
 
             // Bestehendes offenes Issue finden (dedupe ueber Label).
             const existing = await github.paginate(github.rest.issues.listForRepo, {
@@ -83,6 +100,11 @@ jobs:
             const openIssue = existing.find(i => i.title === TITLE);
 
             if (actionable.length === 0) {
+              if (gated.length) {
+                // Ohne Pruefung keine Entwarnung: ein offenes Issue bleibt offen.
+                core.info('Keine Befunde in den freigegebenen Leistungen; gesperrte nicht geprueft — Issue unveraendert.');
+                return;
+              }
               if (openIssue) {
                 await github.rest.issues.createComment({
                   owner: context.repo.owner, repo: context.repo.repo, issue_number: openIssue.number,
@@ -121,6 +143,11 @@ jobs:
                   }
                 }
                 for (const u of (r.dead || [])) lines.push(`- ❌ toter Link: ${u}`);
+                lines.push('');
+              }
+              if (gated.length) {
+                lines.push('### Nicht geprüft (robots-/ToU-Gate)', '');
+                for (const r of gated) lines.push(`- \`${r.id}\`: ${r.gated}`);
                 lines.push('');
               }
               lines.push('**Nächster Schritt je Leistung:** `tessera run --id <leistung>` erneut ausführen,');
