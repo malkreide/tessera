@@ -101,17 +101,63 @@ def test_missing_gate_file_blocks() -> None:
     _expect_blocked("Kein Preflight-Ergebnis")
 
 
+# --- Extraktions-Sperre (`paused` in sources.yaml) ---------------------------
+
+
+class _Skip(Exception):
+    """Test bewusst uebersprungen (fehlende optionale Dependency)."""
+
+
+def test_paused_reason_empty_when_not_paused() -> None:
+    assert preflight.paused_reason(SimpleNamespace(id="hund-anmelden")) == ""
+    assert preflight.paused_reason(SimpleNamespace(id="x", paused="   ")) == ""
+    assert preflight.paused_reason(SimpleNamespace(id="x", paused=None)) == ""
+
+
+def test_paused_blocks_extraction_with_reason() -> None:
+    proc = SimpleNamespace(id="veranstaltung", paused="bis zum Pilot")
+    try:
+        preflight.require_extraction_enabled(proc)
+    except SystemExit as exc:
+        msg = str(exc)
+        assert "veranstaltung" in msg and "bis zum Pilot" in msg, msg
+        assert "paused" in msg  # sagt, wie man freischaltet
+    else:
+        raise AssertionError("pausierte Leistung muss die Extraktion hart stoppen")
+
+
+def test_not_paused_passes_extraction_gate() -> None:
+    preflight.require_extraction_enabled(SimpleNamespace(id="hund-anmelden"))  # darf nicht raisen
+
+
+def test_sources_yaml_pauses_only_veranstaltung() -> None:
+    """Die Sperre steht in der echten sources.yaml und wird vom strikten Schema
+    akzeptiert (extra="forbid" wuerde ein unbekanntes Feld ablehnen). Braucht
+    pydantic/pyyaml — ohne sie sauber uebersprungen, nicht still bestanden."""
+    try:
+        from tessera.config import load_sources  # noqa: PLC0415
+    except ModuleNotFoundError as exc:
+        raise _Skip(f"{exc.name} nicht installiert (CI ohne Runtime-Deps)") from exc
+    paused = {p.id: preflight.paused_reason(p) for p in load_sources().processes}
+    assert paused.get("veranstaltung"), paused
+    assert [pid for pid, reason in paused.items() if reason] == ["veranstaltung"], paused
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0
+    skipped = 0
     for t in tests:
         try:
             t()
             print(f"[PASS] {t.__name__}")
+        except _Skip as exc:
+            skipped += 1
+            print(f"[SKIP] {t.__name__}: {exc}")
         except AssertionError as exc:
             failed += 1
             print(f"[FAIL] {t.__name__}: {exc}")
-    print(f"\n{len(tests) - failed}/{len(tests)} Tests gruen.")
+    print(f"\n{len(tests) - failed - skipped}/{len(tests)} Tests gruen, {skipped} uebersprungen.")
     return 1 if failed else 0
 
 
