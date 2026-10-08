@@ -382,29 +382,31 @@ def gate_age_days(entry: dict) -> int | None:
     return age if age >= 0 else None
 
 
-def require_allowed(proc: ProcessSource) -> None:
-    """Crawl-Gate: ohne frischen, positiven Preflight wird nicht gecrawlt.
+def crawl_gate_reason(proc: object) -> str | None:
+    """Gate fuer JEDEN automatisierten Abruf der Quellseiten einer Leistung —
+    crawl, fingerprint, diff und verify --online. None = frei, sonst der
+    Sperrgrund (mit Leistungs-id).
 
-    Frisch heisst: checked_at hoechstens MAX_GATE_AGE_DAYS alt. robots.txt und
-    Nutzungsbedingungen koennen sich aendern — ein altes «erlaubt» ist keine
-    Freigabe mehr; das war bisher nur ein Docstring-Versprechen.
+    Frei heisst: frischer Preflight (checked_at hoechstens MAX_GATE_AGE_DAYS
+    alt), robots.txt erlaubt alle URLs, und die Nutzungsbedingungen JEDER
+    Domain sind freigegeben (tou_allowed). robots.txt und ToU koennen sich
+    aendern — ein altes «erlaubt» ist keine Freigabe mehr. `paused` gehoert
+    bewusst NICHT hierher: es sperrt nur die Extraktion, nicht die Ueberwachung.
     """
-    gate = load_gate()
-    entry = gate.get(proc.id)
+    pid = getattr(proc, "id", "?")
+    entry = load_gate().get(pid)
     if entry is None:
-        raise SystemExit(
-            f"[{proc.id}] Kein Preflight-Ergebnis gefunden — zuerst `tessera preflight` ausfuehren."
-        )
+        return f"[{pid}] Kein Preflight-Ergebnis gefunden — zuerst `tessera preflight` ausfuehren."
     age = gate_age_days(entry)
     if age is None or age > MAX_GATE_AGE_DAYS:
-        raise SystemExit(
-            f"[{proc.id}] Preflight-Ergebnis ist nicht frisch "
+        return (
+            f"[{pid}] Preflight-Ergebnis ist nicht frisch "
             f"(checked_at={entry.get('checked_at')!r}, max. {MAX_GATE_AGE_DAYS} Tage) — "
             "robots.txt kann sich geaendert haben; zuerst `tessera preflight` erneut ausfuehren."
         )
     if not entry["allowed"]:
-        raise SystemExit(
-            f"[{proc.id}] robots.txt verbietet das Crawlen von {entry['blocked_urls']} — "
+        return (
+            f"[{pid}] robots.txt verbietet das Crawlen von {entry['blocked_urls']} — "
             "Leistung gesperrt; bitte Maintainer fragen (siehe reports/scraping-compliance.md)."
         )
     # ToU-Gate: nur ein ausdrueckliches True gibt frei. Ein Gate-File ohne das
@@ -416,10 +418,27 @@ def require_allowed(proc: ProcessSource) -> None:
         else:
             blocked = entry.get("tou_blocked") or {}
             detail = "; ".join(f"{h}: {r}" for h, r in sorted(blocked.items())) or "ohne Grund gesperrt"
-        raise SystemExit(
-            f"[{proc.id}] Nutzungsbedingungen nicht freigegeben — {detail}. Crawl gesperrt "
+        return (
+            f"[{pid}] Nutzungsbedingungen nicht freigegeben — {detail}. Abruf gesperrt "
             "(siehe reports/scraping-compliance.md; Pruefung erfassen: terms_of_use in sources.yaml)."
         )
+    return None
+
+
+def require_allowed(proc: ProcessSource) -> None:
+    """Crawl-Gate (hart): ohne Freigabe nach `crawl_gate_reason` kein Crawl."""
+    reason = crawl_gate_reason(proc)
+    if reason:
+        raise SystemExit(reason)
+
+
+def released_hosts(proc: object) -> frozenset[str]:
+    """Domains, die fuer eine FREIGEGEBENE Leistung abgerufen werden duerfen:
+    genau die Domains ihrer official_urls (nur fuer sie liegt eine robots-/
+    ToU-Pruefung vor). Gesperrte Leistung -> leere Menge."""
+    if crawl_gate_reason(proc):
+        return frozenset()
+    return frozenset(urlsplit(u).netloc for u in getattr(proc, "official_urls", []) or [])
 
 
 def paused_reason(proc: object) -> str:

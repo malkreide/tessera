@@ -20,6 +20,9 @@ name: fingerprint
 #   Umgebungsbefunde werden nicht eingefroren (siehe diff.write_fingerprints).
 # - Die Leistungs-IDs kommen als ENV, nicht per ${{ }}-Interpolation ins Skript
 #   (keine Shell-Injection ueber das Eingabefeld).
+# - Robots-/ToU-Gate: eine Baseline (Volltext der Quellseiten) entsteht nur fuer
+#   Leistungen, deren Domains freigegeben sind (terms_of_use in sources.yaml).
+#   Ist eine angeforderte Leistung gesperrt, scheitert der Lauf ohne Commit.
 
 on:
   workflow_dispatch:
@@ -69,6 +72,10 @@ jobs:
             exit 1
           fi
           echo "args=${args[*]}" >> "$GITHUB_OUTPUT"
+      # Gate-File erzeugen (robots + Nutzungsbedingungen); es ist git-ignoriert
+      # und wird nicht committet (der Push-Schritt nimmt nur reports/fingerprints).
+      - name: Preflight (robots- und ToU-Gate)
+        run: PYTHONPATH=src python -m tessera.cli preflight ${{ steps.ids.outputs.args }}
       - name: Fingerprint schreiben
         run: PYTHONPATH=src python -m tessera.cli fingerprint ${{ steps.ids.outputs.args }}
       # Eine Baseline ohne einzige URL waere wertlos (diff haette nichts zu
