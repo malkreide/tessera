@@ -1,8 +1,6 @@
 # Scraping-Compliance (robots.txt & Nutzungsbedingungen)
 
-Stand: 2026-06-29 — erzeugt durch `tessera preflight`; `veranstaltung`-Zeilen
-manuell ergaenzt und am 2026-07-03 gegen `robots.txt` geprueft (erlaubt: keine
-Disallow-Regel trifft den Pfad `/de/stadtleben/veranstaltungen-und-bewilligungen/`).
+Stand: 2026-10-08 — erzeugt durch `tessera preflight`.
 
 ## Respekt-Regeln (fix)
 
@@ -13,10 +11,10 @@ Disallow-Regel trifft den Pfad `/de/stadtleben/veranstaltungen-und-bewilligungen
 
 ## Domains
 
-| Domain | robots.txt | Nutzungsbedingungen |
-|---|---|---|
-| www.stadt-zuerich.ch | robots.txt geladen | [https://www.stadt-zuerich.ch/de/impressum.html](https://www.stadt-zuerich.ch/de/impressum.html) — manuelle Pruefung Maintainer |
-| www.zh.ch | robots.txt geladen | [https://www.zh.ch/de/impressum-rechtliches.html](https://www.zh.ch/de/impressum-rechtliches.html) — manuelle Pruefung Maintainer |
+| Domain | robots.txt | Nutzungsbedingungen | ToU-Pruefung (Maintainer) | ToU-Gate |
+|---|---|---|---|---|
+| www.stadt-zuerich.ch | robots.txt geladen | [https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html](https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html) | ausstehend (geprueft —; Fassung «—») | **GESPERRT** — ToU-Pruefung ausstehend — der Maintainer entscheidet (terms_of_use in sources.yaml) |
+| www.zh.ch | robots.txt geladen | [https://www.zh.ch/de/nutzungshinweise.html](https://www.zh.ch/de/nutzungshinweise.html) | ausstehend (geprueft —; Fassung «—») | **GESPERRT** — ToU-Pruefung ausstehend — der Maintainer entscheidet (terms_of_use in sources.yaml) |
 
 ## Geprüfte URLs
 
@@ -45,6 +43,20 @@ Disallow-Regel trifft den Pfad `/de/stadtleben/veranstaltungen-und-bewilligungen
 | `veranstaltung` | https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/fest-sportveranstaltung-quartierfest.html | erlaubt |
 | `veranstaltung` | https://www.stadt-zuerich.ch/de/stadtleben/veranstaltungen-und-bewilligungen/veranstaltungen/infrastruktur-sicherheit.html | erlaubt |
 
+## Crawl-Gate je Leistung
+
+| Leistung | robots | Nutzungsbedingungen |
+|---|---|---|
+| `hund-anmelden` | frei | **GESPERRT** (www.stadt-zuerich.ch, www.zh.ch) |
+| `umzug-melden` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
+| `fundsache` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
+| `parkplatz` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
+| `kita-platz` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
+| `veranstaltung` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
+
 Verdikt-Logik: Eine Leistung wird nur gecrawlt, wenn ALLE ihre URLs
-fuer unseren User-Agent erlaubt sind. Bei Disallow: Leistung gesperrt,
-Flag im Report — Ruecksprache mit dem Maintainer noetig.
+fuer unseren User-Agent erlaubt sind (robots.txt) UND fuer JEDE ihrer
+Domains eine ToU-Pruefung des Maintainers mit Verdikt «erlaubt», Datum,
+Begruendung und Fassungs-Kennung vorliegt, deren Fassung noch auf der
+Live-Seite steht (terms_of_use in sources.yaml). Sonst: gesperrt —
+Ruecksprache mit dem Maintainer noetig.
