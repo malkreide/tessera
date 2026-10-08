@@ -102,15 +102,24 @@ nur als `references` (Label ohne Zahl + Deep-Link + woertliche `source_quote`).
 ### B.1 — Pre-Flight (Gate je Leistung)
 - **Aktion:** `tessera preflight --id <id>`.
 - **Erwartetes Resultat:** `reports/coverage.md`, `reports/scraping-compliance.md`
-  und `reports/raw/preflight-gate.json` mit `allowed: true`.
+  und `reports/raw/preflight-gate.json` mit `allowed: true` (robots) **und**
+  `tou_allowed: true` (Nutzungsbedingungen).
+- **ToU-Gate (Vorbedingung, Maintainer):** Fuer jede Quell-Domain der Leistung
+  steht in `sources.yaml` unter `terms_of_use` eine Pruefung mit
+  `verdict: erlaubt`, `reviewed_at`, `basis` (Begruendung/Beleg) und
+  `version_marker` (woertliche Kennung der gepruefte Fassung, z.B. die
+  Versionszeile). Der Preflight ruft die ToU-Seite ab und gibt nur frei, wenn
+  der Marker dort noch steht — geaenderte Bedingungen oder eine umgezogene
+  Seite sperren von selbst. `ausstehend`, `verboten`, fehlender Eintrag oder
+  unerreichbare Seite: gesperrt. Das Verdikt traegt nur der Maintainer ein.
 - **Test-Setting:**
   ```bash
   tessera preflight --id hund-anmelden
   python -c "import json;g=json.load(open('reports/raw/preflight-gate.json'));\
-print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
+print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})"   # (True, True, {}) erwartet
   ```
-- **Stop-Bedingung:** `DISALLOW` (robots) oder ToU-Verbot → nicht crawlen,
-  flaggen, Maintainer fragen.
+- **Stop-Bedingung:** `DISALLOW` (robots) oder ToU nicht freigegeben → nicht
+  crawlen (der Crawl verweigert hart), Maintainer fragen.
 - **Frische:** Das Gate verfaellt nach 7 Tagen (`preflight.MAX_GATE_AGE_DAYS`) —
   robots.txt kann sich aendern. Ein aelteres, fehlendes oder ungueltiges
   `checked_at` verweigert den Crawl; zuerst `tessera preflight` erneut ausfuehren.
@@ -300,7 +309,8 @@ Bewusst **nicht** in v1 (`CLAUDE.md`):
 ---
 
 ## Stop-Bedingungen (sofort fragen)
-- robots.txt/ToU verbietet eine Quelle
+- robots.txt/ToU verbietet eine Quelle, oder die ToU-Pruefung einer Domain ist
+  ausstehend bzw. ihre gepruefte Fassung steht nicht mehr live (ToU-Gate)
 - Schema-Konflikt mit dem kanonischen Vertrag
 - eine Reference laesst sich nicht woertlich belegen
 - `crawl4ai`/Chromium nicht installierbar

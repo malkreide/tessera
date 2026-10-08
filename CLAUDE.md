@@ -77,7 +77,11 @@ wird es **verworfen und für den Reviewer geflaggt** – nicht ausgegeben. Es gi
 2. **Rechtsfläche prüfen:** `robots.txt` und Nutzungsbedingungen der Quellseiten
    lesen; Funde nach `reports/scraping-compliance.md`. Respektieren: Rate-Limit,
    identifizierender User-Agent, keine Umgehung technischer Schutzmassnahmen. Bei
-   Disallow/ToU-Verbot: stoppen und fragen.
+   Disallow/ToU-Verbot: stoppen und fragen. **Beides ist ein Crawl-Gate:** die
+   ToU-Einschätzung erfasst ausschliesslich der Maintainer je Domain in
+   `sources.yaml` (`terms_of_use`); ohne `erlaubt` mit Datum, Begründung und noch
+   live gültiger Fassung (`version_marker`) wird nicht gecrawlt. Ein Agent trägt
+   dort nie ein Verdikt ein.
 
 ## Tooling
 
