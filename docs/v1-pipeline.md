@@ -337,15 +337,17 @@ Bewusst **nicht** in v1 (`CLAUDE.md`):
 
 `tessera fingerprint` schreibt nach einem Lauf eine committete Baseline
 (`reports/fingerprints/<id>.json`): je Quell-URL ein SHA-256 ueber den
-**normalisierten** Seitentext (`grounding.normalize`) — plus den zeilenweise
-normalisierten Seitentext als Textdatei (`reports/fingerprints/<id>/NN-slug.txt`,
-siehe README dort; Provenienz: amtliche Quellseiten, nur Diff-Basis, keine
-publizierten Daten). `tessera diff` re-crawlt die Live-Seiten und vergleicht:
-rein kosmetische Aenderungen (Whitespace, Typografie) loesen NICHTS aus, nur
-inhaltliche. Bei einer Aenderung liefert `diff` einen **unified-diff-Auszug**
-baseline vs. live mit (CLI und `--json`; gekappt auf `diff.MAX_EXCERPT_LINES`)
-— das Issue zeigt, WAS sich geaendert hat, nicht nur wo. Alte Hash-only-
-Baselines bleiben gueltig, liefern nur keinen Auszug. `tessera diff --json`
+**normalisierten** Seitentext (`grounding.normalize`) plus Zeichenzahl — **kein
+Seitentext** (Nutzungsbedingungen der Quellen: nur Eigengebrauch; siehe README
+dort). `tessera diff` re-crawlt die Live-Seiten und vergleicht: rein kosmetische
+Aenderungen (Whitespace, Typografie) loesen NICHTS aus, nur inhaltliche. Den
+zeilenweise normalisierten Seitentext legt `fingerprint` nur **lokal** ab
+(`reports/raw/fingerprints/<id>/NN-slug.txt`, git-ignoriert); liegt er vor,
+liefert ein lokaler `diff` bei einer Aenderung einen **unified-diff-Auszug**
+baseline vs. live (gekappt auf `diff.MAX_EXCERPT_LINES`). Im CI-Cron fehlt der
+lokale Text: die Aenderung wird gemeldet, das Issue zeigt aber keinen Auszug.
+`.gitignore` und `tests/test_diff.py` verhindern, dass Seitentext unter
+`reports/fingerprints/` eingecheckt wird. `tessera diff --json`
 gibt eine maschinenlesbare Zusammenfassung aus (menschliche Zeilen dann nach
 stderr).
 

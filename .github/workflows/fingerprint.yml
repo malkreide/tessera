@@ -20,7 +20,10 @@ name: fingerprint
 #   Umgebungsbefunde werden nicht eingefroren (siehe diff.write_fingerprints).
 # - Die Leistungs-IDs kommen als ENV, nicht per ${{ }}-Interpolation ins Skript
 #   (keine Shell-Injection ueber das Eingabefeld).
-# - Robots-/ToU-Gate: eine Baseline (Volltext der Quellseiten) entsteht nur fuer
+# - Kein Seitentext im Repo: committet wird nur <id>.json (Hash + Zeichenzahl);
+#   den lokalen Diff-Text (reports/raw/fingerprints/) nimmt der Push-Schritt
+#   nicht mit, und auch das Artefakt enthaelt nur reports/fingerprints/.
+# - Robots-/ToU-Gate: eine Baseline entsteht nur fuer
 #   Leistungen, deren Domains freigegeben sind (terms_of_use in sources.yaml).
 #   Ist eine angeforderte Leistung gesperrt, scheitert der Lauf ohne Commit.
 
@@ -141,7 +144,8 @@ jobs:
               '',
               '**Review-Checkliste**',
               '- [ ] Jede erwartete Quell-URL aus `sources.yaml` ist in der Baseline (fehlende = Umgebungsbefund im Lauf-Log)',
-              '- [ ] Die Texte unter `reports/fingerprints/<id>/` sind der erwartete amtliche Seiteninhalt (keine Fehler- oder Cookie-Seite)',
+              '- [ ] Zeichenzahl (`chars`) je URL plausibel — eine Fehler- oder Cookie-Seite faellt durch auffaellig wenige Zeichen auf',
+              '- [ ] Kein Seitentext im PR: nur `reports/fingerprints/<id>.json` (Hash + Zeichenzahl); der Text bleibt auf dem Runner',
               '',
               'Hinweis: PRs, die mit dem `GITHUB_TOKEN` erstellt werden, starten keine weiteren Workflows.',
               'Die Baseline ist reine Diff-Basis (kein Vertrags-Output); der naechste `change-diff`-Lauf nach dem Merge prueft sie.',

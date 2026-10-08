@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Full page text of official sources removed from the public repo.**
+  `reports/fingerprints/<id>/*.txt` held the whole normalised text of 22
+  pages from stadt-zuerich.ch and zh.ch (~64 KB). Both sites' terms of use
+  allow only viewing, downloading for personal use and printing; any further
+  use needs the rights holders' consent. The text files are deleted; the
+  baselines (`*.json`) keep only `sha256` and `chars` (hashes and counts
+  unchanged, `text_file` references dropped), so `change-diff` detects changes
+  exactly as before. `tessera fingerprint` now writes the page text only
+  locally to the git-ignored `reports/raw/fingerprints/`, so a local `diff`
+  still shows excerpts; the CI cron has no text and reports changed URLs
+  without an excerpt. Guarded twice: `.gitignore` blocks
+  `reports/fingerprints/*/`, and `tests/test_diff.py` fails if anything but the
+  JSON baselines and the README sits there (verified red against the 22 files
+  first). The files remain reachable in git history; purging them would need a
+  rewrite of `main` (maintainer decision).
+
 ### Changed
 - **`fingerprint`, `diff` and `verify --online` are behind the robots/ToU
   gate too.** Until now only `crawl` was gated; the monitoring commands fetched
