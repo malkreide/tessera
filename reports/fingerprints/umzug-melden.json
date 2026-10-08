@@ -5,26 +5,22 @@
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden.html",
       "sha256": "ade4e03a4eed85be6196ef64bee6a248300da60cc50b8259e5d18c22aefd518f",
-      "chars": 52,
-      "text_file": "umzug-melden/01-umziehen-melden.txt"
+      "chars": 52
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/zuzug.html",
       "sha256": "f9b5ae8c4ea5e518935c08607459dc2a4813485a105a28bf7a44e284a6274a08",
-      "chars": 3204,
-      "text_file": "umzug-melden/02-zuzug.txt"
+      "chars": 3204
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/umzug.html",
       "sha256": "5d5178a5cdbada63fc10ac30046f19eb8e5d888dfc9035a76e8b94f594961c79",
-      "chars": 2147,
-      "text_file": "umzug-melden/03-umzug.txt"
+      "chars": 2147
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/wegzug.html",
       "sha256": "a95ec4c2b7aeaa5e81023a7db434d329addf7da296f12e38165db44b2f40d6d4",
-      "chars": 2163,
-      "text_file": "umzug-melden/04-wegzug.txt"
+      "chars": 2163
     }
   ]
 }
