@@ -144,7 +144,13 @@ def cmd_verify(cfg: SourcesConfig, ids: list[str] | None, online: bool = False) 
     Erreichbarkeit (tot/blockiert/netzfehler) und Beleg-Drift gegen die
     Live-Seite. Exit 1 NUR bei echten Datenproblemen (toter Link / Drift);
     Umgebungsbefunde (Block/Netzfehler/SPA) lassen den Lauf nicht scheitern.
+
+    --online steht hinter dem robots-/ToU-Gate: eine gesperrte Leistung wird
+    nur netzfrei geprueft (Hinweis, kein Fehler), und abgerufen werden nur die
+    Domains ihrer official_urls — ein Deep-Link auf eine andere Domain bleibt
+    unangefragt (`nicht-freigegeben`).
     """
+    from . import preflight  # noqa: PLC0415
     from . import verify as verify_mod  # noqa: PLC0415
 
     rc = 0
@@ -164,7 +170,14 @@ def cmd_verify(cfg: SourcesConfig, ids: list[str] | None, online: bool = False) 
                 rc = 1
                 continue
             process = json.loads(out_json.read_text(encoding="utf-8"))
-            rep = verify_mod.verify_process(process, fetch=fetch)
+            proc_fetch = None
+            if fetch is not None:
+                reason = preflight.crawl_gate_reason(proc)
+                if reason:
+                    print(f"  [{proc.id}] online-Pruefung uebersprungen (Gate): {reason}", file=sys.stderr)
+                else:
+                    proc_fetch = verify_mod.restrict_hosts(fetch, preflight.released_hosts(proc))
+            rep = verify_mod.verify_process(process, fetch=proc_fetch)
             report_path = verify_mod.write_report(rep)
             lv, dead, drift = len(rep.label_value), len(rep.dead_links), len(rep.drift_hits)
             print(f"  [{proc.id}] -> {report_path} (Label<->Wert: {lv}, tote Links: {dead}, Drift: {drift})")
@@ -202,15 +215,26 @@ def _make_ssr_fetcher(cfg: SourcesConfig):
 def cmd_fingerprint(cfg: SourcesConfig, ids: list[str] | None) -> int:
     """Schreibt/aktualisiert die Aenderungs-Baseline reports/fingerprints/<id>.json
     (SHA-256 ueber den normalisierten Seitentext je Quell-URL). Nach einem Lauf
-    ausfuehren und das Ergebnis committen — `tessera diff` vergleicht dagegen."""
+    ausfuehren und das Ergebnis committen — `tessera diff` vergleicht dagegen.
+
+    Steht hinter dem robots-/ToU-Gate: eine gesperrte Leistung bekommt KEINE
+    Baseline (die Textdateien sind Volltext der Quellseiten) — Exit 1, weil
+    eine Baseline bewusst gesetzt wird und ein Abbruch sichtbar sein muss."""
     from datetime import date  # noqa: PLC0415
 
     from . import diff as diff_mod  # noqa: PLC0415
+    from . import preflight  # noqa: PLC0415
 
+    rc = 0
     today = date.today().isoformat()
     fetch, client = _make_ssr_fetcher(cfg)
     try:
         for proc in _procs(cfg, ids):
+            reason = preflight.crawl_gate_reason(proc)
+            if reason:
+                print(f"  [{proc.id}] keine Baseline geschrieben (Gate): {reason}", file=sys.stderr)
+                rc = 1
+                continue
             entries = diff_mod.build_entries(proc, fetch, today)
             path = diff_mod.write_fingerprints(proc.id, entries, today)
             usable = [e for e in entries if "sha256" in e]
@@ -220,7 +244,7 @@ def cmd_fingerprint(cfg: SourcesConfig, ids: list[str] | None) -> int:
                     print(f"    ⚠ nicht erfasst (Umgebungsbefund): {e['url']} ({e['state']})")
     finally:
         client.close()
-    return 0
+    return rc
 
 
 def cmd_diff(
@@ -236,8 +260,13 @@ def cmd_diff(
 
     Mit --json wird eine maschinenlesbare Zusammenfassung nach stdout geschrieben
     (menschliche Zeilen dann nach stderr) — der change-diff-Cron liest das und
-    oeffnet/aktualisiert daraus ein GitHub-Issue."""
+    oeffnet/aktualisiert daraus ein GitHub-Issue.
+
+    Steht hinter dem robots-/ToU-Gate: eine gesperrte Leistung wird nicht
+    abgerufen, sondern als `{"id", "gated": grund}` gemeldet (Hinweis, kein
+    Fehler) — der Cron darf daraus NICHT «keine Aenderung» schliessen."""
     from . import diff as diff_mod  # noqa: PLC0415
+    from . import preflight  # noqa: PLC0415
 
     def out(msg: str) -> None:
         print(msg, file=sys.stderr if as_json else sys.stdout)
@@ -247,6 +276,11 @@ def cmd_diff(
     fetch, client = _make_ssr_fetcher(cfg)
     try:
         for proc in _procs(cfg, ids):
+            reason = preflight.crawl_gate_reason(proc)
+            if reason:
+                results.append({"id": proc.id, "gated": reason})
+                out(f"  [{proc.id}] nicht geprueft (Gate): {reason}")
+                continue
             rep = diff_mod.diff_process(proc, fetch)
             results.append(diff_mod.report_to_dict(rep))
             if rep.no_baseline:

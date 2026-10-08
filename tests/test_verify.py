@@ -15,7 +15,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from tessera import reach  # noqa: E402
-from tessera.verify import Fetched, verify_process  # noqa: E402
+from tessera.grounding import Corpus  # noqa: E402
+from tessera.verify import Fetched, restrict_hosts, verify_process  # noqa: E402
 
 LIVE_PAGE = "Sie muessen Ihren Hund innert zehn Tagen melden. Die jaehrliche Hundeabgabe betraegt CHF 175."
 
@@ -122,6 +123,60 @@ def test_spa_shell_is_ungeprueft_not_drift() -> None:
     kinds = {d.reference_id: d.kind for d in rep.drifts}
     assert kinds[1] == "ungeprueft" and kinds[2] == "ungeprueft"
     assert not rep.data_problem
+
+
+def test_extract_text_fallback_decodes_entities() -> None:
+    # Ohne trafilatura (CI-Fallback) muss die ToU-Versionszeile trotz HTML-
+    # Entities und Tags erkannt werden.
+    import builtins  # noqa: PLC0415
+
+    from tessera import verify  # noqa: PLC0415
+
+    raw = "<p>Version 2.2.5; Stand <b>31. M&auml;rz</b>&nbsp;2026</p><script>x()</script>"
+    real_import = builtins.__import__
+
+    def no_trafilatura(name, *args, **kwargs):
+        if name == "trafilatura":
+            raise ImportError("simuliert: nicht installiert")
+        return real_import(name, *args, **kwargs)
+
+    builtins.__import__ = no_trafilatura
+    try:
+        text = verify.extract_text(raw)
+    finally:
+        builtins.__import__ = real_import
+    assert Corpus(text).contains("Version 2.2.5; Stand 31. März 2026"), text
+    assert "x()" not in text
+
+
+def test_restrict_hosts_never_requests_unreleased_domain() -> None:
+    calls: list[str] = []
+
+    def fetch(url):
+        calls.append(url)
+        return Fetched(state=reach.OK, status=200, text=LIVE_PAGE)
+
+    gated = restrict_hosts(fetch, {"example.org"})
+    assert gated("https://example.org/hund").state == reach.OK
+    assert gated("https://www.fedlex.admin.ch/eli/x").state == reach.GATED
+    assert calls == ["https://example.org/hund"], calls  # fremde Domain nie angefragt
+
+
+def test_gated_reference_domain_is_policy_not_data_problem() -> None:
+    process = _process()
+    process["references"][1]["source_url"] = "https://www.fedlex.admin.ch/eli/x"
+    # Ref 3 driftet in der Fixture unabhaengig vom Gate — hier nur Ref 1 + 2.
+    process["references"] = process["references"][:2]
+    fetch = restrict_hosts(
+        _fetcher({"https://example.org/hund": Fetched(state=reach.OK, status=200, text=LIVE_PAGE)}),
+        {"example.org"},
+    )
+    rep = verify_process(process, fetch=fetch)
+    link = next(x for x in rep.links if "fedlex" in x.url)
+    assert link.state == reach.GATED and "ToU" in link.detail, link
+    drift = next(d for d in rep.drifts if d.reference_id == 2)
+    assert drift.kind == "unerreichbar" and "Policy" in drift.detail, drift
+    assert not rep.data_problem  # Sperre ist Policy, kein toter Link, keine Drift
 
 
 def main() -> int:
