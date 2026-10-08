@@ -4,8 +4,9 @@ Beispiel dafuer, dass die Zoo-artige Registry (Schritt 2) traegt: ein neuer,
 einzeln testbarer Extraktor kommt hinzu, OHNE bestehende anzufassen und ohne die
 Strecke (`steps.py`) zu aendern. Er beansprucht ueber `handles(proc)` genau die
 Leistung `veranstaltung` (der erste Hochrisiko-Fall, der in `sources.yaml` fuer
-die automatische Extraktion freigeschaltet ist) und faellt fuer alle anderen
-Leistungen NICHT ein — dort bleibt der generische Zwei-Pass-Extraktor.
+die automatische Extraktion vorgesehen ist — derzeit bis zum Pilot gesperrt,
+`paused`) und faellt fuer alle anderen Leistungen NICHT ein — dort bleibt der
+generische Zwei-Pass-Extraktor.
 
 Was er anders macht: Er reicht dem bestehenden LLM-Pfad (`extract.extract_process`)
 eine kuratierte DOMAENEN-HILFE mit — die kanonischen Akteure der handmodellierten

@@ -11,6 +11,11 @@
 Das Gate VERFAELLT nach MAX_GATE_AGE_DAYS: robots.txt kann sich aendern, ein
 altes «erlaubt» ist keine Freigabe mehr — dann erst `tessera preflight` erneut.
 
+Zweites, rein redaktionelles Gate: `paused` in sources.yaml. Eine Leistung mit
+nicht-leerem `paused`-Grund ist fuer die automatische Extraktion GESPERRT
+(crawl/extract/pr verweigern sie), bleibt aber in der Liste — preflight,
+verify, fingerprint, diff und eval lesen und ueberwachen sie weiter.
+
 Modul-Importe sind reine stdlib (httpx/openpyxl lazy in den Fetch-Funktionen),
 damit die Gate-Logik (load_gate/require_allowed) in der dependency-freien CI
 testbar ist — wie grounding/binding/risk.
@@ -286,4 +291,26 @@ def require_allowed(proc: ProcessSource) -> None:
         raise SystemExit(
             f"[{proc.id}] robots.txt verbietet das Crawlen von {entry['blocked_urls']} — "
             "Leistung gesperrt; bitte Maintainer fragen (siehe reports/scraping-compliance.md)."
+        )
+
+
+def paused_reason(proc: object) -> str:
+    """Grund, aus dem die automatische Extraktion dieser Leistung gesperrt ist
+    (`paused` in sources.yaml); leer = nicht gesperrt."""
+    reason = getattr(proc, "paused", "")
+    return reason.strip() if isinstance(reason, str) else ""
+
+
+def require_extraction_enabled(proc: object) -> None:
+    """Extraktions-Gate: eine in sources.yaml pausierte Leistung wird weder
+    gecrawlt noch extrahiert noch als PR eingereicht. Hart (SystemExit), damit
+    auch ein direkter Aufruf oder alte Snapshots nichts ausloesen.
+
+    Ueberwachung (preflight/verify/fingerprint/diff/eval) ist davon unberuehrt —
+    sie liest nur und erzeugt keine Daten fuer die Maschinerie."""
+    reason = paused_reason(proc)
+    if reason:
+        raise SystemExit(
+            f"[{getattr(proc, 'id', '?')}] Automatische Extraktion gesperrt: {reason} — "
+            "Freischaltung: `paused` in sources.yaml entfernen."
         )

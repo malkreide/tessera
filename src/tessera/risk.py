@@ -10,9 +10,11 @@ Wahrheitsquelle dafuer, welche Leistungen als hochriskant gelten — sie wird vo
 Vertrags-Validator und vom PR-Writer konsumiert.
 
 **Politik-Stand (v2, bewusste Ausnahme):** `veranstaltung` ist als EINZIGER der
-drei Faelle in `sources.yaml` fuer die automatische Extraktion freigeschaltet —
+drei Faelle in `sources.yaml` fuer die automatische Extraktion vorgesehen —
 mit maximalem Gate (erhoehter Review unten) und ausschliesslich als **Draft-PR**,
-den nur ein Mensch mergt. `baugesuch` und `sozialhilfe` bleiben bewusst
+den nur ein Mensch mergt. Derzeit ist er bis zum Pilot gesperrt (`paused` in
+`sources.yaml`, siehe `preflight.require_extraction_enabled`). `baugesuch` und
+`sozialhilfe` bleiben bewusst
 ausgeschlossen (existenzielles bzw. streitanfaelligstes Risiko). Freigeschaltet
 oder nicht: alle drei bleiben in `HIGH_RISK_IDS`, damit der erhoehte Gate greift,
 wo immer sie durch die Pipeline laufen.

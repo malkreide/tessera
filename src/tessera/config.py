@@ -37,6 +37,9 @@ class ProcessSource(BaseModel):
     official_urls: list[str]
     catalog_keywords: list[str] = []
     notes: str = ""
+    # Nicht-leer = automatische Extraktion gesperrt (crawl/extract/pr), mit Grund.
+    # Ueberwachung (preflight/verify/fingerprint/diff/eval) laeuft weiter.
+    paused: str = ""
 
     @field_validator("id")
     @classmethod
