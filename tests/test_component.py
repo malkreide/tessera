@@ -209,6 +209,21 @@ def test_plausibility_component_wired_and_flag_only() -> None:
     assert out.flags[0] == "vorher" and any("Steueramt" in f for f in out.flags[1:]), out.flags
 
 
+def test_run_extract_refuses_paused_process() -> None:
+    # Direkter Aufruf an der CLI vorbei: eine pausierte Leistung wird nicht
+    # extrahiert — auch nicht aus alten Snapshots (Stopp VOR dem Laden).
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from tessera import steps  # noqa: PLC0415
+
+    try:
+        steps.run_extract(SimpleNamespace(id="veranstaltung", paused="bis zum Pilot"))
+    except SystemExit as exc:
+        assert "gesperrt" in str(exc) and "bis zum Pilot" in str(exc), exc
+    else:
+        raise AssertionError("run_extract muss eine pausierte Leistung hart abweisen")
+
+
 def test_core_contract_missing_field() -> None:
     problems = contracts.core_contract({"title": {"de": "x", "en": "", "fr": "", "it": ""}})
     assert any("Pflichtfeld fehlt" in p for p in problems), problems

@@ -180,5 +180,10 @@ def build_pipeline(proc) -> list[Component]:
 
 def run_extract(proc) -> Grounded:
     """Fuehrt die Extraktions-Strecke fuer eine Leistung aus. Jede Grenze wird
-    validiert; die erste Verletzung wirft `ComponentError` (harter Stopp)."""
+    validiert; die erste Verletzung wirft `ComponentError` (harter Stopp).
+    Eine in sources.yaml pausierte Leistung wird gar nicht erst extrahiert —
+    auch nicht aus noch vorhandenen alten Snapshots."""
+    from . import preflight  # noqa: PLC0415
+
+    preflight.require_extraction_enabled(proc)
     return run_pipeline(build_pipeline(proc), proc)

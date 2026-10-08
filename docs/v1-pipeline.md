@@ -190,8 +190,9 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
   aus der Flags-Datei, strenger Lint auf **beiden** Seiten (Treffer in der
   Handdatei = Fehlalarm-Basis).
 - **Zweck:** Erst diese Zahlen entscheiden, ob die Extraktion brauchbar ist
-  und welche weitere Massnahme dringend ist (z.B. ob `veranstaltung`
-  freigeschaltet bleibt). Report als Pilot-Beleg bewusst committen.
+  und welche weitere Massnahme dringend ist — insbesondere, ob `veranstaltung`
+  (bis zum Pilot gesperrt) wieder freigeschaltet wird. Report als Pilot-Beleg
+  bewusst committen.
 - **Ohne Handdatei** (404) oder bei 401/403/Netzfehler: Umgebungsbefund,
   Leistung uebersprungen — kein Traceback, kein Raten.
 
@@ -251,8 +252,12 @@ print({k:v['allowed'] for k,v in g.items()})"   # True erwartet
 `baugesuch`, `sozialhilfe`, `veranstaltung` (Registry `src/tessera/risk.py`)
 tragen das hoechste Reputationsrisiko. Ab v2 ist als **bewusste Ausnahme** genau
 EIN Fall — `veranstaltung` — in `sources.yaml` fuer die automatische Extraktion
-freigeschaltet, mit maximalem Gate: nur als **Draft-PR**, Merge ausschliesslich
-durch einen Menschen. `baugesuch` und `sozialhilfe` bleiben ausgeschlossen.
+vorgesehen, mit maximalem Gate: nur als **Draft-PR**, Merge ausschliesslich
+durch einen Menschen. **Derzeit bis zum Pilot gesperrt** (`paused`): `crawl`,
+`extract` und `pr` verweigern die Leistung (ohne `--id` uebersprungen, mit
+`--id` Abbruch); `preflight`, `verify`, `fingerprint`, `diff` und `eval`
+ueberwachen sie weiter. Freischalten = die `paused`-Zeile entfernen, nach
+Auswertung von B.3a. `baugesuch` und `sozialhilfe` bleiben ausgeschlossen.
 Unabhaengig von der Freischaltung greift fuer alle drei der erhoehte Gate, wo
 immer sie die Pipeline beruehren: jede bindende Reference muss `verifiziert`
 **und** woertlich belegt sein (sonst Validator-**Fehler**), plus sichtbarer
@@ -280,8 +285,8 @@ Hochrisiko ein Validator-Fehler — im Normalfall nur ein Hinweis.
   (tri-state, Subagent-Fan-out moeglich); je Leistung Phase B.
 - **Akzeptanz:** wie B (Validator Exit 0, `verify` sauber, Ziel-CI gruen).
   **`baugesuch` und `sozialhilfe` bleiben ausgeschlossen** (`risk.py`);
-  `veranstaltung` ist die einzige freigeschaltete Hochrisiko-Ausnahme (Draft-PR,
-  Merge nur durch Menschen).
+  `veranstaltung` ist die einzige vorgesehene Hochrisiko-Ausnahme (Draft-PR,
+  Merge nur durch Menschen), derzeit bis zum Pilot gesperrt.
 - **Vorgehen:** Auswahl begruenden, mit dem Crawl auf Maintainer-Freigabe warten.
 
 ## Phase D — v2-Ausblick (nur bei Bedarf, nach Rueckfrage)

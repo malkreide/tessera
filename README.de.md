@@ -71,8 +71,11 @@ Mensch hat sie modelliert und geprüft), aber sie tragen das höchste Reputation
 eine falsche Frist/Gebühr, auf die sich jemand verlässt, ist realer Schaden.
 
 Ab v2 ist als **bewusste Ausnahme** genau EIN Hochrisiko-Fall — `veranstaltung` —
-für die automatische Extraktion freigeschaltet, mit maximalem Gate: Ausgabe nur als
-**Draft-PR**, Merge ausschliesslich durch einen Menschen. `baugesuch` und
+für die automatische Extraktion vorgesehen, mit maximalem Gate: Ausgabe nur als
+**Draft-PR**, Merge ausschliesslich durch einen Menschen. **Derzeit ist er bis zum
+Pilot gesperrt** (`paused` in `sources.yaml`): erst eine risikoarme Leistung live
+extrahieren und mit `tessera eval` messen, dann entscheiden. Die Überwachung
+(`verify`, `fingerprint`, `diff`) läuft weiter. `baugesuch` und
 `sozialhilfe` bleiben bewusst ausgeschlossen (existenzielles bzw. streitanfälligstes
 Risiko; siehe `sources.yaml`). Die Registry `src/tessera/risk.py` führt weiterhin
 alle drei — die Freischaltung steuert allein `sources.yaml`, damit der erhöhte Gate

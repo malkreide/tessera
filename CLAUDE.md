@@ -43,8 +43,11 @@ Rechtsfälle – `baugesuch` (Baubewilligung), `sozialhilfe`, `veranstaltung` �
 bereits als **von Hand modellierte, menschlich reviewte** v0-Prozesse in der
 Maschinerie. Legitim, aber höchstes Reputationsrisiko. Ab v2 ist als **bewusste
 Ausnahme** genau EINER dieser Fälle – `veranstaltung` – für die automatische
-Extraktion freigeschaltet (`sources.yaml`), mit maximalem Gate: Ausgabe nur als
-Draft-PR, Merge ausschliesslich durch einen Menschen. `baugesuch` und `sozialhilfe`
+Extraktion vorgesehen (`sources.yaml`), mit maximalem Gate: Ausgabe nur als
+Draft-PR, Merge ausschliesslich durch einen Menschen. **Derzeit ist `veranstaltung`
+bis zum Pilot gesperrt** (`paused` in `sources.yaml`, Maintainer-Entscheid): erst
+eine risikoarme Leistung live extrahieren und mit `tessera eval` messen, dann über
+die Freischaltung entscheiden. `baugesuch` und `sozialhilfe`
 bleiben bewusst ausgeschlossen. Die Registry ist zentral in `src/tessera/risk.py`
 (`HIGH_RISK_IDS`) und führt weiterhin alle drei – die Freischaltung steuert allein
 `sources.yaml`, damit der erhöhte Review für jeden der drei greift, sobald er die
