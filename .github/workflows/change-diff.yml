@@ -119,9 +119,11 @@ jobs:
               return;
             }
 
-            // Befund-Text bauen. Diff-Auszüge (baseline vs. live) zeigen, WAS
-            // sich geändert hat; wird der Body zu lang (GitHub-Limit 65536),
-            // wird ohne Auszüge neu gebaut.
+            // Befund-Text bauen. Diff-Auszüge (baseline vs. live) gibt es nur,
+            // wenn der lokale Seitentext vorliegt (reports/raw/fingerprints/,
+            // git-ignoriert) — auf dem Runner normalerweise nicht; dann listet
+            // das Issue nur die geänderten URLs. Wird der Body zu lang
+            // (GitHub-Limit 65536), wird ohne Auszüge neu gebaut.
             const buildBody = (withExcerpts) => {
               const lines = [
                 'Der wöchentliche `change-diff`-Lauf hat Änderungen an offiziellen Quellseiten erkannt.',

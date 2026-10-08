@@ -6,25 +6,28 @@ Je Leistung liegt hier eine committete Baseline:
   Seitentext (`grounding.normalize`) plus Zeichenzahl. `tessera diff`
   vergleicht die Live-Seiten dagegen; nur inhaltliche Änderungen lösen einen
   Befund aus, Kosmetik (Whitespace, Typografie, Markdown-Deko) nicht.
-- **`<id>/NN-slug.txt`** — der zeilenweise normalisierte Seitentext derselben
-  URL. Zweck: Meldet `diff` eine Änderung, zeigt er (und das rollende
-  `source-change`-Issue) einen unified-diff-Auszug baseline vs. live — also
-  *was* sich geändert hat, nicht nur *wo*.
 
-## Provenienz und Zweck
+**Hier liegt kein Seitentext.** Die Baselines enthalten nur Hash und
+Zeichenzahl — keinen Inhalt der amtlichen Seiten. Deren Nutzungsbedingungen
+erlauben nur Ansehen, Herunterladen zum Eigengebrauch und Ausdrucken; Volltext
+gehört deshalb nicht in dieses öffentliche Repo. `.gitignore` sperrt
+`reports/fingerprints/*/`, und `tests/test_diff.py` schlägt in der CI fehl,
+sobald hier etwas anderes als die JSON-Baselines und dieses README liegt.
 
-Die Textdateien sind **normalisierte Auszüge amtlicher Webseiten** der in
-`sources.yaml` kuratierten Quellen (Quell-URL steht im zugehörigen JSON).
-Sie dienen ausschliesslich der Änderungserkennung (Diff-Basis) und sind
-**keine publizierten Prozessdaten** — publiziert wird nur der belegte,
-menschlich reviewte Vertrags-Output via Draft-PR.
+## Diff-Auszüge (nur lokal)
+
+`tessera fingerprint` legt den zeilenweise normalisierten Seitentext je URL
+zusätzlich **lokal** ab: `reports/raw/fingerprints/<id>/NN-slug.txt`
+(git-ignoriert, nie committet). Meldet ein lokaler `tessera diff` eine
+Änderung, zeigt er daraus einen unified-diff-Auszug baseline vs. live — also
+*was* sich geändert hat, nicht nur *wo*. Fehlt der lokale Text (frischer
+Checkout, CI-Cron), wird die Änderung weiterhin gemeldet, nur ohne Auszug.
 
 ## Pflege
 
-`tessera fingerprint --id <leistung>` schreibt JSON **und** Textdateien neu
-und entfernt nicht mehr geführte `.txt` (das Verzeichnis gehört vollständig
-dem Fingerprint). Nach einem bestätigten Re-Extraktions-Lauf ausführen und
-committen.
+`tessera fingerprint --id <leistung>` schreibt die JSON-Baseline neu (und den
+lokalen Text; nicht mehr geführte lokale `.txt` werden entfernt). Nach einem
+bestätigten Re-Extraktions-Lauf ausführen und das JSON committen.
 
 Ohne lokale Session mit offener Netz-Policy: Actions → **fingerprint** →
 «Run workflow» mit den Leistungs-IDs (z.B. `kita-platz veranstaltung`). Der
@@ -33,10 +36,9 @@ Hashes), bricht bei einer Leistung ohne erreichbare URL ohne Commit ab und
 reicht die Baseline als Draft-PR auf einem eigenen Branch ein — nie nach
 `main`.
 
-Robots-/ToU-Gate: eine Baseline (also Volltext der Quellseiten) entsteht nur
-für Leistungen, deren Domains freigegeben sind (`terms_of_use` in
-`sources.yaml`, siehe `reports/scraping-compliance.md`). Ist eine angeforderte
-Leistung gesperrt, schreibt `tessera fingerprint` nichts und endet mit Exit 1;
-der Workflow scheitert dann ohne Commit. Die bereits committeten Baselines
-bleiben davon unberührt. Ältere Hash-only-Baselines bleiben gültig; sie liefern lediglich
-keine Diff-Auszüge, bis der nächste `fingerprint`-Lauf die Texte ergänzt.
+Robots-/ToU-Gate: eine Baseline entsteht nur für Leistungen, deren Domains
+freigegeben sind (`terms_of_use` in `sources.yaml`, siehe
+`reports/scraping-compliance.md`). Ist eine angeforderte Leistung gesperrt,
+schreibt `tessera fingerprint` nichts und endet mit Exit 1; der Workflow
+scheitert dann ohne Commit. Die bereits committeten Baselines bleiben davon
+unberührt.

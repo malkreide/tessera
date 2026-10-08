@@ -11,3 +11,9 @@ out/
 .env
 .env.*
 !.env.example
+
+# Seitentext amtlicher Quellen gehoert NICHT ins oeffentliche Repo (Nutzungs-
+# bedingungen: nur Ansehen/Eigengebrauch). `tessera fingerprint` schreibt ihn
+# lokal nach reports/raw/fingerprints/ (oben ignoriert); diese Zeile verhindert
+# zusaetzlich ein versehentliches Einchecken am alten Ort.
+reports/fingerprints/*/

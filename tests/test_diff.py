@@ -42,14 +42,16 @@ def _fetcher(pages: dict[str, tuple[str, str]]):
 
 
 def _with_tmp_fingerprints(fn):
-    """Fuehrt fn mit auf ein temporaeres Verzeichnis umgebogenem FINGERPRINTS aus."""
-    orig = diff_mod.FINGERPRINTS
+    """Fuehrt fn mit auf temporaere Verzeichnisse umgebogenem FINGERPRINTS
+    (committete Baseline) und TEXTS (lokale Textdateien) aus."""
+    orig = diff_mod.FINGERPRINTS, diff_mod.TEXTS
     with tempfile.TemporaryDirectory() as d:
-        diff_mod.FINGERPRINTS = Path(d)
+        diff_mod.FINGERPRINTS = Path(d) / "fingerprints"
+        diff_mod.TEXTS = Path(d) / "raw" / "fingerprints"
         try:
             fn()
         finally:
-            diff_mod.FINGERPRINTS = orig
+            diff_mod.FINGERPRINTS, diff_mod.TEXTS = orig
 
 
 URL_A = "https://example.org/a"
@@ -202,18 +204,54 @@ def test_fingerprint_writes_and_prunes_text_files() -> None:
         for url in (URL_A, URL_B):
             tf = base[url].get("text_file", "")
             assert tf, base[url]
-            assert (diff_mod.FINGERPRINTS / tf).exists(), tf
+            assert (diff_mod.TEXTS / tf).exists(), tf  # lokal, git-ignoriert
+        # Kein Seitentext im committeten Baseline-Verzeichnis.
+        assert not list(diff_mod.FINGERPRINTS.rglob("*.txt")), list(diff_mod.FINGERPRINTS.rglob("*"))
         # URL_B faellt aus sources -> ihre Textdatei wird beim naechsten
         # Fingerprint entfernt (Verzeichnis gehoert dem Fingerprint).
-        stale = diff_mod.FINGERPRINTS / base[URL_B]["text_file"]
+        stale = diff_mod.TEXTS / base[URL_B]["text_file"]
         proc2 = _Proc("svc", [URL_A])
         diff_mod.write_fingerprints(
             "svc", diff_mod.build_entries(proc2, _fetcher(live), "2026-06-30"), "2026-06-30"
         )
         assert not stale.exists(), stale
-        assert (diff_mod.FINGERPRINTS / base[URL_A]["text_file"]).exists()
+        assert (diff_mod.TEXTS / base[URL_A]["text_file"]).exists()
 
     _with_tmp_fingerprints(body)
+
+
+def test_changed_without_local_text_reports_without_excerpt() -> None:
+    def body() -> None:
+        # CI-Fall: die committete Baseline verweist auf eine Textdatei, die nur
+        # lokal existiert (git-ignoriert). Die Aenderung wird gemeldet, ohne Auszug.
+        proc = _Proc("svc", [URL_A])
+        diff_mod.write_fingerprints(
+            "svc",
+            diff_mod.build_entries(proc, _fetcher({URL_A: ("Alt.", reach.OK)}), "2026-06-29"),
+            "2026-06-29",
+        )
+        for f in diff_mod.TEXTS.rglob("*.txt"):
+            f.unlink()  # frischer Checkout: keine lokalen Texte
+        rep = diff_mod.diff_process(proc, _fetcher({URL_A: ("Neu und anders.", reach.OK)}))
+        assert rep.changed == [URL_A] and rep.excerpts == {}, rep
+
+    _with_tmp_fingerprints(body)
+
+
+def test_no_page_text_committed_in_public_repo() -> None:
+    # Guard: im oeffentlichen Repo liegen unter reports/fingerprints nur die
+    # Hash-Baselines (JSON) und das README — nie Seitentext amtlicher Quellen.
+    real = ROOT / "reports" / "fingerprints"
+    unexpected = [
+        p.relative_to(ROOT).as_posix()
+        for p in real.rglob("*")
+        if p.is_file() and not (p.parent == real and (p.suffix == ".json" or p.name == "README.md"))
+    ]
+    assert not unexpected, f"Seitentext/Fremddateien im oeffentlichen Repo: {unexpected}"
+    # Die Baselines selbst tragen nur Hash, Zeichenzahl und Verweis — keinen Text.
+    for j in real.glob("*.json"):
+        for entry in __import__("json").loads(j.read_text(encoding="utf-8"))["urls"]:
+            assert set(entry) <= {"url", "sha256", "chars", "text_file"}, (j.name, sorted(entry))
 
 
 def test_report_to_dict_shape() -> None:
