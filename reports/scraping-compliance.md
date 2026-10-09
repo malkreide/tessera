@@ -1,6 +1,6 @@
 # Scraping-Compliance (robots.txt & Nutzungsbedingungen)
 
-Stand: 2026-10-08 — erzeugt durch `tessera preflight`.
+Stand: 2026-10-09 — erzeugt durch `tessera preflight`.
 
 ## Respekt-Regeln (fix)
 
@@ -13,7 +13,7 @@ Stand: 2026-10-08 — erzeugt durch `tessera preflight`.
 
 | Domain | robots.txt | Nutzungsbedingungen | ToU-Pruefung (Maintainer) | ToU-Gate |
 |---|---|---|---|---|
-| www.stadt-zuerich.ch | robots.txt geladen | [https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html](https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html) | ausstehend (geprueft —; Fassung «—») | **GESPERRT** — ToU-Pruefung ausstehend — der Maintainer entscheidet (terms_of_use in sources.yaml) |
+| www.stadt-zuerich.ch | robots.txt geladen | [https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html](https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html) | erlaubt (geprueft 2026-10-09; Fassung «Version 2.2.5; Stand 31. März 2026») | frei |
 | www.zh.ch | robots.txt geladen | [https://www.zh.ch/de/nutzungshinweise.html](https://www.zh.ch/de/nutzungshinweise.html) | ausstehend (geprueft —; Fassung «—») | **GESPERRT** — ToU-Pruefung ausstehend — der Maintainer entscheidet (terms_of_use in sources.yaml) |
 
 ## Geprüfte URLs
@@ -47,12 +47,12 @@ Stand: 2026-10-08 — erzeugt durch `tessera preflight`.
 
 | Leistung | robots | Nutzungsbedingungen |
 |---|---|---|
-| `hund-anmelden` | frei | **GESPERRT** (www.stadt-zuerich.ch, www.zh.ch) |
-| `umzug-melden` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
-| `fundsache` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
-| `parkplatz` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
-| `kita-platz` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
-| `veranstaltung` | frei | **GESPERRT** (www.stadt-zuerich.ch) |
+| `hund-anmelden` | frei | **GESPERRT** (www.zh.ch) |
+| `umzug-melden` | frei | frei |
+| `fundsache` | frei | frei |
+| `parkplatz` | frei | frei |
+| `kita-platz` | frei | frei |
+| `veranstaltung` | frei | frei |
 
 Verdikt-Logik: Eine Leistung wird nur gecrawlt, wenn ALLE ihre URLs
 fuer unseren User-Agent erlaubt sind (robots.txt) UND fuer JEDE ihrer
