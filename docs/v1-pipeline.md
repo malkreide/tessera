@@ -91,10 +91,13 @@ Alles in Phase A ist Voraussetzung fuer die Echtlaeufe und liegt beim Maintainer
 ## Phase B — Echtlaeufe pro Leistung (bis zur Definition of Done)
 
 Schlichte Schleife je Leistung: `preflight → crawl → extract → validate → verify
-→ pr`, mit menschlichem Review an den markierten Stellen. **Pilot:**
-`hund-anmelden` (rein kommunal, risikoarm, SSR-Quelle stadt-zuerich.ch, klar
-belegbare Frist/Abgabe). **Dann:** `umzug-melden` (zh.ch SSR, eUmzug beachten)
-und `fundsache` (VBZ Fundbuero, `actors[]` → Actor-Abgleich beim Merge).
+→ pr`, mit menschlichem Review an den markierten Stellen. **Pilot (seit
+2026-10-09):** `fundsache` (VBZ Fundbuero; nur Quellen auf stadt-zuerich.ch,
+deren Nutzungsbedingungen freigegeben sind; risikoarm; handmodellierte
+Zieldatei mit `actors[]` vorhanden → Actor-Abgleich beim Merge und Messung mit
+`tessera eval`). **Dann:** `umzug-melden` (eUmzug beachten) und
+`hund-anmelden` — letzteres erst, wenn auch die Nutzungsbedingungen von
+`www.zh.ch` freigegeben sind (eine Quelle liegt dort).
 
 Cardinal Rule durchgehend: keine bindende Zahl in einem Label — Fristen/Gebuehren
 nur als `references` (Label ohne Zahl + Deep-Link + woertliche `source_quote`).

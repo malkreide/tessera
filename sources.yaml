@@ -48,8 +48,12 @@ crawler:
 terms_of_use:
   www.stadt-zuerich.ch:
     url: "https://www.stadt-zuerich.ch/de/service/rechtliche-hinweise.html"
-    # Fassung beim Anlegen: «Version 2.2.5; Stand 31. März 2026».
-    verdict: ausstehend
+    # Maintainer-Entscheid vom 2026-10-09, auf ausdrueckliche Anweisung woertlich
+    # uebertragen. Gepruefte Fassung beim Eintragen live bestaetigt.
+    verdict: erlaubt
+    reviewed_at: "2026-10-09"
+    version_marker: "Version 2.2.5; Stand 31. März 2026"
+    basis: "Zustimmung der Stadt Zürich per E-Mail vom 08.10.2026"
   www.zh.ch:
     url: "https://www.zh.ch/de/nutzungshinweise.html"
     # Fassung beim Anlegen: «Version 4.0; Stand 18.01.2024». Fragen an zhweb@zh.ch.
@@ -156,8 +160,9 @@ processes:
     catalog_keywords: ["veranstaltung", "bewilligung", "anlass", "fest"]
     # Maintainer-Entscheid 2026-10-08: erst den Pilot mit einer risikoarmen
     # Leistung live fahren und mit `tessera eval` messen, dann ueber die
-    # Freischaltung dieses Hochrisiko-Falls entscheiden.
-    paused: "bis zum Pilot — erst hund-anmelden live extrahieren und mit `tessera eval` messen"
+    # Freischaltung dieses Hochrisiko-Falls entscheiden. Pilot seit 2026-10-09:
+    # fundsache (nur stadt-zuerich.ch; hund-anmelden braucht auch zh.ch).
+    paused: "bis zum Pilot — erst fundsache live extrahieren und mit `tessera eval` messen"
     notes: >-
       HOCHRISIKO — als einzige Ausnahme vorgesehen (Draft-PR, Merge nur durch
       Menschen), derzeit gesperrt (`paused`). Erhoehter Gate greift automatisch (risk.py): JEDE
