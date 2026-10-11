@@ -70,12 +70,12 @@ Alles in Phase A ist Voraussetzung fuer die Echtlaeufe und liegt beim Maintainer
   Keys). Key-Praesenz prueft der Extract-Schritt selbst (`extract._require_key`).
 
 ### A.3 — Runtime-Deps installieren + Smoke-Test
-- **Aktion:** venv anlegen, `pip install -e .` (zieht `crawl4ai`, `pydantic`,
+- **Aktion:** venv anlegen, `pip install -c constraints.txt -e .` (zieht `crawl4ai`, `pydantic`,
   `pydantic-ai`, `httpx`, `pyyaml`, `openpyxl`); optional `playwright install chromium`.
 - **Test-Setting:**
   ```bash
   python -m venv .venv && . .venv/bin/activate
-  pip install -e .
+  pip install -c constraints.txt -e .   # ohne -c: anthropic 1.x (httpx2) bricht extract
   tessera --help                 # preflight|crawl|extract|validate|verify|pr|run
   python -c "import tessera.crawl, tessera.extract, tessera.verify"   # Import-Smoke
   python tests/run_checks.py && python tests/test_grounding.py \

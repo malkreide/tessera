@@ -61,6 +61,19 @@ def test_workflow_packages_are_all_pinned() -> None:
             )
 
 
+def test_anthropic_stays_on_httpx_line() -> None:
+    # anthropic>=1.0 verlangt `httpx2`; pydantic-ai 2.13 uebergibt einen
+    # `httpx.AsyncClient` -> TypeError beim ersten Extract. Ohne Pin zieht ein
+    # frischer Install die 1.x-Linie (so im Pilot passiert).
+    pins = _pins()
+    assert "anthropic" in pins, "constraints.txt: anthropic nicht gepinnt."
+    major = int(pins["anthropic"].split(".", 1)[0])
+    assert major < 1, (
+        f"anthropic=={pins['anthropic']} baut auf httpx2; nur mit einer "
+        "pydantic-ai-Version anheben, die httpx2 unterstuetzt."
+    )
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

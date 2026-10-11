@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`tessera extract` failed on a fresh install with `TypeError: Invalid
+  http_client argument ... this SDK uses httpx2`.** `anthropic` 1.0+ is built
+  on `httpx2` and rejects the `httpx.AsyncClient` that pydantic-ai 2.13 passes
+  in; nothing pinned the transitive `anthropic`, so pip took 1.13. Now pinned
+  to `anthropic==0.125.0` (last 0.x, `httpx<1`) in `constraints.txt`, verified
+  with `pip check` and an Agent construction + request against a closed port.
+  README and `docs/v1-pipeline.md` install with `-c constraints.txt`;
+  `tests/test_reproducibility.py` fails if the pin moves to 1.x.
 - **`scripts/tessera.ps1` failed to parse under Windows PowerShell 5.1.** PS 5.1
   reads a `.ps1` file without BOM as Windows-1252; the UTF-8 em dash (`E2 80
   94`) became `â€”`, and `0x94` is a typographic quote there, which ends the
