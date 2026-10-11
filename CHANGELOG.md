@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`scripts/tessera.ps1` failed to parse under Windows PowerShell 5.1.** PS 5.1
+  reads a `.ps1` file without BOM as Windows-1252; the UTF-8 em dash (`E2 80
+  94`) became `â€”`, and `0x94` is a typographic quote there, which ends the
+  string -> `TerminatorExpectedAtEndOfString`. The script is now pure ASCII,
+  and `tests/test_scripts_ascii.py` (in `contract-check.yml`) fails on any
+  non-ASCII byte in `scripts/*.ps1` (verified red against the old script).
+
 ### Removed
 - **Full page text of official sources removed from the public repo.**
   `reports/fingerprints/<id>/*.txt` held the whole normalised text of 22

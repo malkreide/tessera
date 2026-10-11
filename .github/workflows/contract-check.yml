@@ -52,3 +52,5 @@ jobs:
         run: python tests/test_risk.py
       - name: Aenderungs-Diff-Tests (Fingerprint/Diff, stdlib)
         run: python tests/test_diff.py
+      - name: PowerShell-Skripte nur ASCII (Windows PowerShell 5.1, stdlib)
+        run: python tests/test_scripts_ascii.py
