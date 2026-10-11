@@ -99,8 +99,12 @@ contract validator:
 ```bash
 git clone https://github.com/malkreide/tessera.git
 cd tessera
-uv sync          # or: python -m venv .venv && pip install -e ".[dev]"
+uv sync          # or: python -m venv .venv && pip install -c constraints.txt -e ".[dev]"
 ```
+
+Install with `-c constraints.txt`: an unconstrained install currently pulls
+`anthropic` 1.x, which requires `httpx2` and makes `tessera extract` fail with
+``Invalid `http_client` argument``.
 
 Before a push, run the two lint gates CI runs — with the ruff version pinned
 in `constraints.txt`, not whichever one is installed:
