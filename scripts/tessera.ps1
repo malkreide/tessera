@@ -1,7 +1,7 @@
 #!/usr/bin/env pwsh
 # Repo-Helfer: .env in die aktuelle Sitzung laden, dann `tessera` mit den
 # uebergebenen Argumenten ausfuehren. So muss die Import-DotEnv-Logik NICHT ins
-# persoenliche $PROFILE — sie lebt eingecheckt im Repo, eine Stelle fuer alle.
+# persoenliche $PROFILE - sie lebt eingecheckt im Repo, eine Stelle fuer alle.
 #
 #   ./scripts/tessera.ps1 preflight
 #   ./scripts/tessera.ps1 run --id hund-anmelden
@@ -26,7 +26,7 @@ if (Test-Path $envPath) {
         Set-Item -Path "Env:$($name.Trim())" -Value $value.Trim().Trim('"')
     }
 } else {
-    Write-Warning "$envPath nicht gefunden — fahre ohne .env fort (ENV evtl. anderweitig gesetzt)."
+    Write-Warning "$envPath nicht gefunden - fahre ohne .env fort (ENV evtl. anderweitig gesetzt)."
 }
 
 tessera @Rest
