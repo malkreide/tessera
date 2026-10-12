@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **`tessera extract` failed with `XProcess steps: Field required` /
+  `Exceeded maximum output retries (1)`.** pydantic-ai sends Anthropic
+  `max_tokens=4096` unless told otherwise; an XProcess with verbatim quotes
+  from several pages is longer. The API closes the truncated tool input into
+  valid but incomplete JSON, so validation sees a missing `steps` instead of
+  a length error, and the retry hits the same limit. Both passes now send
+  `max_tokens=32000` for `anthropic:` models (override: `TESSERA_MAX_TOKENS`;
+  other providers keep their default). If a pass still returns no valid
+  XProcess, the run ends with a short message naming the limit instead of a
+  pydantic-ai traceback. Reproduced against a local fake of the Messages API:
+  `main` sent `max_tokens=4096`; a truncated reply produces exactly the pilot's
+  error; with the fix the request carries 32000 (streamed).
 - **`tessera extract` failed on a fresh install with `TypeError: Invalid
   http_client argument ... this SDK uses httpx2`.** `anthropic` 1.0+ is built
   on `httpx2` and rejects the `httpx.AsyncClient` that pydantic-ai 2.13 passes

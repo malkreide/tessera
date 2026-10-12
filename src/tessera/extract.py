@@ -6,6 +6,8 @@ Provider und Modell kommen AUSSCHLIESSLICH aus ENV-Variablen:
 * ANTHROPIC_API_KEY  (bzw. der zum Provider passende Key) — wird vom Provider-SDK
                      gelesen; tessera fasst den Key selbst nie an und loggt ihn nie.
 * TESSERA_REVIEW     "0"/"false"/"no"/"off" deaktiviert den Review-Pass (Default: an).
+* TESSERA_MAX_TOKENS Obergrenze der Modellantwort (Default fuer anthropic:-Modelle
+                     32000, sonst Provider-Default; siehe `_max_tokens`).
 
 Ohne Key bricht der Schritt mit einer klaren Meldung ab — es gibt keinen
 stillen Fallback und kein Raten.
@@ -37,6 +39,14 @@ DEFAULT_MODEL = "anthropic:claude-opus-4-8"
 # Deterministisch, wo akzeptiert: gleiche Quelle -> moeglichst gleiches Ergebnis.
 TEMPERATURE = 0.0
 _REVIEW_OFF = {"0", "false", "no", "off"}
+
+# Ausgabe-Obergrenze. pydantic-ai schickt an Anthropic ohne Angabe max_tokens=4096;
+# ein XProcess mit woertlichen source_quotes ueber mehrere Seiten ist laenger. Die
+# API schliesst eine abgeschnittene Tool-Eingabe dann zu gueltigem, aber
+# unvollstaendigem JSON -> «steps: Field required» statt eines Laengen-Fehlers
+# (so im fundsache-Pilot). Nur fuer anthropic: gesetzt: lokale/andere Modelle
+# haben teils kleinere Kontextfenster und behalten ihren Provider-Default.
+DEFAULT_MAX_TOKENS_ANTHROPIC = 32000
 
 # Anthropic-Modelle, die Sampling-Parameter (temperature/top_p/top_k) nicht mehr
 # akzeptieren. Ein gesetztes temperature wird dort verworfen (Warnung bzw. 400),
@@ -203,6 +213,53 @@ def _supports_sampling(model: str) -> bool:
     return not any(marker in name for marker in _NO_SAMPLING_MODELS)
 
 
+def _max_tokens(model: str) -> int | None:
+    """Ausgabe-Obergrenze: TESSERA_MAX_TOKENS, sonst 32000 fuer anthropic:, sonst None."""
+    raw = os.environ.get("TESSERA_MAX_TOKENS", "").strip()
+    if raw:
+        try:
+            value = int(raw)
+        except ValueError:
+            value = 0
+        if value <= 0:
+            raise SystemExit(f"TESSERA_MAX_TOKENS muss eine positive Ganzzahl sein, nicht {raw!r}.")
+        return value
+    if model.split(":", 1)[0].lower() == "anthropic":
+        return DEFAULT_MAX_TOKENS_ANTHROPIC
+    return None
+
+
+def model_settings(model: str) -> dict:
+    """Settings fuer beide Paesse (rein, testbar): temperature nur, wo der Provider
+    es akzeptiert; max_tokens gemaess `_max_tokens`."""
+    settings: dict = {}
+    if _supports_sampling(model):
+        settings["temperature"] = TEMPERATURE
+    max_tokens = _max_tokens(model)
+    if max_tokens is not None:
+        settings["max_tokens"] = max_tokens
+    return settings
+
+
+def _run(agent, prompt: str, pass_name: str, max_tokens: int | None) -> XProcess:
+    """Ein Pass. Liefert das Modell auch nach dem Retry kein gueltiges XProcess,
+    endet der Lauf mit einer Meldung statt eines pydantic-ai-Tracebacks."""
+    from pydantic_ai.exceptions import UnexpectedModelBehavior  # noqa: PLC0415
+
+    try:
+        return agent.run_sync(prompt).output
+    except UnexpectedModelBehavior as exc:
+        # Die ersten Zeilen des Validierungsfehlers nennen das fehlende Feld.
+        detail = " / ".join(line.strip() for line in str(exc.__cause__ or exc).splitlines()[:3])
+        limit = max_tokens if max_tokens is not None else "Provider-Default"
+        raise SystemExit(
+            f"{pass_name}: Modell lieferte kein gueltiges XProcess ({exc}).\n"
+            f"Letzter Fehler: {detail}\n"
+            f"Haeufigste Ursache: Antwort am Token-Limit abgeschnitten (aktuell {limit}). "
+            "TESSERA_MAX_TOKENS erhoehen und erneut extrahieren. Nichts geschrieben."
+        ) from exc
+
+
 def _require_key(model: str) -> None:
     prefix = model.split(":", 1)[0].lower()
     env = _KEY_ENV_BY_PREFIX.get(prefix)
@@ -226,13 +283,16 @@ def extract_process(proc: ProcessSource, corpus: str, domain_hint: str = "") -> 
     from pydantic_ai import Agent  # noqa: PLC0415 — Import erst nach Key-Check
     from pydantic_ai.settings import ModelSettings  # noqa: PLC0415
 
-    # temperature nur setzen, wo der Provider es akzeptiert (siehe Docstring).
-    settings = ModelSettings(temperature=TEMPERATURE) if _supports_sampling(model) else None
+    # temperature nur, wo der Provider es akzeptiert (siehe Docstring); max_tokens
+    # siehe DEFAULT_MAX_TOKENS_ANTHROPIC.
+    settings = ModelSettings(**model_settings(model)) or None
+    max_tokens = _max_tokens(model)
 
-    draft = (
-        Agent(model, output_type=XProcess, instructions=INSTRUCTIONS, model_settings=settings)
-        .run_sync(build_extract_prompt(proc, corpus, domain_hint))
-        .output
+    draft = _run(
+        Agent(model, output_type=XProcess, instructions=INSTRUCTIONS, model_settings=settings),
+        build_extract_prompt(proc, corpus, domain_hint),
+        "Entwurf",
+        max_tokens,
     )
 
     if not _review_enabled():
@@ -240,9 +300,9 @@ def extract_process(proc: ProcessSource, corpus: str, domain_hint: str = "") -> 
 
     # Review-/Repair-Pass: Entwurf gegen denselben Korpus pruefen. Das
     # Grounding-Gate filtert danach ohnehin jedes nicht belegte Element.
-    reviewed = (
-        Agent(model, output_type=XProcess, instructions=REVIEW_INSTRUCTIONS, model_settings=settings)
-        .run_sync(build_review_prompt(proc, corpus, draft.model_dump_json(indent=2), domain_hint))
-        .output
+    return _run(
+        Agent(model, output_type=XProcess, instructions=REVIEW_INSTRUCTIONS, model_settings=settings),
+        build_review_prompt(proc, corpus, draft.model_dump_json(indent=2), domain_hint),
+        "Review",
+        max_tokens,
     )
-    return reviewed
