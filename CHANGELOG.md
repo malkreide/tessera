@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Hand-kept step pairing for `tessera eval`** (`reports/eval/<id>.pairs.yaml`).
+  The label heuristic pairs 1:1 by word overlap; in the `fundsache` pilot at
+  least 5 of its 7 pairs were wrong (e.g. "hand in to tram staff" <-> "get the
+  item back"), which also skewed the edge and actor figures. The file holds
+  groups of n extracted to m hand steps, one-sided groups for steps
+  deliberately left unpaired, and `nicht_belegbar` for start/decision/end nodes
+  the source does not state verbatim (the report then adds recall without
+  them). When the file exists it alone decides; `eval` rejects a file with
+  missing, duplicate, unknown or stale steps (label differs from the current
+  file) and lists every problem. `tessera eval --propose-pairs` drafts the file
+  from the heuristic and never overwrites. The report states which pairing it
+  used and its status (`vorschlag`/`bestaetigt`). First file:
+  `reports/eval/fundsache.pairs.yaml`, a proposal derived from the pilot
+  report's labels, to be confirmed by the maintainer.
+
 ### Fixed
 - **`tessera extract` failed with `XProcess steps: Field required` /
   `Exceeded maximum output retries (1)`.** pydantic-ai sends Anthropic

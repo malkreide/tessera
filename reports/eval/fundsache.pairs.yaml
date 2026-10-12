@@ -1,0 +1,101 @@
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+#
+# Vorschlag von Claude (Pilot-Lauf 2026-10-12), allein aus den Labels im
+# eval-Report abgeleitet — out/fundsache.json und die Quellseiten wurden dabei
+# nicht eingesehen. Vom Maintainer gegen beide Dateien zu pruefen.
+
+leistung: fundsache
+status: vorschlag
+gruppen:
+  # --- Entsprechungen ---------------------------------------------------------
+  - extraktion:
+      1: "Gegenstand in Tram oder Bus dem Fahrpersonal abgeben"
+      2: "Gegenstand bei ZVV-Contact oder der VBZ-Beratungsstelle abgeben"
+      3: "Gegenstand von öffentlichem Grund bei einem Polizeiposten abgeben"
+      4: "Gegenstand beim Fundbüro der Stadt Zürich abgeben"
+      5: "Gefundenen Gegenstand per Post an das Fundbüro senden"
+    hand:
+      3: "Fundsache melden oder abgeben"
+    notiz: "Extraktion fuehrt die Abgabekanaele einzeln, die Handdatei fasst sie zusammen"
+  - extraktion:
+      6: "Verlust-Anzeige online erfassen"
+      7: "Gegenstand genau beschreiben und richtige Kategorie wählen"
+    hand:
+      6: "Verlust melden (Suchauftrag)"
+    notiz: "Online-Verlustanzeige samt Beschreibung = Suchauftrag"
+  - extraktion:
+      12: "Verlustmeldung bearbeiten und bei Fund benachrichtigen"
+    hand:
+      7: "Mit Fundbestand abgleichen"
+      11: "Suchauftrag läuft (Benachrichtigung bei einem Fund)"
+    notiz: "Ein extrahierter Schritt deckt Abgleich und laufenden Suchauftrag ab"
+  - extraktion:
+      13: "Am folgenden Tag im Fundbüro nachfragen oder Gegenstand abholen"
+    hand:
+      9: "Gegen Ausweis abholen"
+    notiz: "Abholung im Fundbuero"
+
+  # --- Nur in der Extraktion --------------------------------------------------
+  - extraktion:
+      8: "Massenartikel direkt im Fundbüro suchen und abholen"
+    hand: {}
+    notiz: "Sonderweg fuer Massenartikel; Handdatei modelliert ihn nicht"
+  - extraktion:
+      9: "Verlust eines Ausweises sofort der Polizei melden"
+    hand: {}
+    notiz: "Sonderfall Ausweis; Handdatei modelliert ihn nicht"
+  - extraktion:
+      10: "Verlorenen Ausweis als ungültig einziehen"
+    hand: {}
+    notiz: "Sonderfall Ausweis (behoerdlicher Folgeschritt); Handdatei modelliert ihn nicht"
+  - extraktion:
+      11: "Express-Suche für dringend benötigte Gegenstände beantragen"
+    hand: {}
+    notiz: "Zusatzleistung; Handdatei modelliert sie nicht"
+  - extraktion:
+      14: "Nicht abgeholte Gegenstände öffentlich verkaufen oder versteigern"
+    hand: {}
+    notiz: "Folge nach Ablauf der Aufbewahrung; Handdatei modelliert sie nicht"
+
+  # --- Nur in der Handdatei ---------------------------------------------------
+  - extraktion: {}
+    hand:
+      1: "Gegenstand gefunden oder verloren"
+    nicht_belegbar: true
+    notiz: "Startknoten"
+  - extraktion: {}
+    hand:
+      2: "Gefunden oder verloren?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      4: "Fund erfassen und aufbewahren"
+    notiz: "fehlt in der Extraktion; pruefen, ob die Quelle Erfassung/Aufbewahrung nennt"
+  - extraktion: {}
+    hand:
+      5: "Fund gemeldet (ggf. Finderlohn-Anspruch)"
+    notiz: "Endzustand; der Finderlohn-Hinweis waere belegbar, falls die Quelle ihn nennt — darum nicht als unbelegbar markiert"
+  - extraktion: {}
+    hand:
+      8: "Gegenstand vorhanden?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      10: "Gegenstand zurückerhalten"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+  - extraktion: {}
+    hand:
+      12: "Noch kein Treffer"
+    nicht_belegbar: true
+    notiz: "Endzustand"
