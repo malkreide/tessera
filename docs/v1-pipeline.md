@@ -195,8 +195,17 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
   handmodellierte Zieldatei in `maschinerie-zuerich` (lesend; `GITHUB_TOKEN`
   optional) oder lokal mit `--against PFAD`. Schreibt nur
   `reports/eval/<id>.md`, nie `out/`, nie einen PR.
-- **Kennzahlen:** Schritt-Recall/-Precision (Paarung ueber die Label-
-  Aehnlichkeit des Merge-Guards, alle Paare im Report ausgewiesen), ungepaarte
+- **Paarung:** Belastbar nur mit der von Hand gepflegten Paarungsdatei
+  `reports/eval/<id>.pairs.yaml` (Gruppen n Extraktions- zu m Handschritten,
+  einseitige Gruppen fuer bewusst Ungepaartes, `nicht_belegbar` fuer Start-/
+  Entscheidungs-/Endknoten ohne woertliche Quelle). `tessera eval --id <id>
+  --propose-pairs` legt sie aus der Heuristik als Vorschlag an (ueberschreibt
+  nie); der Mensch korrigiert und setzt `status: bestaetigt`. Fehlende, doppelte,
+  unbekannte oder veraltete Schritte (Label weicht von der aktuellen Datei ab)
+  brechen `eval` mit allen Befunden ab. Ohne Datei paart eine Wortueberlappungs-
+  Heuristik 1:1 — im fundsache-Pilot lag sie bei 5 von 7 Paaren daneben.
+- **Kennzahlen:** Schritt-Recall/-Precision (ueber die Gruppen; zusaetzlich
+  Recall ohne nicht belegbare Handschritte, alle Paare im Report ausgewiesen), ungepaarte
   Handschritte als moegliche **Luecken**, Kanten **exakt / Abkuerzung /
   umgekehrt / unbelegt**, References, Akteure gegen `actors[]`, Gate-Ausfall
   aus der Flags-Datei, strenger Lint auf **beiden** Seiten (Treffer in der

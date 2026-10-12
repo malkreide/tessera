@@ -12,9 +12,12 @@ tessera fingerprint [--id ...] Aenderungs-Baseline schreiben (reports/fingerprin
 tessera diff      [--id ...] [--fail-on-change]
                                Live-Quellseiten gegen die Baseline diffen
                                (v2 Aenderungs-Erkennung; ergaenzt `verify`)
-tessera eval      [--id ...] [--against PFAD]
+tessera eval      [--id ...] [--against PFAD] [--propose-pairs]
                                out/<id>.json gegen die handmodellierte Zieldatei
-                               messen -> reports/eval/<id>.md (kein PR)
+                               messen -> reports/eval/<id>.md (kein PR); Schritt-
+                               Paarung aus reports/eval/<id>.pairs.yaml, falls
+                               vorhanden, sonst Heuristik. --propose-pairs legt
+                               die Paarungsdatei als Vorschlag an
 tessera run       [--id ...]   preflight..pr in Reihenfolge (ohne verify/eval)
 """
 
@@ -377,11 +380,47 @@ def _fetch_canonical(proc_id: str) -> tuple[dict | None, str]:
         return None, f"{source}: kein gueltiges JSON"
 
 
-def cmd_eval(cfg: SourcesConfig, ids: list[str] | None, against: str | None = None) -> int:
+PAIRS_HEADER = """\
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+"""
+
+
+def _propose_pairs(proc_id: str, extracted: dict, canonical: dict) -> int:
+    import yaml  # noqa: PLC0415
+
+    from . import evaluate  # noqa: PLC0415
+
+    path = evaluate.pairing_path(proc_id)
+    if path.exists():
+        # Nie ueberschreiben: die Datei ist Handarbeit.
+        print(f"  [{proc_id}] {path} existiert schon — nicht ueberschrieben.", file=sys.stderr)
+        return 1
+    proposal = evaluate.propose_pairing(extracted, canonical)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = yaml.safe_dump(proposal, allow_unicode=True, sort_keys=False, width=1000)
+    path.write_text(PAIRS_HEADER + "\n" + body, encoding="utf-8")
+    print(f"  [{proc_id}] Vorschlag -> {path} (pruefen, korrigieren, dann `tessera eval` erneut)")
+    return 0
+
+
+def cmd_eval(
+    cfg: SourcesConfig, ids: list[str] | None, against: str | None = None, propose_pairs: bool = False
+) -> int:
     """Misst out/<id>.json gegen die handmodellierte Zieldatei (Recall/Precision
     der Schritte, Kanten, References, Akteure, Gate-Ausfall, strenger Lint).
-    Schreibt nur reports/eval/<id>.md — nie out/, nie einen PR."""
+    Schreibt nur reports/eval/<id>.md (bzw. mit --propose-pairs die
+    Paarungsdatei) — nie out/, nie einen PR."""
     from pathlib import Path  # noqa: PLC0415
+
+    import yaml  # noqa: PLC0415
 
     from . import evaluate  # noqa: PLC0415
 
@@ -407,12 +446,36 @@ def cmd_eval(cfg: SourcesConfig, ids: list[str] | None, against: str | None = No
         flags_file = OUT / f"{proc.id}{FLAGS_SUFFIX}"
         flags = json.loads(flags_file.read_text(encoding="utf-8")) if flags_file.exists() else []
         extracted = json.loads(out_json.read_text(encoding="utf-8"))
-        rep = evaluate.evaluate(extracted, canonical, flags)
+        if propose_pairs:
+            rc = _propose_pairs(proc.id, extracted, canonical) or rc
+            continue
+        pairs_file = evaluate.pairing_path(proc.id)
+        pairing, pairing_source = None, ""
+        if pairs_file.exists():
+            try:
+                # utf-8-sig: unter Windows gespeicherte Dateien tragen evtl. ein BOM.
+                pairing = yaml.safe_load(pairs_file.read_text(encoding="utf-8-sig"))
+            except yaml.YAMLError as exc:
+                print(f"  [{proc.id}] {pairs_file}: kein gueltiges YAML ({exc}).", file=sys.stderr)
+                rc = 1
+                continue
+            pairing_source = f"`reports/eval/{pairs_file.name}`"
+        try:
+            rep = evaluate.evaluate(
+                extracted, canonical, flags, pairing=pairing, pairing_source=pairing_source
+            )
+        except evaluate.PairingError as exc:
+            print(f"  [{proc.id}] Paarungsdatei {pairs_file} ungueltig — kein Report:", file=sys.stderr)
+            for problem in exc.problems:
+                print(f"    - {problem}", file=sys.stderr)
+            rc = 1
+            continue
         path = evaluate.write_report(rep, source)
         print(
             f"  [{proc.id}] -> {path} (Recall {evaluate.pct(rep.step_recall)}, "
             f"Precision {evaluate.pct(rep.step_precision)}, Gate-Ausfall {evaluate.pct(rep.gate_dropout)}, "
-            f"Kanten umgekehrt {len(rep.edges_reversed)})"
+            f"Kanten umgekehrt {len(rep.edges_reversed)}; Paarung: "
+            f"{'Datei, ' + rep.pairing_status if rep.pairing_source else 'Heuristik'})"
         )
     return rc
 
@@ -451,6 +514,11 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PFAD",
         help="nur fuer `eval`: lokale Handdatei statt der Zieldatei aus TARGET_REPO",
     )
+    parser.add_argument(
+        "--propose-pairs",
+        action="store_true",
+        help="nur fuer `eval`: reports/eval/<id>.pairs.yaml als Vorschlag anlegen (ueberschreibt nie)",
+    )
     args = parser.parse_args(argv)
 
     cfg = load_sources()
@@ -468,7 +536,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "diff":
         return cmd_diff(cfg, args.ids, fail_on_change=args.fail_on_change, as_json=args.as_json)
     if args.command == "eval":
-        return cmd_eval(cfg, args.ids, against=args.against)
+        return cmd_eval(cfg, args.ids, against=args.against, propose_pairs=args.propose_pairs)
     return COMMANDS[args.command](cfg, args.ids)
 
 

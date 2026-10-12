@@ -4,17 +4,22 @@ Die von Hand modellierten, menschlich reviewten Prozesse in `maschinerie-zuerich
 sind ein fertiger Massstab. Statt zu vermuten, wie gut die Extraktion ist, misst
 `tessera eval` sie dagegen — ohne PR, ohne Schreibzugriff auf out/:
 
-* **Schritte:** Paarung ueber die Label-Aehnlichkeit (dieselbe Metrik wie der
-  Label-Guard beim Merge, `merge._label_similarity`), greedy nach absteigender
-  Aehnlichkeit, jede Seite hoechstens einmal. Daraus Recall (wie viel der
-  Handdatei wurde gefunden) und Precision (wie viel der Extraktion hat eine
+* **Schritte:** Paarung zu GRUPPEN (n Extraktionsschritte <-> m Handschritte).
+  Liegt eine von Hand gepflegte Paarungsdatei vor (`reports/eval/<id>.pairs.yaml`,
+  siehe `parse_pairing`), gilt ausschliesslich sie. Sonst eine Heuristik ueber die
+  Label-Aehnlichkeit (dieselbe Metrik wie der Label-Guard beim Merge,
+  `merge._label_similarity`), greedy, 1:1. Die Heuristik paart nach Wortueberlappung
+  und liegt bei unterschiedlich feiner Zerlegung oft daneben (fundsache-Pilot) —
+  belastbare Zahlen gibt es nur mit der Paarungsdatei. Daraus Recall (Anteil der
+  Handschritte mit Entsprechung) und Precision (Anteil der Extraktionsschritte mit
   Entsprechung). Ungepaarte Handschritte sind Kandidaten fuer FEHLENDE Schritte —
   genau die Luecke, die das Grounding-Gate nicht als Fehler sieht.
-* **Kanten:** nur zwischen gepaarten Schritten vergleichbar. Eine extrahierte
-  Kante ist «exakt», wenn die Handdatei sie direkt fuehrt; «Abkuerzung», wenn die
-  Handdatei einen Pfad in derselben Richtung fuehrt (Zwischenschritt fehlt);
-  «umgekehrt», wenn die Handdatei einen Pfad in Gegenrichtung fuehrt (falsche
-  Reihenfolge); sonst «unbelegt».
+* **Kanten:** nur zwischen gepaarten Gruppen vergleichbar (Kanten innerhalb einer
+  Gruppe zaehlen nicht). Eine extrahierte Kante ist «exakt», wenn die Handdatei
+  zwischen den beiden Gruppen eine direkte Kante fuehrt; «Abkuerzung», wenn sie
+  einen Pfad in derselben Richtung fuehrt (Zwischenschritt fehlt); «umgekehrt»,
+  wenn sie einen Pfad in Gegenrichtung fuehrt (falsche Reihenfolge); sonst
+  «unbelegt».
 * **References** (gepaart wie Schritte) und **Akteure** (gegen `actors[]` der
   Handdatei, Normalform wie beim Merge).
 * **Gate-Ausfall** aus der Flags-Datei: verworfene Schritte / extrahierte Schritte.
@@ -51,10 +56,39 @@ class Pair:
 
 
 @dataclass
+class Group:
+    """n Extraktionsschritte <-> m Handschritte. Eine Seite darf leer sein (nur in
+    der Paarungsdatei): dann ist der Schritt bewusst ohne Entsprechung erfasst."""
+
+    ext: list[tuple[object, str]]  # (step_id, label)
+    can: list[tuple[object, str]]
+    similarity: float | None = None  # nur Heuristik
+    note: str = ""
+    not_groundable: bool = False  # Handschritt, den die Quelle nicht woertlich nennt
+
+    @property
+    def matched(self) -> bool:
+        return bool(self.ext) and bool(self.can)
+
+
+class PairingError(ValueError):
+    """Paarungsdatei ungueltig oder veraltet; `problems` listet jeden Befund."""
+
+    def __init__(self, problems: list[str]):
+        super().__init__("; ".join(problems))
+        self.problems = problems
+
+
+PAIRING_STATUS = ("vorschlag", "bestaetigt")
+
+
+@dataclass
 class EvalReport:
     proc_id: str
     threshold: float
-    step_pairs: list[Pair] = field(default_factory=list)
+    step_groups: list[Group] = field(default_factory=list)
+    pairing_source: str = ""  # leer = Heuristik, sonst Pfad der Paarungsdatei
+    pairing_status: str = ""
     ext_steps: int = 0
     can_steps: int = 0
     missing_steps: list[str] = field(default_factory=list)  # Handdatei, ungepaart
@@ -78,12 +112,31 @@ class EvalReport:
     strict_hits_can: list[str] = field(default_factory=list)
 
     @property
+    def can_matched(self) -> int:
+        return sum(len(g.can) for g in self.step_groups if g.matched)
+
+    @property
+    def ext_matched(self) -> int:
+        return sum(len(g.ext) for g in self.step_groups if g.matched)
+
+    @property
+    def can_not_groundable(self) -> int:
+        return sum(len(g.can) for g in self.step_groups if g.not_groundable)
+
+    @property
     def step_recall(self) -> float | None:
-        return len(self.step_pairs) / self.can_steps if self.can_steps else None
+        return self.can_matched / self.can_steps if self.can_steps else None
+
+    @property
+    def step_recall_groundable(self) -> float | None:
+        """Recall ohne Handschritte, die als nicht belegbar markiert sind
+        (Start-/Entscheidungs-/Endknoten): None, wenn keiner markiert ist."""
+        n = self.can_steps - self.can_not_groundable
+        return self.can_matched / n if self.can_not_groundable and n else None
 
     @property
     def step_precision(self) -> float | None:
-        return len(self.step_pairs) / self.ext_steps if self.ext_steps else None
+        return self.ext_matched / self.ext_steps if self.ext_steps else None
 
     @property
     def gate_dropout(self) -> float | None:
@@ -137,6 +190,154 @@ def pair_by_label(ext: list[dict], can: list[dict], key: str, threshold: float) 
         used_c.add(cid)
         pairs.append(Pair(eid, cid, el, cl, round(sim, 2)))
     return pairs
+
+
+def _id_label_map(raw: object, side: str, where: str, problems: list[str]) -> dict[int, str]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        problems.append(f'{where}.{side}: erwartet `schritt_id: "Label"`-Paare, nicht {type(raw).__name__}')
+        return {}
+    out: dict[int, str] = {}
+    for key, label in raw.items():
+        try:
+            sid = int(key)
+        except (TypeError, ValueError):
+            problems.append(f"{where}.{side}: Schritt-ID {key!r} ist keine Zahl")
+            continue
+        if not isinstance(label, str):
+            problems.append(f"{where}.{side}[{sid}]: Label fehlt (als Text angeben)")
+            continue
+        out[sid] = label.strip()
+    return out
+
+
+def parse_pairing(data: object, extracted: dict, canonical: dict) -> tuple[list[Group], str]:
+    """Prueft eine Paarungsdatei (bereits als YAML geladen) gegen die aktuellen
+    Dateien und gibt (Gruppen, Status) zurueck. Rein; wirft PairingError mit ALLEN
+    Befunden statt still zu raten.
+
+    Format::
+
+        leistung: fundsache
+        status: vorschlag          # oder: bestaetigt
+        gruppen:
+          - extraktion: {1: "Label", 2: "Label"}
+            hand: {3: "Label"}
+            notiz: "Abgabekanaele einzeln extrahiert"
+          - extraktion: {}
+            hand: {2: "Gefunden oder verloren?"}
+            nicht_belegbar: true    # Modellierungsknoten ohne woertliche Quelle
+            notiz: "Entscheidung"
+
+    Regeln: jede Schritt-ID beider Dateien kommt GENAU EINMAL vor (vollstaendig,
+    ohne Doppel); jedes Label muss dem aktuellen `label.de` entsprechen — sonst ist
+    die Datei veraltet (z.B. nach einer neuen Extraktion) und muss nachgefuehrt
+    werden; `nicht_belegbar` nur bei Gruppen ohne Extraktionsschritte.
+    """
+    problems: list[str] = []
+    if not isinstance(data, dict):
+        raise PairingError(["Datei enthaelt kein YAML-Mapping"])
+    proc_id = str(extracted.get("id") or canonical.get("id") or "")
+    if str(data.get("leistung") or "") != proc_id:
+        problems.append(f"leistung: {data.get('leistung')!r} passt nicht zu {proc_id!r}")
+    status = data.get("status")
+    if status not in PAIRING_STATUS:
+        problems.append(f"status: {status!r} — erlaubt: {', '.join(PAIRING_STATUS)}")
+    raw_groups = data.get("gruppen")
+    if not isinstance(raw_groups, list) or not raw_groups:
+        problems.append("gruppen: fehlt oder leer")
+        raw_groups = []
+
+    sides = {
+        "extraktion": {
+            s.get("step_id"): _label(s) for s in extracted.get("steps") or [] if isinstance(s, dict)
+        },
+        "hand": {s.get("step_id"): _label(s) for s in canonical.get("steps") or [] if isinstance(s, dict)},
+    }
+    seen: dict[str, dict[int, str]] = {"extraktion": {}, "hand": {}}
+    groups: list[Group] = []
+    for i, raw in enumerate(raw_groups, start=1):
+        where = f"gruppen[{i}]"
+        if not isinstance(raw, dict):
+            problems.append(f"{where}: kein Mapping")
+            continue
+        unknown = set(raw) - {"extraktion", "hand", "notiz", "nicht_belegbar"}
+        if unknown:
+            problems.append(f"{where}: unbekannte Felder {sorted(unknown)}")
+        maps = {side: _id_label_map(raw.get(side), side, where, problems) for side in ("extraktion", "hand")}
+        if not maps["extraktion"] and not maps["hand"]:
+            problems.append(f"{where}: beide Seiten leer")
+        for side, mapping in maps.items():
+            current = sides[side]
+            for sid, label in mapping.items():
+                if sid not in current:
+                    problems.append(f"{where}.{side}: Schritt {sid} gibt es nicht")
+                elif label != current[sid]:
+                    problems.append(
+                        f"{where}.{side}[{sid}]: Label «{label}» weicht vom aktuellen «{current[sid]}» ab "
+                        "(Datei veraltet?)"
+                    )
+                if sid in seen[side]:
+                    problems.append(f"{where}.{side}: Schritt {sid} schon in {seen[side][sid]}")
+                else:
+                    seen[side][sid] = where
+        not_groundable = raw.get("nicht_belegbar", False)
+        if not isinstance(not_groundable, bool):
+            problems.append(f"{where}.nicht_belegbar: true oder false")
+            not_groundable = False
+        if not_groundable and maps["extraktion"]:
+            problems.append(f"{where}.nicht_belegbar: nur fuer Gruppen ohne Extraktionsschritte")
+        note = raw.get("notiz", "")
+        if not isinstance(note, str):
+            problems.append(f"{where}.notiz: als Text angeben")
+            note = ""
+        groups.append(
+            Group(
+                ext=sorted(maps["extraktion"].items()),
+                can=sorted(maps["hand"].items()),
+                note=note.strip(),
+                not_groundable=bool(not_groundable),
+            )
+        )
+    for side, current in sides.items():
+        missing = [sid for sid in current if sid not in seen[side]]
+        if missing:
+            problems.append(f"{side}: Schritt(e) {missing} fehlen in der Paarungsdatei")
+    if problems:
+        raise PairingError(problems)
+    return groups, str(status)
+
+
+def propose_pairing(extracted: dict, canonical: dict, threshold: float = LABEL_SIMILARITY_MIN) -> dict:
+    """Vorschlag fuer eine Paarungsdatei aus der Heuristik (rein): jedes
+    Heuristik-Paar als Gruppe, jeder ungepaarte Schritt als einseitige Gruppe.
+    Der Mensch korrigiert ihn; `status` bleibt `vorschlag`."""
+    ext = [s for s in extracted.get("steps") or [] if isinstance(s, dict)]
+    can = [s for s in canonical.get("steps") or [] if isinstance(s, dict)]
+    pairs = pair_by_label(ext, can, "step_id", threshold)
+    paired_e = {p.ext_id for p in pairs}
+    paired_c = {p.can_id for p in pairs}
+    groups: list[dict] = [
+        {
+            "extraktion": {p.ext_id: p.ext_label},
+            "hand": {p.can_id: p.can_label},
+            "notiz": f"Heuristik (Aehnlichkeit {p.similarity}) — pruefen",
+        }
+        for p in pairs
+    ]
+    groups += [
+        {"extraktion": {s.get("step_id"): _label(s)}, "hand": {}, "notiz": "ohne Entsprechung — pruefen"}
+        for s in ext
+        if s.get("step_id") not in paired_e
+    ]
+    groups += [
+        {"extraktion": {}, "hand": {s.get("step_id"): _label(s)}, "notiz": "ohne Entsprechung — pruefen"}
+        for s in can
+        if s.get("step_id") not in paired_c
+    ]
+    proc_id = str(extracted.get("id") or canonical.get("id") or "")
+    return {"leistung": proc_id, "status": "vorschlag", "gruppen": groups}
 
 
 def _edges(steps: list[dict]) -> set[tuple]:
@@ -217,8 +418,13 @@ def evaluate(
     flags: list[str] | None = None,
     *,
     threshold: float = LABEL_SIMILARITY_MIN,
+    pairing: object = None,
+    pairing_source: str = "",
 ) -> EvalReport:
-    """Misst `extracted` (out/<id>.json) gegen `canonical` (Handdatei). Rein."""
+    """Misst `extracted` (out/<id>.json) gegen `canonical` (Handdatei). Rein.
+
+    `pairing` ist der geladene Inhalt einer Paarungsdatei (siehe `parse_pairing`);
+    None = Heuristik. Eine ungueltige Datei wirft PairingError."""
     flags = list(flags or [])
     ext_steps = [s for s in extracted.get("steps") or [] if isinstance(s, dict)]
     can_steps = [s for s in canonical.get("steps") or [] if isinstance(s, dict)]
@@ -230,40 +436,78 @@ def evaluate(
     )
 
     # --- Schritte -----------------------------------------------------------
-    rep.step_pairs = pair_by_label(ext_steps, can_steps, "step_id", threshold)
-    paired_ext = {p.ext_id: p.can_id for p in rep.step_pairs}
-    paired_can = {p.can_id for p in rep.step_pairs}
-    rep.missing_steps = [
-        f"{s.get('step_id')} «{_label(s)}»" for s in can_steps if s.get("step_id") not in paired_can
-    ]
-    rep.extra_steps = [
-        f"{s.get('step_id')} «{_label(s)}»" for s in ext_steps if s.get("step_id") not in paired_ext
-    ]
+    if pairing is not None:
+        rep.step_groups, rep.pairing_status = parse_pairing(pairing, extracted, canonical)
+        rep.pairing_source = pairing_source or "Paarungsdatei"
+    else:
+        rep.step_groups = [
+            Group([(p.ext_id, p.ext_label)], [(p.can_id, p.can_label)], similarity=p.similarity)
+            for p in pair_by_label(ext_steps, can_steps, "step_id", threshold)
+        ]
+    matched = [g for g in rep.step_groups if g.matched]
+    group_of_ext = {sid: i for i, g in enumerate(matched) for sid, _ in g.ext}
+    group_of_can = {sid: i for i, g in enumerate(matched) for sid, _ in g.can}
+    notes = {
+        (side, sid): g
+        for g in rep.step_groups
+        if not g.matched
+        for side, members in (("ext", g.ext), ("can", g.can))
+        for sid, _ in members
+    }
 
-    # --- Kanten (nur zwischen gepaarten Schritten vergleichbar) ---------------
+    def unmatched(side: str, steps: list[dict], grouped: dict) -> list[str]:
+        out = []
+        for s in steps:
+            sid = s.get("step_id")
+            if sid in grouped:
+                continue
+            line = f"{sid} «{_label(s)}»"
+            g = notes.get((side, sid))
+            if g is not None and g.not_groundable:
+                line += " (nicht belegbar)"
+            if g is not None and g.note:
+                line += f" — {g.note}"
+            out.append(line)
+        return out
+
+    rep.missing_steps = unmatched("can", can_steps, group_of_can)
+    rep.extra_steps = unmatched("ext", ext_steps, group_of_ext)
+
+    # --- Kanten (nur zwischen gepaarten Gruppen vergleichbar) -----------------
     can_edges = _edges(can_steps)
     can_reach = _reachable(can_edges)
-    can_labels = {s.get("step_id"): _label(s) for s in can_steps}
-    mapped: set[tuple] = set()
-    for a, b in _edges(ext_steps):
-        if a not in paired_ext or b not in paired_ext:
-            continue
-        ca, cb = paired_ext[a], paired_ext[b]
-        mapped.add((ca, cb))
-        desc = f"{ca} -> {cb} («{can_labels.get(ca, '?')}» -> «{can_labels.get(cb, '?')}»)"
-        if (ca, cb) in can_edges:
+
+    def gdesc(gi: int) -> tuple[str, str]:
+        can = matched[gi].can
+        return "+".join(str(sid) for sid, _ in can), " + ".join(f"«{lab}»" for _, lab in can)
+
+    def edge_desc(ga: int, gb: int) -> str:
+        (ia, la), (ib, lb) = gdesc(ga), gdesc(gb)
+        return f"{ia} -> {ib} ({la} -> {lb})"
+
+    def group_edges(edges: set[tuple], group_of: dict) -> set[tuple]:
+        return {
+            (group_of[a], group_of[b])
+            for a, b in edges
+            if a in group_of and b in group_of and group_of[a] != group_of[b]
+        }
+
+    can_group_edges = group_edges(can_edges, group_of_can)
+    ext_group_edges = group_edges(_edges(ext_steps), group_of_ext)
+    for ga, gb in sorted(ext_group_edges):
+        ca_ids = [sid for sid, _ in matched[ga].can]
+        cb_ids = [sid for sid, _ in matched[gb].can]
+        desc = edge_desc(ga, gb)
+        if (ga, gb) in can_group_edges:
             rep.edges_exact.append(desc)
-        elif cb in can_reach.get(ca, ()):
+        elif any(cb in can_reach.get(ca, ()) for ca in ca_ids for cb in cb_ids):
             rep.edges_shortcut.append(desc)
-        elif ca in can_reach.get(cb, ()):
+        elif any(ca in can_reach.get(cb, ()) for ca in ca_ids for cb in cb_ids):
             rep.edges_reversed.append(desc)
         else:
             rep.edges_unsupported.append(desc)
-    for ca, cb in sorted(can_edges, key=lambda e: (str(e[0]), str(e[1]))):
-        if ca in paired_can and cb in paired_can and (ca, cb) not in mapped:
-            rep.edges_missed.append(
-                f"{ca} -> {cb} («{can_labels.get(ca, '?')}» -> «{can_labels.get(cb, '?')}»)"
-            )
+    for ga, gb in sorted(can_group_edges - ext_group_edges):
+        rep.edges_missed.append(edge_desc(ga, gb))
 
     # --- References ---------------------------------------------------------
     ext_refs = [r for r in extracted.get("references") or [] if isinstance(r, dict)]
@@ -296,11 +540,13 @@ def evaluate(
             mapped_id = norm_to_id.get(_norm_actor(actor)) if isinstance(actor, str) else None
             if mapped_id is None:
                 rep.actors_unmapped.append(f"Schritt {s.get('step_id')}: «{actor}»")
-            elif s.get("step_id") in paired_ext:
-                expected = can_actor.get(paired_ext[s.get("step_id")])
-                if expected and expected != mapped_id:
+            elif s.get("step_id") in group_of_ext:
+                g = matched[group_of_ext[s.get("step_id")]]
+                expected = sorted({str(can_actor[c]) for c, _ in g.can if can_actor.get(c)})
+                if expected and mapped_id not in expected:
                     rep.actors_mismatch.append(
-                        f"Schritt {s.get('step_id')} «{_label(s)}»: «{actor}» -> {mapped_id}, Handdatei: {expected}"
+                        f"Schritt {s.get('step_id')} «{_label(s)}»: «{actor}» -> {mapped_id}, "
+                        f"Handdatei: {' / '.join(expected)}"
                     )
 
     # --- Gate-Ausfall und Hinweis-Flags -------------------------------------
@@ -327,7 +573,16 @@ def render_report(rep: EvalReport, source: str) -> str:
         f"# Bewertung: `{rep.proc_id}` — Extraktion vs. Handdatei",
         "",
         f"Massstab: {source}",
-        f"Paarung: Label-Aehnlichkeit >= {rep.threshold} (Heuristik — alle Paare unten ausgewiesen).",
+        (
+            f"Schritt-Paarung: von Hand, {rep.pairing_source} (Status: {rep.pairing_status}"
+            + (" — vom Maintainer noch zu bestaetigen" if rep.pairing_status != "bestaetigt" else "")
+            + ")."
+            if rep.pairing_source
+            else f"Schritt-Paarung: Label-Aehnlichkeit >= {rep.threshold} (Heuristik, paart nach "
+            "Wortueberlappung — fuer belastbare Zahlen eine Paarungsdatei anlegen: "
+            "`tessera eval --propose-pairs`)."
+        ),
+        f"References: Label-Aehnlichkeit >= {rep.threshold} (Heuristik). Alle Paare unten ausgewiesen.",
         "Dieser Report aendert KEINE Daten.",
         "",
         "## Kennzahlen",
@@ -335,9 +590,16 @@ def render_report(rep: EvalReport, source: str) -> str:
         "| Kennzahl | Wert |",
         "|---|---|",
         f"| Schritt-Recall (Handschritte gefunden) | {pct(rep.step_recall)} "
-        f"({len(rep.step_pairs)}/{rep.can_steps}) |",
+        f"({rep.can_matched}/{rep.can_steps}) |",
+    ]
+    if rep.step_recall_groundable is not None:
+        lines.append(
+            f"| Schritt-Recall ohne nicht belegbare Handschritte | {pct(rep.step_recall_groundable)} "
+            f"({rep.can_matched}/{rep.can_steps - rep.can_not_groundable}) |"
+        )
+    lines += [
         f"| Schritt-Precision (Extraktion mit Entsprechung) | {pct(rep.step_precision)} "
-        f"({len(rep.step_pairs)}/{rep.ext_steps}) |",
+        f"({rep.ext_matched}/{rep.ext_steps}) |",
         f"| Gate-Ausfall (verworfene Schritte) | {pct(rep.gate_dropout)} "
         f"({rep.dropped_steps}/{rep.ext_steps + rep.dropped_steps}) |",
         f"| Kanten exakt / Abkuerzung / umgekehrt / unbelegt | {len(rep.edges_exact)} / "
@@ -367,15 +629,19 @@ def render_report(rep: EvalReport, source: str) -> str:
             lines.extend([hint, ""])
         lines.extend(f"- {i}" for i in items)
 
+    def members(items: list[tuple[object, str]]) -> str:
+        return ", ".join(f"{sid} «{lab}»" for sid, lab in items)
+
     lines.extend(["", "## Schritt-Paare", ""])
-    if rep.step_pairs:
-        lines.extend(["| Extraktion | Handdatei | Aehnlichkeit |", "|---|---|---|"])
-        lines.extend(
-            f"| {p.ext_id} «{p.ext_label}» | {p.can_id} «{p.can_label}» | {p.similarity} |"
-            for p in rep.step_pairs
-        )
-    else:
+    matched = [g for g in rep.step_groups if g.matched]
+    if not matched:
         lines.append("- Keine Paare.")
+    elif rep.pairing_source:
+        lines.extend(["| Extraktion | Handdatei | Notiz |", "|---|---|---|"])
+        lines.extend(f"| {members(g.ext)} | {members(g.can)} | {g.note} |" for g in matched)
+    else:
+        lines.extend(["| Extraktion | Handdatei | Aehnlichkeit |", "|---|---|---|"])
+        lines.extend(f"| {members(g.ext)} | {members(g.can)} | {g.similarity} |" for g in matched)
     section(
         "Moeglicherweise fehlende Schritte (Handdatei, ungepaart)",
         rep.missing_steps,
@@ -398,6 +664,10 @@ def render_report(rep: EvalReport, source: str) -> str:
     )
     lines.append("")
     return "\n".join(lines)
+
+
+def pairing_path(proc_id: str) -> Path:
+    return REPORTS / f"{proc_id}.pairs.yaml"
 
 
 def write_report(rep: EvalReport, source: str) -> Path:

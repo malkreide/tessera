@@ -16,7 +16,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from tessera.evaluate import evaluate, pair_by_label, render_report  # noqa: E402
+from tessera.evaluate import (  # noqa: E402
+    PairingError,
+    evaluate,
+    pair_by_label,
+    parse_pairing,
+    propose_pairing,
+    render_report,
+)
 from tessera.grounding import BRIDGE_FLAG_PREFIX  # noqa: E402
 
 URL = "https://www.stadt-zuerich.ch/hund"
@@ -178,6 +185,130 @@ def test_report_lists_pairs_and_missing() -> None:
     )
     assert "## Moeglicherweise fehlende Schritte" in text
     assert "Schritt-Recall" in text and "25%" in text
+
+
+# --- Paarungsdatei (manuelle Gruppen) ----------------------------------------
+
+# Extraktion feiner zerlegt: 1+2 = Hand 1 (zwei Kanaele), 3 = Hand 3, 4 = Hand 4;
+# Hand 2 fehlt in der Extraktion, Extraktion 5 hat keine Entsprechung.
+FINE = _extracted(
+    [
+        _step(1, "Halter:in", "Hund online anmelden", []),
+        _step(2, "Halter:in", "Hund am Schalter anmelden", []),
+        _step(3, "Steueramt", "Abgabe festlegen", [1, 2]),
+        _step(4, "Halter:in", "Zahlen", [3]),
+        _step(5, "Halter:in", "Hundekurs besuchen", []),
+    ]
+)
+
+
+def _pairing(**over):
+    data = {
+        "leistung": "hund-anmelden",
+        "status": "vorschlag",
+        "gruppen": [
+            {
+                "extraktion": {1: "Hund online anmelden", 2: "Hund am Schalter anmelden"},
+                "hand": {1: "Hund online oder am Schalter anmelden"},
+                "notiz": "Kanaele einzeln",
+            },
+            {"extraktion": {3: "Abgabe festlegen"}, "hand": {3: "Hundeabgabe veranlagen"}},
+            {"extraktion": {4: "Zahlen"}, "hand": {4: "Rechnung bezahlen"}},
+            {"extraktion": {5: "Hundekurs besuchen"}, "hand": {}, "notiz": "Zusatzinfo"},
+            {
+                "extraktion": {},
+                "hand": {2: "Registrierung in der Hundedatenbank pruefen"},
+                "nicht_belegbar": True,
+                "notiz": "behoerdenintern",
+            },
+        ],
+    }
+    data.update(over)
+    return data
+
+
+def test_pairing_groups_drive_recall_and_precision() -> None:
+    rep = evaluate(FINE, CANONICAL, pairing=_pairing(), pairing_source="`x.pairs.yaml`")
+    assert (rep.can_matched, rep.can_steps) == (3, 4) and rep.step_recall == 0.75
+    assert (rep.ext_matched, rep.ext_steps) == (4, 5) and rep.step_precision == 0.8
+    assert rep.step_recall_groundable == 1.0, rep.step_recall_groundable  # 3/3 ohne Hand 2
+    assert rep.missing_steps == [
+        "2 «Registrierung in der Hundedatenbank pruefen» (nicht belegbar) — behoerdenintern"
+    ], rep.missing_steps
+    assert rep.extra_steps == ["5 «Hundekurs besuchen» — Zusatzinfo"], rep.extra_steps
+
+
+def test_pairing_edges_between_groups() -> None:
+    rep = evaluate(FINE, CANONICAL, pairing=_pairing())
+    # 1->3 und 2->3 fallen auf dieselbe Gruppenkante; Hand fuehrt 1->2->3: Abkuerzung.
+    assert len(rep.edges_shortcut) == 1 and rep.edges_shortcut[0].startswith("1 -> 3"), rep.edges_shortcut
+    assert len(rep.edges_exact) == 1 and rep.edges_exact[0].startswith("3 -> 4"), rep.edges_exact
+    assert not rep.edges_reversed and not rep.edges_unsupported and not rep.edges_missed
+
+
+def test_pairing_n_to_m_group_label_and_actor() -> None:
+    data = _pairing()
+    data["gruppen"][1] = {
+        "extraktion": {3: "Abgabe festlegen"},
+        "hand": {3: "Hundeabgabe veranlagen", 4: "Rechnung bezahlen"},
+    }
+    data["gruppen"][2] = {"extraktion": {4: "Zahlen"}, "hand": {}}
+    rep = evaluate(FINE, CANONICAL, pairing=data)
+    # Akteur von Schritt 3 (Steueramt) passt zu einem der beiden Handschritte.
+    assert not rep.actors_mismatch, rep.actors_mismatch
+    text = render_report(rep, "`fixture`")
+    assert "| 3 «Abgabe festlegen» | 3 «Hundeabgabe veranlagen», 4 «Rechnung bezahlen» |" in text
+
+
+def test_pairing_rejects_stale_incomplete_and_duplicate() -> None:
+    data = _pairing()
+    data["gruppen"][0]["extraktion"][1] = "Hund anmelden (alt)"  # veraltetes Label
+    data["gruppen"][2]["hand"] = {3: "Hundeabgabe veranlagen"}  # Hand 3 doppelt, Hand 4 fehlt
+    data["gruppen"][3]["extraktion"] = {9: "gibt es nicht"}  # unbekannt; Extraktion 5 fehlt
+    try:
+        parse_pairing(data, FINE, CANONICAL)
+    except PairingError as exc:
+        joined = " | ".join(exc.problems)
+        assert "weicht vom aktuellen" in joined, joined
+        assert "Schritt 3 schon in" in joined, joined
+        assert "Schritt 9 gibt es nicht" in joined, joined
+        assert "hand: Schritt(e) [4] fehlen" in joined and "extraktion: Schritt(e) [5] fehlen" in joined, (
+            joined
+        )
+    else:
+        raise AssertionError("veraltete/unvollstaendige Paarung haette abgelehnt werden muessen")
+
+
+def test_pairing_rejects_bad_header_and_misplaced_flag() -> None:
+    data = _pairing(leistung="andere", status="ok")
+    data["gruppen"][3]["nicht_belegbar"] = True  # hat Extraktionsschritte
+    try:
+        parse_pairing(data, FINE, CANONICAL)
+    except PairingError as exc:
+        joined = " | ".join(exc.problems)
+        assert "leistung" in joined and "status" in joined and "nicht_belegbar: nur" in joined, joined
+    else:
+        raise AssertionError("haette abgelehnt werden muessen")
+
+
+def test_propose_pairing_roundtrips_and_covers_everything() -> None:
+    proposal = propose_pairing(FINE, CANONICAL)
+    assert proposal["status"] == "vorschlag" and proposal["leistung"] == "hund-anmelden"
+    groups, status = parse_pairing(proposal, FINE, CANONICAL)  # Vorschlag ist gueltig
+    assert status == "vorschlag"
+    assert sorted(sid for g in groups for sid, _ in g.ext) == [1, 2, 3, 4, 5]
+    assert sorted(sid for g in groups for sid, _ in g.can) == [1, 2, 3, 4]
+
+
+def test_report_marks_manual_pairing_and_status() -> None:
+    text = render_report(
+        evaluate(FINE, CANONICAL, pairing=_pairing(), pairing_source="`x.pairs.yaml`"), "`f`"
+    )
+    assert "Schritt-Paarung: von Hand, `x.pairs.yaml` (Status: vorschlag" in text, text
+    assert "Recall ohne nicht belegbare Handschritte | 100% (3/3)" in text, text
+    assert "| Extraktion | Handdatei | Notiz |" in text
+    heuristic = render_report(evaluate(FINE, CANONICAL), "`f`")
+    assert "Heuristik" in heuristic and "--propose-pairs" in heuristic
 
 
 def main() -> int:
