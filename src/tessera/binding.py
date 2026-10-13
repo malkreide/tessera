@@ -28,8 +28,13 @@ import re
 # --- Kardinalregel-Lint: konkrete bindende Zahl (Ziffer + Einheit) -----------
 # Identisch zur frueheren Definition im Validator; hierher gezogen als EINE
 # Wahrheitsquelle. Aenderungen wirken auf den Kardinalregel-Lint.
+# Waehrung nach der Zahl: auch «Schweizer Franken» und «Rappen» — die amtlichen
+# Seiten schreiben so («Express-Zuschlag von 50 Schweizer Franken», fundsache-
+# Pilot). Ohne diese Formen verfehlte der Lint einen Betrag im Label, und das
+# Label<->Wert-Gate stufte ein korrekt belegtes Zitat als «kein Wert» herab.
+_CURRENCY_AFTER = r"(?:CHF|Fr\.?|(?:Schweizer\s+)?Franken|Rappen)"
 _UNIT = (
-    r"(?:CHF|Fr\.?|Franken|%|Prozent|Tag(?:e|en)?|Woche(?:n)?|Monat(?:e|en)?|"
+    rf"(?:{_CURRENCY_AFTER}|%|Prozent|Tag(?:e|en)?|Woche(?:n)?|Monat(?:e|en)?|"
     r"Jahr(?:e|en)?|Werktag(?:e|en)?)"
 )
 BINDING_VALUE = re.compile(
@@ -66,11 +71,12 @@ _TIME_VALUE = re.compile(
     re.IGNORECASE,
 )
 
-# Ein Geldbetrag/Satz: CHF/Fr./Franken + Ziffer (beide Reihenfolgen) oder
-# Ziffer + Prozent.
+# Ein Geldbetrag/Satz: CHF/Fr./Franken + Ziffer (beide Reihenfolgen), Ziffer +
+# Prozent oder ausgeschriebene Zahl + (Schweizer) Franken/Rappen.
 _MONEY_VALUE = re.compile(
     r"(?:(?:CHF|Fr\.?|Franken)\s*\d)"
-    r"|(?:\d[\d'.,]*\s*(?:CHF|Fr\.?|Franken|%|Prozent)\b)",
+    rf"|(?:\d[\d'.,]*\s*(?:{_CURRENCY_AFTER}|%|Prozent)\b)"
+    rf"|(?:\b(?:{_WORD_NUM})\s+(?:Schweizer\s+)?(?:Franken|Rappen)\b)",
     re.IGNORECASE,
 )
 
