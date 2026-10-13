@@ -1,0 +1,108 @@
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+#
+# Vorschlag von Claude (Pilot-Lauf 2026-10-13), aus dem `--propose-pairs`-Entwurf
+# und der extract-Ausgabe abgeleitet — out/kita-platz.json und die Quellseiten
+# wurden dabei nicht eingesehen. Vom Maintainer gegen beide Dateien zu pruefen.
+
+leistung: kita-platz
+status: vorschlag
+gruppen:
+  # --- Entsprechungen ---------------------------------------------------------
+  - extraktion:
+      2: "Beitragsfaktorbestätigung beim Schul- und Sportdepartement beantragen"
+    hand:
+      6: "Beitragsfaktorbestätigung beantragen"
+  - extraktion:
+      3: "Finanzielle Situation prüfen und Beitragsfaktor festlegen"
+    hand:
+      7: "Einkommen und Vermögen prüfen"
+      9: "Beitragsfaktor nach Einkommen und Vermögen berechnen"
+    notiz: "Pruefen und Festlegen in einem Schritt; die Heuristik paarte faelschlich mit Hand 11"
+  - extraktion:
+      4: "Bestätigung über den subventionsberechtigten Betreuungsumfang (SBU) beim Sozialdepartement beantragen"
+    hand:
+      18: "SBU-Bestätigung beantragen (Betreuungsumfang)"
+  - extraktion:
+      5: "Benötigten Betreuungsumfang anhand der Pensen prüfen und SBU ausstellen"
+    hand:
+      19: "Betreuungsumfang prüfen und SBU-Bestätigung ausstellen"
+  - extraktion:
+      6: "Subventionsunterlagen bei der Kitaleitung abgeben"
+    hand:
+      17: "Bei der Anmeldung beide Bestätigungen der Kita abgeben"
+  - extraktion:
+      7: "Betreuungsvertrag mit der Kita abschliessen"
+    hand:
+      5: "Betreuungsvertrag mit der Kita abschliessen"
+  - extraktion:
+      8: "Subventionen direkt beziehen und reduzierten Elternbeitrag berechnen"
+    hand:
+      20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
+      11: "Finanzierungsantrag bewilligen und Elternbeitrag festlegen"
+    notiz: "UNSICHER — Finanzierung ueber die Kita und Festlegung des Elternbeitrags; Inhalt und Akteur pruefen"
+
+  # --- Nur in der Extraktion --------------------------------------------------
+  - extraktion:
+      9: "Der Stadt melden, wenn das Kind nicht mehr betreut wird"
+    hand: {}
+    notiz: "Abmeldung nach Betreuungsende; Handdatei modelliert sie nicht (Heuristik paarte faelschlich mit Hand 1)"
+
+  # --- Nur in der Handdatei ---------------------------------------------------
+  - extraktion: {}
+    hand:
+      1: "Betreuungsbedarf für das Kind"
+    nicht_belegbar: true
+    notiz: "Startknoten"
+  - extraktion: {}
+    hand:
+      2: "Freien Kita-Platz suchen"
+    notiz: "entspricht dem vom Grounding-Gate verworfenen Extraktionsschritt 1 (Belegstelle nicht woertlich)"
+  - extraktion: {}
+    hand:
+      3: "Subventionierter Platz frei?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      4: "Auf Warteliste bleiben"
+    notiz: "fehlt in der Extraktion; pruefen, ob die Quelle die Warteliste nennt"
+  - extraktion: {}
+    hand:
+      8: "Anspruch auf Subventionen?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      10: "Beitragsfaktorbestätigung ausstellen (Verfügung)"
+    notiz: "fehlt in der Extraktion (Ext 3 legt fest, stellt aber nicht aus)"
+  - extraktion: {}
+    hand:
+      12: "Subventionierter Kita-Platz"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+  - extraktion: {}
+    hand:
+      13: "Antrag ablehnen (mit Begründung)"
+    notiz: "Ablehnungszweig fehlt in der Extraktion; pruefen, ob die Quelle ihn nennt"
+  - extraktion: {}
+    hand:
+      14: "Rechtsmittel ergreifen?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      15: "Rechtsmittel gemäss Rechtsmittelbelehrung im Entscheid"
+    notiz: "Rechtsmittelzweig fehlt in der Extraktion; pruefen, ob die drei Quellseiten ihn nennen"
+  - extraktion: {}
+    hand:
+      16: "Antrag rechtskräftig abgelehnt"
+    nicht_belegbar: true
+    notiz: "Endzustand"
