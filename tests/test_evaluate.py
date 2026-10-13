@@ -20,6 +20,7 @@ from tessera.evaluate import (  # noqa: E402
     PairingError,
     evaluate,
     pair_by_label,
+    parse_actor_map,
     parse_pairing,
     propose_pairing,
     render_report,
@@ -309,6 +310,94 @@ def test_report_marks_manual_pairing_and_status() -> None:
     assert "| Extraktion | Handdatei | Notiz |" in text
     heuristic = render_report(evaluate(FINE, CANONICAL), "`f`")
     assert "Heuristik" in heuristic and "--propose-pairs" in heuristic
+
+
+# --- Akteur-Zuordnung (akteure: in der Paarungsdatei) ------------------------
+
+# Extraktion mit Quellnamen statt Handdatei-IDs; 1:1 gepaart.
+SOURCE_NAMES = _extracted(
+    [
+        _step(1, "Hundehalter:in", "Hund anmelden", []),
+        _step(2, "Kreisbuero Stadt", "Registrierung pruefen", [1]),
+        _step(3, "hundeportal.ch", "Abgabe veranlagen", [2]),
+    ]
+)
+
+
+def _named_pairing(akteure=None) -> dict:
+    data = {
+        "leistung": "hund-anmelden",
+        "status": "vorschlag",
+        "gruppen": [
+            {"extraktion": {1: "Hund anmelden"}, "hand": {1: "Hund online oder am Schalter anmelden"}},
+            {
+                "extraktion": {2: "Registrierung pruefen"},
+                "hand": {2: "Registrierung in der Hundedatenbank pruefen"},
+            },
+            {"extraktion": {3: "Abgabe veranlagen"}, "hand": {3: "Hundeabgabe veranlagen"}},
+            {"extraktion": {}, "hand": {4: "Rechnung bezahlen"}},
+        ],
+    }
+    if akteure is not None:
+        data["akteure"] = akteure
+    return data
+
+
+def test_actor_map_resolves_source_names() -> None:
+    before = evaluate(SOURCE_NAMES, CANONICAL, pairing=_named_pairing())
+    assert len(before.actors_unmapped) == 3 and not before.actors_mismatch, before.actors_unmapped
+    rep = evaluate(
+        SOURCE_NAMES,
+        CANONICAL,
+        pairing=_named_pairing(
+            {"Hundehalter:in": "halter", "Kreisbuero Stadt": "steueramt", "hundeportal.ch": None}
+        ),
+    )
+    assert not rep.actors_unmapped, rep.actors_unmapped
+    assert rep.actors_declared_none == ["Schritt 3: «hundeportal.ch»"], rep.actors_declared_none
+    # Zuordnung aktiviert die Pruefung: Schritt 2 ist in der Handdatei kreisbuero.
+    assert len(rep.actors_mismatch) == 1 and "Handdatei: kreisbuero" in rep.actors_mismatch[0], (
+        rep.actors_mismatch
+    )
+
+
+def test_actor_map_open_entry_counts_as_unmapped() -> None:
+    rep = evaluate(
+        SOURCE_NAMES, CANONICAL, pairing=_named_pairing({"Hundehalter:in": "", "hundeportal.ch": None})
+    )
+    assert "Schritt 1: «Hundehalter:in»" in rep.actors_unmapped, rep.actors_unmapped
+    text = render_report(rep, "`f`")
+    assert "bewusst ohne / falsch zugeordnet | 2 / 1 / 0 |" in text, text
+    assert "`kreisbuero` (Kreisbüro)" in text, text  # Hilfe: actors[] der Handdatei
+
+
+def test_actor_map_rejects_stale_name_unknown_id_and_missing_actors() -> None:
+    try:
+        parse_actor_map(
+            {"akteure": {"Gibt es nicht": "halter", "Hundehalter:in": "amt"}}, SOURCE_NAMES, CANONICAL
+        )
+    except PairingError as exc:
+        joined = " | ".join(exc.problems)
+        assert "«Gibt es nicht» kommt in der Extraktion nicht vor" in joined, joined
+        assert "'amt' ist keine actors[]-ID" in joined, joined
+    else:
+        raise AssertionError("haette abgelehnt werden muessen")
+    no_actors = {k: v for k, v in CANONICAL.items() if k != "actors"}
+    try:
+        parse_actor_map({"akteure": {"Hundehalter:in": "halter"}}, SOURCE_NAMES, no_actors)
+    except PairingError as exc:
+        assert "keine actors[]" in exc.problems[0], exc.problems
+    else:
+        raise AssertionError("ohne actors[] haette abgelehnt werden muessen")
+
+
+def test_propose_lists_open_actor_names() -> None:
+    proposal = propose_pairing(SOURCE_NAMES, CANONICAL)
+    assert proposal["akteure"] == {"Hundehalter:in": "", "Kreisbuero Stadt": "", "hundeportal.ch": ""}, (
+        proposal
+    )
+    assert parse_actor_map(proposal, SOURCE_NAMES, CANONICAL) == {}  # alles offen, aber gueltig
+    assert "akteure" not in propose_pairing(FINE, CANONICAL)  # Freitext trifft ID/Label
 
 
 def main() -> int:

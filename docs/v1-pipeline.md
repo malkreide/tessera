@@ -206,6 +206,11 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
   unbekannte oder veraltete Schritte (Label weicht von der aktuellen Datei ab)
   brechen `eval` mit allen Befunden ab. Ohne Datei paart eine Wortueberlappungs-
   Heuristik 1:1 — im fundsache-Pilot lag sie bei 5 von 7 Paaren daneben.
+  Optional `akteure:` in derselben Datei: Rollennamen aus der Quelle, die weder
+  ID noch Label der Handdatei-`actors[]` treffen («Schul- und Sportdepartement»
+  vs. `schulamt`), ausdruecklich zuordnen (`Name: id`), bewusst ausnehmen
+  (`Name: null`) oder offen lassen (`Name: ""`). Erst mit der Zuordnung greift
+  der Abgleich «Akteur falsch zugeordnet» fuer diese Schritte.
 - **Kennzahlen:** Schritt-Recall/-Precision (ueber die Gruppen; zusaetzlich
   Recall ohne nicht belegbare Handschritte, alle Paare im Report ausgewiesen), ungepaarte
   Handschritte als moegliche **Luecken**, Kanten **exakt / Abkuerzung /
