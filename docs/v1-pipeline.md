@@ -141,6 +141,13 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
 - **Ehrliche Degradation:** wird eine Quelle als SPA erkannt und kein Browser ist
   da, App-Shell behalten + in `meta.json` vermerken; Crawl in einer Chromium-
   Umgebung wiederholen — keinen Inhalt faken.
+- **stzh-Web-Komponenten:** stadt-zuerich.ch liefert Tabellen als
+  `<stzh-datatable columns="[JSON]" rows="[JSON]">` und Zwischentitel als
+  `<stzh-heading>`; erst JavaScript macht daraus sichtbares HTML, trafilatura
+  verwarf beides. `webcomponents.expand` loest sie vor trafilatura auf (Crawl,
+  `fingerprint`/`diff`, `verify --online`): jede Tabellenzeile wird ein Absatz
+  «Spaltenkopf: Zelle; Spaltenkopf: Zelle», Zwischentitel werden `<hN>`. So
+  bleibt ein Tabellenwert mit seiner Einheit zitierbar («Gebühr in CHF: 10.00»).
 
 ### B.3 — Extract + Grounding
 - **Vorbedingung:** `ANTHROPIC_API_KEY` gesetzt; brauchbare Snapshots.

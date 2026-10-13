@@ -122,6 +122,29 @@ def test_cardinal_lint_catches_swiss_franc_forms() -> None:
     assert not BINDING_VALUE_STRICT.search("Express-Zuschlag bezahlen")
 
 
+def test_genitive_time_units_count_as_deadline() -> None:
+    # fundsache-Pilot (Rechtsgrundlage): woertlich belegt, bisher als «kein Wert»
+    # gewertet, die Reference wurde in jedem Lauf herabgestuft.
+    quote = (
+        "Fundsachen mit einem Zeitwert von höchstens 50 Franken dürfen bereits nach "
+        "Ablauf eines Monats versteigert oder freihändig verkauft werden."
+    )
+    assert label_value_mismatch("Verkürzte Versteigerungsfrist für geringwertige Fundsachen", quote) is None
+    assert quote_substantiates("time", "innert eines Jahres")
+    assert quote_substantiates("time", "innert eines Monats ab Fund")
+    assert BINDING_VALUE.search("innert 1 Jahres")
+    # Komposita bleiben still: «Tagesstruktur» ist keine Frist.
+    assert not quote_substantiates("time", "ein Tagesausflug ins Fundbüro")
+    assert not BINDING_VALUE_STRICT.search("Tagesstruktur der Kita")
+
+
+def test_currency_colon_from_expanded_tables() -> None:
+    # webcomponents.expand schreibt eine Tabellenzelle mit ihrem Spaltenkopf aus.
+    assert quote_substantiates("money", "Gebühr in CHF: 10.00")
+    assert BINDING_VALUE.search("Gebühr in CHF: 10.00")
+    assert not quote_substantiates("money", "Verkaufswert (VW) in CHF: Zuschlag für Express-Serviceauftrag")
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

@@ -33,12 +33,22 @@ import re
 # Pilot). Ohne diese Formen verfehlte der Lint einen Betrag im Label, und das
 # Label<->Wert-Gate stufte ein korrekt belegtes Zitat als «kein Wert» herab.
 _CURRENCY_AFTER = r"(?:CHF|Fr\.?|(?:Schweizer\s+)?Franken|Rappen)"
+# Zeiteinheiten inkl. Genitiv («nach Ablauf eines Monats», «innert eines Jahres»,
+# «des folgenden Tages») — ohne ihn verfehlte das Label<->Wert-Gate im fundsache-
+# Pilot die woertlich belegte Versteigerungsfrist.
+_TAG = r"Tag(?:e|en|es|s)?"
+_MONAT = r"Monat(?:e|en|es|s)?"
+_JAHR = r"Jahr(?:e|en|es|s)?"
+_WERKTAG = r"Werktag(?:e|en|es|s)?"
 _UNIT = (
-    rf"(?:{_CURRENCY_AFTER}|%|Prozent|Tag(?:e|en)?|Woche(?:n)?|Monat(?:e|en)?|"
-    r"Jahr(?:e|en)?|Werktag(?:e|en)?)"
+    rf"(?:{_CURRENCY_AFTER}|%|Prozent|{_TAG}|Woche(?:n)?|{_MONAT}|"
+    rf"{_JAHR}|{_WERKTAG})"
 )
+# Waehrung vor der Zahl, optional mit Doppelpunkt: «CHF: 10.00» entsteht, wenn
+# webcomponents.expand eine Tabellenzelle mit ihrem Spaltenkopf («Gebühr in CHF»)
+# ausschreibt.
 BINDING_VALUE = re.compile(
-    rf"(?:\d[\d'.,]*\s*{_UNIT}\b)|(?:(?:CHF|Fr\.?)\s*\d)",
+    rf"(?:\d[\d'.,]*\s*{_UNIT}\b)|(?:(?:CHF|Fr\.?)\s*:?\s*\d)",
     re.IGNORECASE,
 )
 
@@ -53,10 +63,7 @@ _WORD_NUM = (
     r"elf|zehn|neun|acht|sieben|sechs|f(?:ue|ü)nf|vier|drei|zwei|"
     r"eine[mnrs]?|ein"
 )
-_TIME_UNIT = (
-    r"Tag(?:e|en)?|Woche(?:n)?|Monat(?:e|en)?|Jahr(?:e|en)?|Werktag(?:e|en)?|"
-    r"Stunde(?:n)?|Minute(?:n)?"
-)
+_TIME_UNIT = rf"{_TAG}|Woche(?:n)?|{_MONAT}|{_JAHR}|{_WERKTAG}|Stunde(?:n)?|Minute(?:n)?"
 _MONTH = (
     r"Januar|Februar|M(?:ä|ae)rz|April|Mai|Juni|Juli|August|September|"
     r"Oktober|November|Dezember"
@@ -74,7 +81,7 @@ _TIME_VALUE = re.compile(
 # Ein Geldbetrag/Satz: CHF/Fr./Franken + Ziffer (beide Reihenfolgen), Ziffer +
 # Prozent oder ausgeschriebene Zahl + (Schweizer) Franken/Rappen.
 _MONEY_VALUE = re.compile(
-    r"(?:(?:CHF|Fr\.?|Franken)\s*\d)"
+    r"(?:(?:CHF|Fr\.?|Franken)\s*:?\s*\d)"
     rf"|(?:\d[\d'.,]*\s*(?:{_CURRENCY_AFTER}|%|Prozent)\b)"
     rf"|(?:\b(?:{_WORD_NUM})\s+(?:Schweizer\s+)?(?:Franken|Rappen)\b)",
     re.IGNORECASE,
