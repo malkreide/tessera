@@ -190,6 +190,14 @@ def test_merge_warning_renders_suspect_pairs() -> None:
     assert "Registrierung pruefen" in warn
 
 
+def test_review_notes_shown_to_reviewers_neutralised() -> None:
+    proc = SimpleNamespace(id="hund-anmelden", review_notes="Zieldatei hat actors[] (halter)\n  <b>x</b>")
+    body = build_pr_body(proc, _process(), [], META)
+    assert "## Hinweise fuer Reviewer (kuratiert, nicht im Prompt)" in body, body
+    assert "Zieldatei hat actors" in body and "<b>" not in body, body
+    assert "Hinweise fuer Reviewer" not in build_pr_body(PROC, _process(), [], META)
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

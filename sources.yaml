@@ -13,7 +13,13 @@
 #   target_audience   eCH-0073: bevoelkerung | wirtschaft | behoerden
 #   official_urls     exakte Quell-URLs — am 2026-06-11 manuell auf HTTP 200 geprueft
 #   catalog_keywords  Stichwoerter fuer den Abdeckungs-Abgleich (I14Y / eCH-0070)
-#   notes             Hinweise fuer Reviewer:innen
+#   notes             Hinweise AN DAS MODELL — gehen woertlich in den Extraktions-
+#                     Prompt: allgemeine Regeln, Sensibilitaet, Umfang der Leistung.
+#                     NICHTS aus der handmodellierten Zieldatei (Akteure, Schritte,
+#                     erwartete References) — der Config-Validator lehnt das ab,
+#                     sonst kopiert das Modell den Massstab von `tessera eval`.
+#   review_notes      Hinweise fuer Reviewer:innen — nie im Prompt; erscheinen im
+#                     PR-Body. Hierher gehoert alles aus der Zieldatei.
 #   paused            optional: Grund, aus dem die automatische Extraktion gesperrt
 #                     ist (crawl/extract/pr verweigern die Leistung). Ueberwachung
 #                     (preflight/verify/fingerprint/diff/eval) laeuft weiter.
@@ -32,7 +38,7 @@ crawler:
   delay_seconds: 2.0
 
 # Nutzungsbedingungen je Quell-Domain — ToU-GATE. Die Einschaetzung ist eine
-# rechtliche Entscheidung des MAINTAINERS und wird nur von ihm eingetragen
+# rechtliche Entscheidung des MAINTAINERS und wird nur vom Maintainer eingetragen
 # (nie vom Code, nie von einem Agenten). Gecrawlt wird eine Leistung nur, wenn
 # fuer JEDE ihrer Domains gilt:
 #   verdict: erlaubt            (sonst: ausstehend | verboten -> gesperrt)
@@ -69,9 +75,11 @@ processes:
       - "https://www.zh.ch/de/umwelt-tiere/tiere/haustiere-heimtiere/hunde.html"
     catalog_keywords: ["hund"]
     notes: >-
-      Einfacher Fall, Einstieg fuer v1. Kantonale Meldefrist und Hundesteuer
-      duerfen NUR als references (Label + Deep-Link + woertliches Zitat)
-      erscheinen, nie als Wert in einem Schritt-Label.
+      Fristen und Steuern duerfen NUR als references (Label + Deep-Link +
+      woertliches Zitat) erscheinen, nie als Wert in einem Schritt-Label.
+    review_notes: >-
+      Einfacher Fall, Einstieg fuer v1. Erwartete references: kantonale
+      Meldefrist, Hundesteuer.
 
   - id: umzug-melden
     service_name: "Umzug melden (Zuzug, Umzug, Wegzug)"
@@ -83,8 +91,10 @@ processes:
       - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/wegzug.html"
     catalog_keywords: ["umzug", "zuzug", "wegzug", "adress"]
     notes: >-
-      Meldefristen vorhanden — ausschliesslich als references verlinken.
-      Die Lebenslage umfasst Zuzug, Umzug innerhalb der Stadt und Wegzug.
+      Fristen ausschliesslich als references verlinken. Die Lebenslage umfasst
+      Zuzug, Umzug innerhalb der Stadt und Wegzug.
+    review_notes: >-
+      Erwartete references: Meldefristen.
 
   - id: fundsache
     service_name: "Fundsache / Fundbüro (etwas verloren oder gefunden)"
@@ -99,11 +109,15 @@ processes:
       - "https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero/rechtsgrundlage.html"
     catalog_keywords: ["fund", "fundsache", "fundbüro", "verloren"]
     notes: >-
-      Risikoarm, aber gebuehren-/fristbehaftet: Fundbuero-Gebuehr,
-      Express-Zuschlag, Aufbewahrungsfrist, Finderlohn-Anspruch — alle NUR als
-      references (Label ohne Zahl + Deep-Link + woertliches Zitat), nie als Wert
-      im Schritt-Label. Bestehende Zieldatei hat actors[] (person, fundbuero) ->
-      Actor-Abgleich greift; unbekannte Rollen werden im PR geflaggt.
+      Gebuehren und Fristen NUR als references (Label ohne Zahl + Deep-Link +
+      woertliches Zitat), nie als Wert im Schritt-Label.
+    review_notes: >-
+      Risikoarm, aber gebuehren-/fristbehaftet. Erwartete references:
+      Fundbuero-Gebuehr, Express-Zuschlag, Aufbewahrungsfrist,
+      Finderlohn-Anspruch. Bestehende Zieldatei hat actors[] (person,
+      fundbuero) -> Actor-Abgleich greift; unbekannte Rollen werden im PR
+      geflaggt. Bis 2026-10-13 standen diese Angaben in `notes` und damit im
+      Prompt — Pilot-Lauf 2026-10-12 (Akteure, References) ist davon beeinflusst.
 
   - id: parkplatz
     service_name: "Anwohnerparkkarte (Parkbewilligung in der blauen Zone)"
@@ -118,9 +132,11 @@ processes:
       - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/rechtliche-grundlagen/agb.html"
     catalog_keywords: ["park", "parkkarte", "parkbewilligung", "anwohner"]
     notes: >-
-      Risikoarm, aber gebuehren- und rekursbehaftet: Parkkarten-Gebuehr und
-      Rekursfrist NUR als references (Label ohne Zahl + Deep-Link + woertliches
-      Zitat), nie als Wert im Schritt-Label. Bestehende Zieldatei hat actors[]
+      Gebuehren und Rekursfristen NUR als references (Label ohne Zahl +
+      Deep-Link + woertliches Zitat), nie als Wert im Schritt-Label.
+    review_notes: >-
+      Risikoarm, aber gebuehren- und rekursbehaftet. Erwartete references:
+      Parkkarten-Gebuehr, Rekursfrist. Bestehende Zieldatei hat actors[]
       (halter, dav, stapo, statthalter) -> Actor-Abgleich greift; unbekannte
       Rollen werden im PR geflaggt. Rekurs ist Teil des Prozesses, aber
       parkplatz ist KEIN Hochrisiko-Fall (anders als baugesuch/sozialhilfe).
@@ -140,11 +156,15 @@ processes:
       Einkommensabhaengig -> SENSIBEL. Struktur-only bleibt zwingend: keine
       personenbezogenen Daten, keine Einkommensgrenzen/Subventionsbetraege als
       Wert im Label — Betraege/Anspruchsgrenzen NUR als references (Label ohne
-      Zahl + Deep-Link + woertliches Zitat). Bestehende Zieldatei hat actors[]
-      (eltern, kita, schulamt, sozialdept, bezirksrat) -> Actor-Abgleich greift.
-      Rekurs (Bezirksrat) ist Teil des Prozesses; kita-platz ist KEIN
-      Hochrisiko-Fall im Sinne der Registry (anders als sozialhilfe), aber beim
-      Review besonders auf die Kardinalregel und Belegbarkeit achten.
+      Zahl + Deep-Link + woertliches Zitat).
+    review_notes: >-
+      Bestehende Zieldatei hat actors[] (eltern, kita, schulamt, sozialdept,
+      bezirksrat) -> Actor-Abgleich greift. Rekurs (Bezirksrat) ist Teil des
+      Prozesses; kita-platz ist KEIN Hochrisiko-Fall im Sinne der Registry
+      (anders als sozialhilfe), aber beim Review besonders auf die
+      Kardinalregel und Belegbarkeit achten. Bis 2026-10-13 standen die
+      Akteur-IDs in `notes` und damit im Prompt — Pilot-Lauf 2026-10-13
+      (Akteure) ist davon beeinflusst.
 
   - id: veranstaltung
     service_name: "Veranstaltung auf oeffentlichem Grund (Bewilligung)"
@@ -171,15 +191,20 @@ processes:
       Menschen), derzeit gesperrt (`paused`). Erhoehter Gate greift automatisch (risk.py): JEDE
       bindende Reference (Vorlauffrist, Gebuehr, Auflagen, Rekursfrist) muss
       `verifiziert` UND woertlich belegt sein — eine ungrounded bindende
-      Reference ist hier ein Validator-FEHLER, kein Hinweis. Die Vorlauffrist
-      «spaetestens vier Wochen vor dem Veranstaltungsbeginn» ist auf der
-      fest-sportveranstaltung-quartierfest-Seite belegbar und darf NUR als
-      Reference (Label ohne Zahl + Deep-Link + Zitat) erscheinen, nie als Wert im
-      Schritt-Label. Bestehende handmodellierte Zieldatei traegt actors[]
-      (veranstalter, stapo-bew, fachstellen, statthalter) und
-      `disclaimer_key: Prozesse.disclaimerHochrisiko` -> Actor-Abgleich greift,
-      der Hochrisiko-Disclaimer wird erwartet. Unbekannte Rollen werden im PR
-      geflaggt, nicht geraten.
+      Reference ist hier ein Validator-FEHLER, kein Hinweis. Fristen NUR als
+      Reference (Label ohne Zahl + Deep-Link + Zitat), nie als Wert im
+      Schritt-Label.
+    review_notes: >-
+      Die Vorlauffrist «spaetestens vier Wochen vor dem Veranstaltungsbeginn»
+      ist auf der fest-sportveranstaltung-quartierfest-Seite belegbar.
+      Bestehende handmodellierte Zieldatei traegt actors[] (veranstalter,
+      stapo-bew, fachstellen, statthalter) und `disclaimer_key:
+      Prozesse.disclaimerHochrisiko` -> Actor-Abgleich greift, der
+      Hochrisiko-Disclaimer wird erwartet. Unbekannte Rollen werden im PR
+      geflaggt, nicht geraten. ACHTUNG fuer `tessera eval`: der spezialisierte
+      Extraktor (VERANSTALTUNG_HINT) nennt diese Akteure und die typische
+      Struktur bewusst im Prompt — Akteurs- und Strukturwerte sind hier nicht
+      unabhaengig vom Massstab.
 
 # NICHT freigeschaltet: baugesuch (Baubewilligung), sozialhilfe — beide bleiben
 # bewusst von der Automatik ausgeschlossen (hoechstes bzw. existenzielles Risiko).

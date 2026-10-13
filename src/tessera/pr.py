@@ -276,6 +276,11 @@ def build_pr_body(
         lines += [f"- ⚠️ {_md(f)}" for f in other_flags]
     else:
         lines.append("- Keine: alle Schritte und References sind woertlich belegt.")
+    review_notes = " ".join((getattr(proc, "review_notes", "") or "").split())
+    if review_notes:
+        # Kuratierte Hinweise fuer Menschen (sources.yaml, review_notes) — gingen
+        # bewusst NICHT in den Extraktions-Prompt.
+        lines += ["", "## Hinweise fuer Reviewer (kuratiert, nicht im Prompt)", "", _md(review_notes)]
     lines += [
         "",
         "## Reviewer-Checkliste",

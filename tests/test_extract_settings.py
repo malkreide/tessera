@@ -11,6 +11,10 @@ Lauf scheitert mit «steps: Field required» (fundsache-Pilot). Geprueft wird:
   * TESSERA_MAX_TOKENS ueberschreibt beides; Unsinn bricht klar ab,
   * temperature bleibt bei Modellen ohne Sampling weg.
 
+Dazu der Prompt-Inhalt: `review_notes` (nur fuer Menschen) erreichen den Prompt
+nie, und `notes` duerfen die Zieldatei nicht nennen (sonst kopiert das Modell den
+Massstab, gegen den `tessera eval` misst — so im Pilot mit den Akteur-IDs).
+
 `extract` importiert schema (pydantic) am Modulkopf; ohne pydantic werden die Tests
 sauber uebersprungen, nicht stillschweigend bestanden.
 
@@ -94,6 +98,58 @@ def test_env_rejects_nonsense() -> None:
                 assert "TESSERA_MAX_TOKENS" in str(exc)
             else:
                 raise AssertionError(f"{bad!r} haette abbrechen muessen")
+
+
+def _proc(**over):
+    from tessera.config import ProcessSource  # noqa: PLC0415
+
+    data = {
+        "id": "kita-platz",
+        "service_name": "Kita",
+        "target_audience": "bevoelkerung",
+        "official_urls": ["https://www.stadt-zuerich.ch/kita"],
+        "notes": "NOTE-MARKER fuer das Modell",
+        "review_notes": "REVIEW-MARKER: Zieldatei hat actors[] (eltern, kita)",
+    }
+    data.update(over)
+    return ProcessSource(**data)
+
+
+def test_review_notes_never_reach_prompt() -> None:
+    _need_pydantic()
+    proc = _proc()
+    for prompt in (
+        extract.build_extract_prompt(proc, "<<<QUELLE https://x>>>"),
+        extract.build_review_prompt(proc, "<<<QUELLE https://x>>>", "{}"),
+    ):
+        assert "REVIEW-MARKER" not in prompt and "eltern" not in prompt, prompt
+    assert "NOTE-MARKER" in extract.build_extract_prompt(proc, "")
+
+
+def test_notes_must_not_name_the_target_file() -> None:
+    _need_pydantic()
+    from pydantic import ValidationError  # noqa: PLC0415
+
+    for leak in (
+        "Bestehende Zieldatei hat Akteure",
+        "laut Handdatei",
+        "actors[] (a, b)",
+        "handmodellierte Datei",
+    ):
+        try:
+            _proc(notes=leak)
+        except ValidationError as exc:
+            assert "review_notes" in str(exc), exc
+        else:
+            raise AssertionError(f"{leak!r} haette abgelehnt werden muessen")
+
+
+def test_sources_yaml_keeps_target_out_of_notes() -> None:
+    _need_pydantic()
+    from tessera.config import load_sources  # noqa: PLC0415
+
+    procs = load_sources().processes  # wirft, falls notes die Zieldatei nennen
+    assert any(p.review_notes for p in procs)
 
 
 def main() -> int:
