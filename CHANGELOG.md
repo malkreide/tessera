@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`review_notes` in `sources.yaml`: hints for humans that never reach the
+  prompt.** `notes` were labelled "for reviewers" but went verbatim into the
+  extraction prompt, and they named the hand-modelled target file's actor ids
+  (and, for some services, its expected references). In both pilots the model
+  copied those ids although the sources never use them, so `tessera eval`
+  partly measured the target against itself (`kita-platz`: actor flags for
+  `schulamt`/`sozialdept`; `fundsache`: the listed fees/deadlines reappeared as
+  references). Everything taken from the target file moved to `review_notes`,
+  which the PR body shows to reviewers; `notes` keep general rules, sensitivity
+  and scope. A config validator rejects `notes` that mention the target file
+  (`Zieldatei`, `Handdatei`, `handmodell…`, `actors[]`). Pilot numbers from
+  2026-10-12/13 for actors and references are marked as affected. Not changed:
+  the `veranstaltung` extractor hint deliberately names the target's actors
+  (merge consistency) — its eval actor/structure figures stay non-independent.
 - **Pilot extended to `kita-platz`** (maintainer decision 2026-10-13). The
   first run (`fundsache`, 2026-10-12) showed no reversed or unsupported
   edges, no gate dropout and no invented steps, but it is a single service

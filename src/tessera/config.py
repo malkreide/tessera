@@ -13,6 +13,12 @@ ROOT = Path(__file__).resolve().parents[2]
 
 KEBAB = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
+# `notes` gehen woertlich in den Extraktions-Prompt. Was aus der handmodellierten
+# Zieldatei stammt (deren actors[], Schritte, erwartete References), gehoert in
+# `review_notes` — sonst kopiert das Modell den Massstab, und `tessera eval` misst
+# sich selbst (im Pilot uebernahm es die Akteur-IDs aus den notes).
+_TARGET_LEAK = re.compile(r"zieldatei|handdatei|handmodell|actors\[\]", re.IGNORECASE)
+
 
 class CatalogConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -36,7 +42,12 @@ class ProcessSource(BaseModel):
     target_audience: Literal["bevoelkerung", "wirtschaft", "behoerden"]
     official_urls: list[str]
     catalog_keywords: list[str] = []
+    # Hinweise AN DAS MODELL (gehen in den Extraktions-Prompt): allgemeine Regeln,
+    # Sensibilitaet, Umfang der Leistung. Nichts aus der Zieldatei (Validator).
     notes: str = ""
+    # Nur fuer Menschen (Maintainer/Reviewer); geht NIE in einen Prompt. Hierher
+    # gehoert alles, was aus der handmodellierten Zieldatei stammt.
+    review_notes: str = ""
     # Nicht-leer = automatische Extraktion gesperrt (crawl/extract/pr), mit Grund.
     # Ueberwachung (preflight/verify/fingerprint/diff/eval) laeuft weiter.
     paused: str = ""
@@ -46,6 +57,17 @@ class ProcessSource(BaseModel):
     def _kebab(cls, v: str) -> str:
         if not KEBAB.match(v):
             raise ValueError(f"id muss kebab-case sein: {v!r}")
+        return v
+
+    @field_validator("notes")
+    @classmethod
+    def _notes_without_target(cls, v: str) -> str:
+        m = _TARGET_LEAK.search(v)
+        if m:
+            raise ValueError(
+                f"notes gehen in den Extraktions-Prompt, nennen aber die Zieldatei ({m.group(0)!r}) — "
+                "Angaben aus der handmodellierten Zieldatei gehoeren nach review_notes"
+            )
         return v
 
     @field_validator("official_urls")
