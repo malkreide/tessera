@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Pilot extended to `kita-platz`** (maintainer decision 2026-10-13). The
+  first run (`fundsache`, 2026-10-12) showed no reversed or unsupported
+  edges, no gate dropout and no invented steps, but it is a single service
+  and its pairing is still a proposal. `veranstaltung` stays `paused` until a
+  second low-risk run is measured; the pause reason in `sources.yaml` now
+  names both services.
+
 ### Added
 - **Hand-kept step pairing for `tessera eval`** (`reports/eval/<id>.pairs.yaml`).
   The label heuristic pairs 1:1 by word overlap; in the `fundsache` pilot at

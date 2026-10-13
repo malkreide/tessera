@@ -162,7 +162,10 @@ processes:
     # Leistung live fahren und mit `tessera eval` messen, dann ueber die
     # Freischaltung dieses Hochrisiko-Falls entscheiden. Pilot seit 2026-10-09:
     # fundsache (nur stadt-zuerich.ch; hund-anmelden braucht auch zh.ch).
-    paused: "bis zum Pilot — erst fundsache live extrahieren und mit `tessera eval` messen"
+    # Erster Lauf 2026-10-12 gemessen (reports/eval/fundsache.pairs.yaml); auf
+    # Maintainer-Entscheid vom 2026-10-13 folgt kita-platz als zweiter Lauf, bevor
+    # ueber die Freischaltung entschieden wird.
+    paused: "bis zum Pilot — erst fundsache und kita-platz live extrahieren und mit `tessera eval` messen"
     notes: >-
       HOCHRISIKO — als einzige Ausnahme vorgesehen (Draft-PR, Merge nur durch
       Menschen), derzeit gesperrt (`paused`). Erhoehter Gate greift automatisch (risk.py): JEDE
