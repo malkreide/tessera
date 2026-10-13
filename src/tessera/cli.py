@@ -389,6 +389,9 @@ PAIRS_HEADER = """\
 # woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
 # zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
 # die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
 # Nach dem Pruefen `status: bestaetigt` setzen.
 """
 

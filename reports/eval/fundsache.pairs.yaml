@@ -107,3 +107,10 @@ gruppen:
       12: "Noch kein Treffer"
     nicht_belegbar: true
     notiz: "Endzustand"
+
+# Rollennamen der Extraktion, die weder ID noch Label der Handdatei-actors[]
+# treffen (person, fundbuero). Vorschlag von Claude, aus den review_notes.
+akteure:
+  "Verlierer:in": person
+  "Finder:in": person
+  "fundsachenverkauf.ch": null  # Verkaufsplattform, kein Akteur im Sinne der Handdatei

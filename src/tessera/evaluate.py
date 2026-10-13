@@ -21,7 +21,10 @@ sind ein fertiger Massstab. Statt zu vermuten, wie gut die Extraktion ist, misst
   wenn sie einen Pfad in Gegenrichtung fuehrt (falsche Reihenfolge); sonst
   «unbelegt».
 * **References** (gepaart wie Schritte) und **Akteure** (gegen `actors[]` der
-  Handdatei, Normalform wie beim Merge).
+  Handdatei, Normalform wie beim Merge). Namen aus der Quelle, die weder ID noch
+  Label eines `actors[]`-Eintrags treffen («Schul- und Sportdepartement» vs.
+  `schulamt`), ordnet der optionale Abschnitt `akteure:` der Paarungsdatei zu
+  (siehe `parse_actor_map`) — ausdruecklich, nicht per Wortaehnlichkeit geraten.
 * **Gate-Ausfall** aus der Flags-Datei: verworfene Schritte / extrahierte Schritte.
 * **Strenger Kardinalregel-Lint** auf BEIDEN Dateien: Treffer in der Handdatei
   sind die Fehlalarm-Basis (menschlich reviewter Text, der trotzdem anschlaegt).
@@ -105,7 +108,9 @@ class EvalReport:
     refs_unverified: int = 0
     actors_checked: bool = False
     actors_unmapped: list[str] = field(default_factory=list)
+    actors_declared_none: list[str] = field(default_factory=list)  # akteure: Name: null
     actors_mismatch: list[str] = field(default_factory=list)
+    actors_available: list[str] = field(default_factory=list)  # «id» (Label) der Handdatei
     dropped_steps: int = 0
     flag_counts: dict[str, int] = field(default_factory=dict)
     strict_hits_ext: list[str] = field(default_factory=list)
@@ -309,6 +314,70 @@ def parse_pairing(data: object, extracted: dict, canonical: dict) -> tuple[list[
     return groups, str(status)
 
 
+def _actor_index(canonical: dict) -> tuple[list[dict], dict[str, str]]:
+    """actors[] der Handdatei und Normalform (ID und Label) -> ID."""
+    actors = [
+        a for a in canonical.get("actors") or [] if isinstance(a, dict) and isinstance(a.get("id"), str)
+    ]
+    norm_to_id: dict[str, str] = {}
+    for a in actors:
+        norm_to_id.setdefault(_norm_actor(a["id"]), a["id"])
+        norm_to_id.setdefault(_norm_actor(_label(a)), a["id"])
+    norm_to_id.pop("", None)
+    return actors, norm_to_id
+
+
+def _ext_actor_names(extracted: dict) -> list[str]:
+    names: list[str] = []
+    for s in extracted.get("steps") or []:
+        actor = s.get("actor") if isinstance(s, dict) else None
+        if isinstance(actor, str) and actor.strip() and actor.strip() not in names:
+            names.append(actor.strip())
+    return names
+
+
+def parse_actor_map(data: object, extracted: dict, canonical: dict) -> dict[str, str | None]:
+    """Optionaler Abschnitt `akteure:` einer Paarungsdatei (rein; wirft PairingError).
+
+    Format: `extrahierter Name: actors[]-ID` (Zuordnung), `: null` (bewusst ohne
+    Entsprechung, z.B. eine Website als «Akteur») oder `: ""` (noch offen — zaehlt
+    wie nicht zugeordnet). Schluessel werden in der Akteur-Normalform verglichen.
+    Ein Name, der in der Extraktion nicht vorkommt, macht die Datei veraltet; eine
+    ID, die die Handdatei nicht fuehrt, ist ein Fehler. Rueckgabe: Normalform ->
+    ID | None; offene Eintraege fehlen.
+    """
+    raw = data.get("akteure") if isinstance(data, dict) else None
+    if raw is None:
+        return {}
+    problems: list[str] = []
+    if not isinstance(raw, dict):
+        raise PairingError(["akteure: erwartet `Name: actors[]-ID`-Paare"])
+    actors, _ = _actor_index(canonical)
+    if not actors:
+        raise PairingError(["akteure: die Handdatei fuehrt keine actors[] — Abschnitt entfernen"])
+    ids = {a["id"] for a in actors}
+    present = {_norm_actor(n) for n in _ext_actor_names(extracted)}
+    out: dict[str, str | None] = {}
+    for name, target in raw.items():
+        key = _norm_actor(str(name))
+        if key not in present:
+            problems.append(f"akteure: «{name}» kommt in der Extraktion nicht vor (Datei veraltet?)")
+            continue
+        if target is None:
+            out[key] = None
+        elif isinstance(target, str) and not target.strip():
+            continue  # offen
+        elif isinstance(target, str) and target.strip() in ids:
+            out[key] = target.strip()
+        else:
+            problems.append(
+                f"akteure: «{name}» -> {target!r} ist keine actors[]-ID ({', '.join(sorted(ids))})"
+            )
+    if problems:
+        raise PairingError(problems)
+    return out
+
+
 def propose_pairing(extracted: dict, canonical: dict, threshold: float = LABEL_SIMILARITY_MIN) -> dict:
     """Vorschlag fuer eine Paarungsdatei aus der Heuristik (rein): jedes
     Heuristik-Paar als Gruppe, jeder ungepaarte Schritt als einseitige Gruppe.
@@ -337,7 +406,12 @@ def propose_pairing(extracted: dict, canonical: dict, threshold: float = LABEL_S
         if s.get("step_id") not in paired_c
     ]
     proc_id = str(extracted.get("id") or canonical.get("id") or "")
-    return {"leistung": proc_id, "status": "vorschlag", "gruppen": groups}
+    proposal: dict = {"leistung": proc_id, "status": "vorschlag", "gruppen": groups}
+    actors, norm_to_id = _actor_index(canonical)
+    open_names = [n for n in _ext_actor_names(extracted) if _norm_actor(n) not in norm_to_id]
+    if actors and open_names:
+        proposal["akteure"] = {n: "" for n in open_names}  # offen: ID, null oder leer lassen
+    return proposal
 
 
 def _edges(steps: list[dict]) -> set[tuple]:
@@ -524,22 +598,20 @@ def evaluate(
             rep.refs_url_differs.append(f"«{p.can_label}»: Extraktion {eu or '—'} vs. Handdatei {cu or '—'}")
 
     # --- Akteure (nur wenn die Handdatei actors[] fuehrt) ---------------------
-    actors = [
-        a for a in canonical.get("actors") or [] if isinstance(a, dict) and isinstance(a.get("id"), str)
-    ]
+    actor_map = parse_actor_map(pairing, extracted, canonical) if pairing is not None else {}
+    actors, norm_to_id = _actor_index(canonical)
     if actors:
         rep.actors_checked = True
-        norm_to_id: dict[str, str] = {}
-        for a in actors:
-            norm_to_id.setdefault(_norm_actor(a["id"]), a["id"])
-            norm_to_id.setdefault(_norm_actor(_label(a)), a["id"])
-        norm_to_id.pop("", None)
+        rep.actors_available = [f"`{a['id']}` ({_label(a) or '—'})" for a in actors]
         can_actor = {s.get("step_id"): s.get("actor") for s in can_steps}
         for s in ext_steps:
             actor = s.get("actor")
-            mapped_id = norm_to_id.get(_norm_actor(actor)) if isinstance(actor, str) else None
+            key = _norm_actor(actor) if isinstance(actor, str) else ""
+            # Ausdrueckliche Zuordnung aus der Paarungsdatei vor ID/Label-Abgleich.
+            mapped_id = actor_map[key] if key in actor_map else norm_to_id.get(key)
             if mapped_id is None:
-                rep.actors_unmapped.append(f"Schritt {s.get('step_id')}: «{actor}»")
+                target = rep.actors_declared_none if key in actor_map else rep.actors_unmapped
+                target.append(f"Schritt {s.get('step_id')}: «{actor}»")
             elif s.get("step_id") in group_of_ext:
                 g = matched[group_of_ext[s.get("step_id")]]
                 expected = sorted({str(can_actor[c]) for c, _ in g.can if can_actor.get(c)})
@@ -611,8 +683,8 @@ def render_report(rep: EvalReport, source: str) -> str:
     ]
     if rep.actors_checked:
         lines.append(
-            f"| Akteure ohne `actors[]`-Entsprechung / falsch zugeordnet | "
-            f"{len(rep.actors_unmapped)} / {len(rep.actors_mismatch)} |"
+            f"| Akteure ohne `actors[]`-Entsprechung / bewusst ohne / falsch zugeordnet | "
+            f"{len(rep.actors_unmapped)} / {len(rep.actors_declared_none)} / {len(rep.actors_mismatch)} |"
         )
     for name, n in rep.flag_counts.items():
         lines.append(f"| Flags: {name} | {n} |")
@@ -654,7 +726,14 @@ def render_report(rep: EvalReport, source: str) -> str:
     section("Unbelegte Kanten (in der Handdatei kein Pfad)", rep.edges_unsupported)
     section("Handkanten, die die Extraktion nicht hat", rep.edges_missed)
     section("References mit abweichender source_url", rep.refs_url_differs)
-    section("Akteure ohne `actors[]`-Entsprechung", rep.actors_unmapped)
+    section(
+        "Akteure ohne `actors[]`-Entsprechung",
+        rep.actors_unmapped,
+        "Name aus der Quelle, der weder ID noch Label der Handdatei trifft. In der "
+        "Paarungsdatei unter `akteure:` zuordnen (`Name: id`) oder bewusst ausnehmen "
+        "(`Name: null`). Akteure der Handdatei: " + ", ".join(rep.actors_available) + ".",
+    )
+    section("Akteure bewusst ohne Entsprechung (Paarungsdatei)", rep.actors_declared_none)
     section("Akteure falsch zugeordnet", rep.actors_mismatch)
     section("Strenger Lint — Treffer in der Extraktion", rep.strict_hits_ext)
     section(

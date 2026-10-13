@@ -118,3 +118,11 @@ gruppen:
     hand:
       20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
     notiz: "fehlt in diesem Lauf (siehe Ext 14)"
+
+# Rollennamen der Extraktion, die weder ID noch Label der Handdatei-actors[]
+# treffen (eltern, kita, schulamt, sozialdept, bezirksrat). Vorschlag von
+# Claude, aus den review_notes — Departement -> Kurz-ID der Handdatei pruefen.
+akteure:
+  "Schul- und Sportdepartement": schulamt
+  "Sozialdepartement": sozialdept
+  "Stadt Zürich": null  # zu unspezifisch fuer eine Zuordnung

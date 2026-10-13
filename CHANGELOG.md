@@ -38,6 +38,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names both services.
 
 ### Added
+- **Actor mapping for `tessera eval`** (`akteure:` in
+  `reports/eval/<id>.pairs.yaml`). Since `notes` no longer leak the target
+  file's actor ids (#70), the model names roles as the source does
+  ("Schul- und Sportdepartement", "Finder:in"); `eval` matched only the
+  `actors[]` id and label, so 12 (`fundsache`) and 4 (`kita-platz`) actors
+  counted as unmapped and their steps were never checked for a wrong actor.
+  The new section maps a source name to an `actors[]` id (`Name: id`),
+  excludes it on purpose (`Name: null`, e.g. a website as "actor") or leaves
+  it open (`Name: ""`). Stale names (not in the extraction) and unknown ids
+  abort `eval` with every problem listed. The report separates unmapped from
+  deliberately excluded actors and lists the target file's `actors[]` as a
+  lookup; `--propose-pairs` pre-fills unmatched names as open. Both pilot
+  pairing files carry a proposed mapping taken from their `review_notes`.
 - **Hand-kept step pairing for `tessera eval`** (`reports/eval/<id>.pairs.yaml`).
   The label heuristic pairs 1:1 by word overlap; in the `fundsache` pilot at
   least 5 of its 7 pairs were wrong (e.g. "hand in to tram staff" <-> "get the
