@@ -67,6 +67,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report's labels, to be confirmed by the maintainer.
 
 ### Fixed
+- **Swiss franc amounts were invisible to the binding-value checks.** The
+  money patterns knew `CHF`, `Fr.` and `Franken`, but not "Schweizer
+  Franken", "Rappen" or written-out amounts ("fünfzig Franken"). Two effects,
+  found in the `fundsache` pilot: (1) the label/value gate judged the verbatim
+  quote "… einen Express-Zuschlag von 50 Schweizer Franken" as carrying no
+  value, so the reference was downgraded to `unverifiziert` and its quote
+  discarded in every run; (2) the cardinal-rule lint would have let a step
+  label like "Zuschlag von 50 Schweizer Franken" through. Both now match
+  (digits + "Schweizer Franken"/"Rappen" in the lint; written-out amounts in
+  the gate and the strict high-risk lint only, like written-out deadlines).
+  The lint only gets stricter.
 - **`scripts/tessera.ps1` failed in every new PowerShell window** with
   `CommandNotFoundException` unless the venv was activated first: it loaded
   `.env` but then called `tessera` from `PATH`. It now runs

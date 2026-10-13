@@ -96,6 +96,32 @@ def test_strict_lint_ignores_plain_structure_text() -> None:
         assert not BINDING_VALUE_STRICT.search(text), text
 
 
+def test_swiss_franc_forms_count_as_money() -> None:
+    # fundsache-Pilot: dieses Zitat steht woertlich auf verloren.html und belegt den
+    # Betrag — bisher als «kein Wert» gewertet, die Reference wurde herabgestuft.
+    quote = (
+        "Wenn der Gegenstand gefunden wird, zahlen Sie zusätzlich zur normalen Gebühr "
+        "einen Express-Zuschlag von 50 Schweizer Franken."
+    )
+    assert label_value_mismatch("Express-Zuschlag zusätzlich zur normalen Gebühr", quote) is None
+    assert quote_substantiates("money", "Gebühr von 50 Rappen")
+    assert quote_substantiates("money", "kostet fünfzig Franken")
+    assert quote_substantiates("money", "zwanzig Schweizer Franken pro Gegenstand")
+    # Weiterhin kein Wert: Waehrung ohne Zahl.
+    assert not quote_substantiates("money", "Dafür zahlen Sie einen Zuschlag in Schweizer Franken.")
+
+
+def test_cardinal_lint_catches_swiss_franc_forms() -> None:
+    # Lint-Luecke: ein Label mit «50 Schweizer Franken» ging bisher durch.
+    assert BINDING_VALUE.search("Express-Zuschlag von 50 Schweizer Franken")
+    assert BINDING_VALUE.search("Gebühr 80 Rappen")
+    # Ausgeschriebener Betrag: nur der strenge Lint (Hochrisiko) schlaegt an.
+    assert not BINDING_VALUE.search("fünfzig Franken")
+    assert BINDING_VALUE_STRICT.search("fünfzig Franken")
+    # Struktur-Text ohne Betrag bleibt still.
+    assert not BINDING_VALUE_STRICT.search("Express-Zuschlag bezahlen")
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0
