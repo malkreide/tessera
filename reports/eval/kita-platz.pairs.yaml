@@ -8,16 +8,17 @@
 # die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
 # Nach dem Pruefen `status: bestaetigt` setzen.
 #
-# Vorschlag von Claude (Pilot-Lauf 2026-10-13), aus dem `--propose-pairs`-Entwurf
-# und der extract-Ausgabe abgeleitet — out/kita-platz.json und die Quellseiten
-# wurden dabei nicht eingesehen. Vom Maintainer gegen beide Dateien zu pruefen.
+# Vorschlag von Claude fuer den Lauf vom 2026-10-13 (nach review_notes, PR #70),
+# aus dem `--propose-pairs`-Entwurf korrigiert — out/kita-platz.json und die
+# Quellseiten wurden dabei nicht eingesehen. Gleiche Regeln wie beim ersten
+# Lauf. Vom Maintainer gegen beide Dateien zu pruefen.
 
 leistung: kita-platz
 status: vorschlag
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
-      2: "Beitragsfaktorbestätigung beim Schul- und Sportdepartement beantragen"
+      2: "Beitragsfaktorbestätigung beim Schul- und Sportdepartement online oder per Post beantragen"
     hand:
       6: "Beitragsfaktorbestätigung beantragen"
   - extraktion:
@@ -27,33 +28,40 @@ gruppen:
       9: "Beitragsfaktor nach Einkommen und Vermögen berechnen"
     notiz: "Pruefen und Festlegen in einem Schritt; die Heuristik paarte faelschlich mit Hand 11"
   - extraktion:
-      4: "Bestätigung über den subventionsberechtigten Betreuungsumfang (SBU) beim Sozialdepartement beantragen"
+      4: "Beitragsfaktorbestätigung ausstellen"
+    hand:
+      10: "Beitragsfaktorbestätigung ausstellen (Verfügung)"
+  - extraktion:
+      5: "Bestätigung über den subventionsberechtigten Betreuungsumfang (SBU) beim Sozialdepartement beantragen"
+      6: "Betreuungsgrund wählen (z.B. Erwerbstätigkeit, Aus-/Weiterbildung, Stellensuche, Freiwilligenarbeit)"
+      7: "SBU-Gesuch online über «Mein Konto» stellen und Stellenprozente oder Stundenanzahl angeben"
+      8: "Für SBU bei sprachlicher/sozialer Integration an Sozialarbeiter:in oder Familienberatung wenden"
+      9: "Für SBU bei gesundheitlichen Problemen Antragsformulare über die Hotline anfordern"
     hand:
       18: "SBU-Bestätigung beantragen (Betreuungsumfang)"
+    notiz: "SBU-Antrag samt Betreuungsgrund und Antragsweg je Grund einzeln extrahiert; die Handdatei fasst ihn zusammen"
   - extraktion:
-      5: "Benötigten Betreuungsumfang anhand der Pensen prüfen und SBU ausstellen"
+      10: "Benötigten Betreuungsumfang prüfen und SBU ausstellen"
     hand:
       19: "Betreuungsumfang prüfen und SBU-Bestätigung ausstellen"
   - extraktion:
-      6: "Subventionsunterlagen bei der Kitaleitung abgeben"
+      13: "Subventionsunterlagen bei der Anmeldung in der Kita abgeben"
     hand:
       17: "Bei der Anmeldung beide Bestätigungen der Kita abgeben"
   - extraktion:
-      7: "Betreuungsvertrag mit der Kita abschliessen"
+      12: "Betreuungsvertrag mit der Kita abschliessen"
     hand:
       5: "Betreuungsvertrag mit der Kita abschliessen"
-  - extraktion:
-      8: "Subventionen direkt beziehen und reduzierten Elternbeitrag berechnen"
-    hand:
-      20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
-      11: "Finanzierungsantrag bewilligen und Elternbeitrag festlegen"
-    notiz: "UNSICHER — Finanzierung ueber die Kita und Festlegung des Elternbeitrags; Inhalt und Akteur pruefen"
 
   # --- Nur in der Extraktion --------------------------------------------------
   - extraktion:
-      9: "Der Stadt melden, wenn das Kind nicht mehr betreut wird"
+      11: "Anträge vor dem Start in der Kita stellen"
     hand: {}
-    notiz: "Abmeldung nach Betreuungsende; Handdatei modelliert sie nicht (Heuristik paarte faelschlich mit Hand 1)"
+    notiz: "Zeitpunkt-Hinweis, kein eigener Schritt in der Handdatei"
+  - extraktion:
+      14: "Subventionen direkt an die Kita auszahlen, solange das Kind betreut wird"
+    hand: {}
+    notiz: "Auszahlung an die Kita; die Handdatei modelliert Finanzierungsantrag und Bewilligung (Hand 20, 11), nicht die Auszahlung — verwandt, nicht gleich (Heuristik paarte faelschlich mit Hand 1)"
 
   # --- Nur in der Handdatei ---------------------------------------------------
   - extraktion: {}
@@ -64,7 +72,7 @@ gruppen:
   - extraktion: {}
     hand:
       2: "Freien Kita-Platz suchen"
-    notiz: "entspricht dem vom Grounding-Gate verworfenen Extraktionsschritt 1 (Belegstelle nicht woertlich)"
+    notiz: "entspricht wieder dem vom Grounding-Gate verworfenen Extraktionsschritt 1 (Belegstelle nicht woertlich)"
   - extraktion: {}
     hand:
       3: "Subventionierter Platz frei?"
@@ -81,8 +89,8 @@ gruppen:
     notiz: "Entscheidung"
   - extraktion: {}
     hand:
-      10: "Beitragsfaktorbestätigung ausstellen (Verfügung)"
-    notiz: "fehlt in der Extraktion (Ext 3 legt fest, stellt aber nicht aus)"
+      11: "Finanzierungsantrag bewilligen und Elternbeitrag festlegen"
+    notiz: "fehlt in diesem Lauf (siehe Ext 14)"
   - extraktion: {}
     hand:
       12: "Subventionierter Kita-Platz"
@@ -106,3 +114,7 @@ gruppen:
       16: "Antrag rechtskräftig abgelehnt"
     nicht_belegbar: true
     notiz: "Endzustand"
+  - extraktion: {}
+    hand:
+      20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
+    notiz: "fehlt in diesem Lauf (siehe Ext 14)"
