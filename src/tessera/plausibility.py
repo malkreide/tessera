@@ -6,7 +6,10 @@ LLM-Behauptung. Dieses Modul macht zwei mechanisch billige Gegenproben:
 
 * **Reihenfolge:** Stehen die Zitate von Vorgaenger und Nachfolger auf derselben
   Seite, und steht der Vorgaenger auf JEDER gemeinsamen Seite hinter dem
-  Nachfolger, widerspricht die Kante der Textreihenfolge.
+  Nachfolger, widerspricht die Kante der Textreihenfolge. FAQ-Seiten zaehlen
+  nicht: dort folgt der Text der Reihenfolge der Fragen, nicht der des
+  Prozesses (kita-platz-Pilot: alle 4 Hinweise von faq.html, `eval` fand 0
+  umgekehrte Kanten).
 * **Akteur:** Die Rollenbezeichnung (gender-neutral normalisiert wie beim
   Actor-Abgleich im Merge) muss irgendwo im Korpus vorkommen.
 
@@ -19,6 +22,7 @@ nichts; er landet beim Reviewer (Flags-Datei + PR-Body + Checklisten-Punkt).
 from __future__ import annotations
 
 import re
+from urllib.parse import urlsplit
 
 from .grounding import Corpus
 from .merge import _UMLAUT_MAP, _norm_actor
@@ -27,6 +31,13 @@ ORDER_FLAG_PREFIX = "HINWEIS REIHENFOLGE"
 ACTOR_FLAG_PREFIX = "HINWEIS AKTEUR"
 
 _NON_ALNUM = re.compile(r"[^a-z0-9]")
+# FAQ-Seite am URL-Pfad erkennen: «faq» bzw. «haeufige-fragen» als eigenes Wort
+# eines Pfadsegments (faq.html, /faq/, kita-faq.html), nicht als Teil eines Worts.
+_FAQ_PATH = re.compile(r"(?:^|[/_.-])(?:faq|haeufige-fragen|häufige-fragen)(?:$|[/_.-])", re.IGNORECASE)
+
+
+def is_faq_url(url: str) -> bool:
+    return bool(_FAQ_PATH.search(urlsplit(url).path))
 
 
 def _dep_id(dep) -> int:
@@ -41,7 +52,9 @@ def _label_de(step: dict) -> str:
 def order_flags(process: dict, step_quotes: dict[int, str], pages: dict[str, Corpus]) -> list[str]:
     """Kanten, deren Vorgaenger-Zitat auf JEDER gemeinsamen Seite hinter dem
     Nachfolger-Zitat steht. Kanten ohne gemeinsame Seite sind nicht beurteilbar
-    und bleiben still (keine Vermutung)."""
+    und bleiben still (keine Vermutung). FAQ-Seiten (`is_faq_url`) sind keine
+    Reihenfolge-Quelle und werden nicht herangezogen."""
+    pages = {url: page for url, page in pages.items() if not is_faq_url(url)}
     positions: dict[int, dict[str, int]] = {}
     for step in process.get("steps", []):
         sid = step.get("step_id")

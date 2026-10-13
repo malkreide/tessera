@@ -177,7 +177,9 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
   mechanisch gegengeprueft (`plausibility.py`): eine Kante, deren
   Vorgaenger-Zitat auf JEDER gemeinsamen Seite hinter dem Nachfolger-Zitat
   steht (Reihenfolge), und eine Rolle, die in keiner Schreibweise im Korpus
-  vorkommt (Akteur). Der Prozess bleibt unveraendert.
+  vorkommt (Akteur). Der Prozess bleibt unveraendert. FAQ-Seiten (`faq` /
+  `haeufige-fragen` im URL-Pfad) zaehlen fuer die Reihenfolge nicht: ihr Text
+  folgt den Fragen, nicht dem Prozess.
 - **Keine Leichte Sprache:** Die Extraktion erzeugt kein `ls` (in v1
   ausgeschlossen, `CLAUDE.md`); ein geliefertes `ls` ist ein Schemafehler bzw.
   ein Bruch von `contracts.struktur_only`. `ls` fuellt die Maschinerie von Hand.

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Order-plausibility check ignores FAQ pages.** On an FAQ page the text
+  follows the questions, not the process. In the `kita-platz` pilot all 4
+  order hints came from `faq.html`, while `tessera eval` found 0 reversed
+  edges (5 exact, 1 shortcut) — pure false alarms. Pages whose URL path has
+  `faq` or `haeufige-fragen` as a word of its own (`faq.html`, `/faq/`,
+  `kita-faq.html`) no longer count as an order source; a quote that also
+  stands on a normal page is still judged there. The actor check is
+  unchanged.
 - **`review_notes` in `sources.yaml`: hints for humans that never reach the
   prompt.** `notes` were labelled "for reviewers" but went verbatim into the
   extraction prompt, and they named the hand-modelled target file's actor ids

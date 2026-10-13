@@ -20,6 +20,7 @@ from tessera.plausibility import (  # noqa: E402
     ACTOR_FLAG_PREFIX,
     ORDER_FLAG_PREFIX,
     actor_flags,
+    is_faq_url,
     order_flags,
 )
 
@@ -87,6 +88,33 @@ def test_order_different_pages_not_judged() -> None:
 def test_order_ignores_missing_quotes() -> None:
     process = _process({1: [], 2: [1]})
     assert order_flags(process, {1: Q1}, _pages()) == []
+
+
+def test_order_skips_faq_pages() -> None:
+    # Dieselbe Kante 3 -> 1, die auf PAGE_A anschlaegt, bleibt auf einer FAQ-Seite still.
+    process = _process({3: [], 1: [3]})
+    faq = "https://www.stadt-zuerich.ch/de/kinderbetreuung/faq.html"
+    assert order_flags(process, QUOTES, {faq: Corpus(TEXT_A)}) == []
+    # Steht der Text zusaetzlich auf einer normalen Seite, zaehlt nur diese.
+    assert len(order_flags(process, QUOTES, {faq: Corpus(TEXT_A), PAGE_A: Corpus(TEXT_A)})) == 1
+
+
+def test_faq_url_detection() -> None:
+    for url in (
+        "https://www.stadt-zuerich.ch/de/lebenslagen/familienergaenzende-kinderbetreuung/faq.html",
+        "https://example.org/faq/",
+        "https://example.org/kita-faq.html",
+        "https://example.org/haeufige-fragen.html",
+        "https://example.org/FAQ",
+    ):
+        assert is_faq_url(url), url
+    for url in (
+        "https://example.org/fundbuero.html",
+        "https://example.org/faqtor.html",
+        "https://example.org/seite.html?faq=1",
+        "https://faq.example.org/anmelden.html",
+    ):
+        assert not is_faq_url(url), url
 
 
 def test_order_does_not_mutate_process() -> None:
