@@ -9,6 +9,10 @@
 # tessera liest Keys ausschliesslich aus dem Prozess-ENV (os.environ) und laedt
 # .env nie selbst; dieses Skript schliesst genau diese Luecke. Es schreibt keine
 # Keys in Logs und gibt keine Werte aus.
+#
+# Liegt im Repo eine .venv, nimmt das Skript `tessera` direkt von dort - die
+# Umgebung muss also nicht aktiviert sein (sonst: CommandNotFoundException in
+# jedem neuen Fenster). Ohne .venv gilt `tessera` aus dem PATH.
 [CmdletBinding()]
 param(
     [Parameter(ValueFromRemainingArguments = $true)]
@@ -18,7 +22,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # .env relativ zur Repo-Wurzel (ein Verzeichnis ueber scripts/), unabhaengig vom CWD.
-$envPath = Join-Path (Split-Path -Parent $PSScriptRoot) '.env'
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$envPath = Join-Path $repoRoot '.env'
 
 if (Test-Path $envPath) {
     Get-Content $envPath | Where-Object { $_ -match '^\s*[^#].+=' } | ForEach-Object {
@@ -29,4 +34,17 @@ if (Test-Path $envPath) {
     Write-Warning "$envPath nicht gefunden - fahre ohne .env fort (ENV evtl. anderweitig gesetzt)."
 }
 
-tessera @Rest
+# tessera aus der Repo-.venv (Windows: Scripts\tessera.exe, sonst bin/tessera),
+# sonst aus dem PATH.
+$tessera = 'tessera'
+foreach ($candidate in @(
+        (Join-Path $repoRoot '.venv\Scripts\tessera.exe'),
+        (Join-Path $repoRoot '.venv/bin/tessera'))) {
+    if (Test-Path $candidate) {
+        $tessera = $candidate
+        break
+    }
+}
+
+& $tessera @Rest
+exit $LASTEXITCODE
