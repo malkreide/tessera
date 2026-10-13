@@ -67,6 +67,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report's labels, to be confirmed by the maintainer.
 
 ### Fixed
+- **Fee references quoted the sentence that merely mentions the fee.** After
+  the fee table reached the corpus (#75), the model still quoted "Bei Abholung
+  eines Fundgegenstandes wird eine Gebühr erhoben" (with a link to the table)
+  instead of a table row, so the label/value gate rightly kept the reference
+  `unverifiziert`. Both extraction passes now require the quote of a
+  value-bearing reference to contain the value itself, to quote where the
+  value stands (another page if need be) and, for a table, a whole row in the
+  "header: cell; header: cell" form `webcomponents.expand` produces. A test
+  keeps prompt and row format in sync.
 - **Genitive time units were invisible to the binding-value checks.**
   "nach Ablauf eines Monats", "innert eines Jahres" or "des Tages" did not
   count as a deadline (units knew only `Monat/Monate/Monaten`). In the

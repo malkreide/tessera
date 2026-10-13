@@ -80,6 +80,12 @@ REGELN (verbindlich):
    und Rekursfristen erscheinen AUSSCHLIESSLICH als references: ein Label OHNE
    die Zahl (z.B. «Meldefrist bei Zuzug»), die exakte Quell-URL der Seite, auf
    der die Angabe steht, und als source_quote das WOERTLICHE Zitat des Satzes.
+   Das Zitat muss den WERT SELBST enthalten (Betrag, Dauer, Datum). Ein Satz,
+   der den Wert nur erwaehnt oder verlinkt («wird eine Gebuehr erhoben»),
+   belegt ihn nicht — steht der Wert auf einer anderen Seite, zitiere dort und
+   nimm deren URL. Tabellenzeilen erscheinen im Quelltext als «Spaltenkopf:
+   Zelle; Spaltenkopf: Zelle»; bei einer Tabelle (z.B. Gebuehrenstufen)
+   zitiere eine ganze Zeile, etwa die erste.
 
 2. BELEGBARKEIT: Jeder Schritt und jede Reference braucht ein source_quote,
    das ZEICHENGETREU (woertlich, keine Paraphrase) im mitgelieferten Quelltext
@@ -142,7 +148,11 @@ Pruefe und korrigiere:
 
 4. KARDINALREGEL: weiterhin KEINE bindende Zahl (Frist/Betrag/Prozent) in Labels
    oder Bedingungen — solche Werte nur als references (Label OHNE Zahl + URL +
-   woertliches Zitat).
+   woertliches Zitat). Pruefe bei jeder Reference, deren Label einen Wert
+   benennt (Gebuehr, Frist, Zuschlag ...), dass ihr Zitat den WERT SELBST
+   enthaelt; erwaehnt es ihn nur, ersetze es durch die Stelle mit dem Wert
+   (auch auf einer anderen Seite oder als ganze Tabellenzeile «Spaltenkopf:
+   Zelle; Spaltenkopf: Zelle») und passe die URL an.
 
 5. ZUSATZFELDER: Ergaenze fehlende, belegbare `documents` (mit woertlichem
    source_quote) und setze `type` je Schritt, wo eindeutig — beides nur belegt

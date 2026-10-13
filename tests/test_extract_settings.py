@@ -152,6 +152,20 @@ def test_sources_yaml_keeps_target_out_of_notes() -> None:
     assert any(p.review_notes for p in procs)
 
 
+def test_prompts_require_value_in_quote_and_describe_table_rows() -> None:
+    # fundsache-Pilot: das Modell zitierte «… wird eine Gebühr erhoben» (ohne
+    # Betrag) statt der Tabellenzeile. Beide Paesse verlangen jetzt den Wert selbst
+    # und beschreiben das Zeilenformat, das webcomponents.expand erzeugt.
+    _need_pydantic()
+    from tessera.webcomponents import CELL_SEP  # noqa: PLC0415
+
+    row = f"Spaltenkopf: Zelle{CELL_SEP}Spaltenkopf: Zelle"
+    for prompt in (extract.INSTRUCTIONS, extract.REVIEW_INSTRUCTIONS):
+        flat = " ".join(prompt.split())
+        assert "WERT SELBST" in flat, flat
+        assert row in flat, flat
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0
