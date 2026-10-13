@@ -8,60 +8,64 @@
 # die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
 # Nach dem Pruefen `status: bestaetigt` setzen.
 #
-# Vorschlag von Claude (Pilot-Lauf 2026-10-12), allein aus den Labels im
-# eval-Report abgeleitet — out/fundsache.json und die Quellseiten wurden dabei
-# nicht eingesehen. Vom Maintainer gegen beide Dateien zu pruefen.
+# Vorschlag von Claude fuer den Lauf vom 2026-10-13 (nach review_notes, PR #70),
+# aus dem `--propose-pairs`-Entwurf korrigiert — out/fundsache.json und die
+# Quellseiten wurden dabei nicht eingesehen. Gleiche Regeln wie beim Lauf vom
+# 2026-10-12. Vom Maintainer gegen beide Dateien zu pruefen.
 
 leistung: fundsache
 status: vorschlag
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
-      1: "Gegenstand in Tram oder Bus dem Fahrpersonal abgeben"
-      2: "Gegenstand bei ZVV-Contact oder der VBZ-Beratungsstelle abgeben"
-      3: "Gegenstand von öffentlichem Grund bei einem Polizeiposten abgeben"
-      4: "Gegenstand beim Fundbüro der Stadt Zürich abgeben"
-      5: "Gefundenen Gegenstand per Post an das Fundbüro senden"
+      9: "Gefundene Sachen aus Tram oder Bus dem Fahrpersonal geben"
+      10: "Gefundene Sachen bei ZVV-Contact oder der VBZ-Beratungsstelle abgeben"
+      11: "Gefundene Sachen auf öffentlichem Grund bei einem Polizeiposten abgeben"
+      12: "Gefundene Sachen beim Fundbüro der Stadt Zürich abgeben"
+      13: "Gefundene Sachen per Post an die angegebene Adresse schicken"
     hand:
       3: "Fundsache melden oder abgeben"
     notiz: "Extraktion fuehrt die Abgabekanaele einzeln, die Handdatei fasst sie zusammen"
   - extraktion:
-      6: "Verlust-Anzeige online erfassen"
-      7: "Gegenstand genau beschreiben und richtige Kategorie wählen"
+      1: "Verlust online als Verlust-Anzeige melden"
+      2: "Verlust beim Fundbüro, bei ZVV-Contact oder bei Mitarbeitenden vom Ereignismanagement und Fahrdienst melden"
     hand:
       6: "Verlust melden (Suchauftrag)"
-    notiz: "Online-Verlustanzeige samt Beschreibung = Suchauftrag"
+    notiz: "Meldekanaele fuer den Verlust einzeln extrahiert"
   - extraktion:
-      12: "Verlustmeldung bearbeiten und bei Fund benachrichtigen"
+      7: "Verlierer:in benachrichtigen, wenn der Gegenstand gefunden wurde"
     hand:
-      7: "Mit Fundbestand abgleichen"
       11: "Suchauftrag läuft (Benachrichtigung bei einem Fund)"
-    notiz: "Ein extrahierter Schritt deckt Abgleich und laufenden Suchauftrag ab"
+    notiz: "nur die Benachrichtigung; den Abgleich (Hand 7) nennt dieser Lauf nicht"
   - extraktion:
-      13: "Am folgenden Tag im Fundbüro nachfragen oder Gegenstand abholen"
+      8: "Im Fundbüro nachfragen und Fundgegenstand abholen"
     hand:
       9: "Gegen Ausweis abholen"
     notiz: "Abholung im Fundbuero"
 
   # --- Nur in der Extraktion --------------------------------------------------
   - extraktion:
-      8: "Massenartikel direkt im Fundbüro suchen und abholen"
-    hand: {}
-    notiz: "Sonderweg fuer Massenartikel; Handdatei modelliert ihn nicht"
-  - extraktion:
-      9: "Verlust eines Ausweises sofort der Polizei melden"
+      3: "Verlust eines Ausweises sofort der Polizei melden"
     hand: {}
     notiz: "Sonderfall Ausweis; Handdatei modelliert ihn nicht"
   - extraktion:
-      10: "Verlorenen Ausweis als ungültig einziehen"
+      4: "Polizeibericht für die Beantragung eines neuen Ausweises verwenden"
+    hand: {}
+    notiz: "Sonderfall Ausweis; Handdatei modelliert ihn nicht"
+  - extraktion:
+      5: "Verlorenen Ausweis einziehen, da er ungültig ist"
     hand: {}
     notiz: "Sonderfall Ausweis (behoerdlicher Folgeschritt); Handdatei modelliert ihn nicht"
   - extraktion:
-      11: "Express-Suche für dringend benötigte Gegenstände beantragen"
+      6: "Express-Suche für dringend benötigte Gegenstände aus VBZ- oder Forchbahn-Fahrzeugen beantragen"
     hand: {}
     notiz: "Zusatzleistung; Handdatei modelliert sie nicht"
   - extraktion:
-      14: "Nicht abgeholte Gegenstände öffentlich verkaufen oder versteigern"
+      14: "Von VBZ und Forchbahn gefundene Gegenstände nach Ablauf der Aufbewahrungsfrist öffentlich verkaufen"
+    hand: {}
+    notiz: "Folge nach Ablauf der Aufbewahrung; Handdatei modelliert sie nicht"
+  - extraktion:
+      15: "Nicht abgeholte Gegenstände vom öffentlichen Grund bei einer öffentlichen Versteigerung verkaufen"
     hand: {}
     notiz: "Folge nach Ablauf der Aufbewahrung; Handdatei modelliert sie nicht"
 
@@ -84,6 +88,10 @@ gruppen:
     hand:
       5: "Fund gemeldet (ggf. Finderlohn-Anspruch)"
     notiz: "Endzustand; der Finderlohn-Hinweis waere belegbar, falls die Quelle ihn nennt — darum nicht als unbelegbar markiert"
+  - extraktion: {}
+    hand:
+      7: "Mit Fundbestand abgleichen"
+    notiz: "fehlt in diesem Lauf (im Lauf vom 2026-10-12 in Ext 12 enthalten)"
   - extraktion: {}
     hand:
       8: "Gegenstand vorhanden?"
