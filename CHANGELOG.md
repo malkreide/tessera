@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report's labels, to be confirmed by the maintainer.
 
 ### Fixed
+- **`scripts/tessera.ps1` failed in every new PowerShell window** with
+  `CommandNotFoundException` unless the venv was activated first: it loaded
+  `.env` but then called `tessera` from `PATH`. It now runs
+  `.venv\Scripts\tessera.exe` (or `.venv/bin/tessera`) from the repo when that
+  exists, falls back to `PATH` otherwise, and passes `tessera`'s exit code on.
+  Checked with PowerShell 7.4 on Linux: fake `tessera` in `.venv/bin` is found
+  without activation, `.env` is loaded, exit code 3 comes through; without
+  `.venv` the `PATH` fallback applies.
 - **`tessera extract` failed with `XProcess steps: Field required` /
   `Exceeded maximum output retries (1)`.** pydantic-ai sends Anthropic
   `max_tokens=4096` unless told otherwise; an XProcess with verbatim quotes

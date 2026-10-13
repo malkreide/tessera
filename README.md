@@ -207,7 +207,9 @@ tessera run --id hund-anmelden
 Prefer not to touch your `$PROFILE`? The repo ships the same loader as a tracked
 helper, [`scripts/tessera.ps1`](scripts/tessera.ps1): it imports `.env` (resolved
 relative to the repo root, so the working directory doesn't matter) and forwards all
-arguments to `tessera`. One checked-in place instead of a per-machine profile edit:
+arguments to `tessera`. If the repo has a `.venv`, it runs `tessera` from there, so
+the environment need not be activated in a new window. One checked-in place instead
+of a per-machine profile edit:
 
 ```powershell
 ./scripts/tessera.ps1 run --id hund-anmelden
