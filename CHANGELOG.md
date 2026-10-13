@@ -67,6 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report's labels, to be confirmed by the maintainer.
 
 ### Fixed
+- **Genitive time units were invisible to the binding-value checks.**
+  "nach Ablauf eines Monats", "innert eines Jahres" or "des Tages" did not
+  count as a deadline (units knew only `Monat/Monate/Monaten`). In the
+  `fundsache` pilot the verbatim legal sentence "… dürfen bereits nach Ablauf
+  eines Monats versteigert … werden" was therefore judged value-free and the
+  reference «Verkürzte Versteigerungsfrist» downgraded in every run. Units now
+  include the genitive (`Tages`, `Monats`, `Jahres`, `Werktages`) in the gate
+  and the lint; compounds such as "Tagesstruktur" still do not match.
 - **Swiss franc amounts were invisible to the binding-value checks.** The
   money patterns knew `CHF`, `Fr.` and `Franken`, but not "Schweizer
   Franken", "Rappen" or written-out amounts ("fünfzig Franken"). Two effects,
