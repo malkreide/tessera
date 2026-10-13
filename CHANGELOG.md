@@ -75,6 +75,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reference «Verkürzte Versteigerungsfrist» downgraded in every run. Units now
   include the genitive (`Tages`, `Monats`, `Jahres`, `Werktages`) in the gate
   and the lint; compounds such as "Tagesstruktur" still do not match.
+- **Tables and section headings from stadt-zuerich.ch were lost in the crawl.**
+  The city's design system ships tables as `<stzh-datatable columns="[JSON]"
+  rows="[JSON]">` and headings as `<stzh-heading>`; only JavaScript turns them
+  into visible HTML, so trafilatura dropped them. In the `fundsache` pilot the
+  whole fee table ("Gebühren bei Abholung", CHF 5.00–50.00, 5 % above
+  2'000) was missing, so the fee reference could never be verified; a
+  7-row example on `kita-platz/faq.html` was missing too. New
+  `webcomponents.expand` resolves both before trafilatura in every HTML-to-text
+  path (crawl, `fingerprint`/`diff`, `verify --online`): each table row becomes
+  a paragraph "header: cell; header: cell" (every fragment verbatim from the
+  page, headers repeated per row, as a screen reader reads tables), headings
+  become `<hN>`. A row quote now carries its unit ("Gebühr in CHF: 10.00"), and
+  the binding checks accept "CHF: 10.00". Unreadable JSON leaves the element
+  untouched. **Page fingerprints of affected pages change once** — re-run
+  `tessera fingerprint` for `fundsache` and `kita-platz` after merging.
 - **Swiss franc amounts were invisible to the binding-value checks.** The
   money patterns knew `CHF`, `Fr.` and `Franken`, but not "Schweizer
   Franken", "Rappen" or written-out amounts ("fünfzig Franken"). Two effects,

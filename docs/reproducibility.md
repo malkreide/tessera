@@ -8,6 +8,11 @@ muss der Weg von der Quellseite zum normalisierten Text reproduzierbar sein. Ein
 stille Version-Drift im HTML-nach-Markdown-Pfad koennte ein bisher belegtes Zitat
 ploetzlich durchs Grounding-Gate fallen lassen — oder umgekehrt.
 
+Zum Pfad gehoert neben trafilatura `src/tessera/webcomponents.py` (stzh-
+Datentabellen und -Zwischentitel vor der Extraktion aufloesen). Eine Aenderung
+dort aendert den Seitentext — Fingerprint-Baselines danach bewusst neu schreiben
+(`tessera fingerprint`), nicht still driften lassen.
+
 ## Abhaengigkeiten: zwei Pin-Ebenen
 
 1. **`pyproject.toml` — Ranges.** tessera ist eine Anwendung; die Untergrenze ist

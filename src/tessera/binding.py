@@ -44,8 +44,11 @@ _UNIT = (
     rf"(?:{_CURRENCY_AFTER}|%|Prozent|{_TAG}|Woche(?:n)?|{_MONAT}|"
     rf"{_JAHR}|{_WERKTAG})"
 )
+# Waehrung vor der Zahl, optional mit Doppelpunkt: «CHF: 10.00» entsteht, wenn
+# webcomponents.expand eine Tabellenzelle mit ihrem Spaltenkopf («Gebühr in CHF»)
+# ausschreibt.
 BINDING_VALUE = re.compile(
-    rf"(?:\d[\d'.,]*\s*{_UNIT}\b)|(?:(?:CHF|Fr\.?)\s*\d)",
+    rf"(?:\d[\d'.,]*\s*{_UNIT}\b)|(?:(?:CHF|Fr\.?)\s*:?\s*\d)",
     re.IGNORECASE,
 )
 
@@ -78,7 +81,7 @@ _TIME_VALUE = re.compile(
 # Ein Geldbetrag/Satz: CHF/Fr./Franken + Ziffer (beide Reihenfolgen), Ziffer +
 # Prozent oder ausgeschriebene Zahl + (Schweizer) Franken/Rappen.
 _MONEY_VALUE = re.compile(
-    r"(?:(?:CHF|Fr\.?|Franken)\s*\d)"
+    r"(?:(?:CHF|Fr\.?|Franken)\s*:?\s*\d)"
     rf"|(?:\d[\d'.,]*\s*(?:{_CURRENCY_AFTER}|%|Prozent)\b)"
     rf"|(?:\b(?:{_WORD_NUM})\s+(?:Schweizer\s+)?(?:Franken|Rappen)\b)",
     re.IGNORECASE,

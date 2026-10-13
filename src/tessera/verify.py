@@ -128,7 +128,13 @@ def looks_like_spa(raw_html: str, text: str) -> bool:
 
 
 def extract_text(raw_html: str) -> str:
-    """Roh-HTML -> lesbarer Text. Trafilatura, wenn verfuegbar; sonst Tag-Strip."""
+    """Roh-HTML -> lesbarer Text. Trafilatura, wenn verfuegbar; sonst Tag-Strip.
+
+    stzh-Datentabellen/-Zwischentitel werden vorher aufgeloest (wie beim Crawl),
+    sonst fehlte ein in einer Tabelle belegtes Zitat beim Drift-Abgleich."""
+    from .webcomponents import expand  # noqa: PLC0415
+
+    raw_html = expand(raw_html)
     try:
         import trafilatura  # noqa: PLC0415
 

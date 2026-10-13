@@ -138,6 +138,13 @@ def test_genitive_time_units_count_as_deadline() -> None:
     assert not BINDING_VALUE_STRICT.search("Tagesstruktur der Kita")
 
 
+def test_currency_colon_from_expanded_tables() -> None:
+    # webcomponents.expand schreibt eine Tabellenzelle mit ihrem Spaltenkopf aus.
+    assert quote_substantiates("money", "Gebühr in CHF: 10.00")
+    assert BINDING_VALUE.search("Gebühr in CHF: 10.00")
+    assert not quote_substantiates("money", "Verkaufswert (VW) in CHF: Zuschlag für Express-Serviceauftrag")
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

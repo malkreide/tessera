@@ -28,7 +28,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
-from . import preflight, reach
+from . import preflight, reach, webcomponents
 from .config import ROOT, ProcessSource, SourcesConfig
 from .verify import looks_like_spa
 
@@ -75,9 +75,14 @@ def _ssr_fetch(client: httpx.Client, url: str, *, sleep=time.sleep) -> tuple[str
         raw = ""
         if state == reach.OK:
             raw = r.text
+            # stzh-Datentabellen/-Zwischentitel zuerst aufloesen (webcomponents.py).
             md = (
                 trafilatura.extract(
-                    raw, url=url, output_format="markdown", include_links=True, include_tables=True
+                    webcomponents.expand(raw),
+                    url=url,
+                    output_format="markdown",
+                    include_links=True,
+                    include_tables=True,
                 )
                 or ""
             )
