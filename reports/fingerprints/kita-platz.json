@@ -19,6 +19,12 @@
       "sha256": "5435a187757b5ec7c0b35c618c024a113882e03b15f5ecfd85611933f21bdd3c",
       "chars": 12753,
       "text_file": "kita-platz/03-faq.txt"
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/stadtleben/wirtschaft-und-gewerbe/fuer-kitas/subventionen.html",
+      "sha256": "e2b4d31963ac3f8213c688ce04e3c195c695af57c6c3f69dc3afa74ff10bd99c",
+      "chars": 5356,
+      "text_file": "kita-platz/04-subventionen.txt"
     }
   ]
 }
