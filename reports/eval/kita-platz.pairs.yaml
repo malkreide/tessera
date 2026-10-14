@@ -16,10 +16,10 @@
 # Vorschlag von Claude aus dem `--propose-pairs`-Entwurf, korrigiert nach
 # denselben Regeln wie die bestaetigte L3-Paarung (Git-Historie, d794f20);
 # out/kita-platz.json wurde dabei nicht eingesehen, nur die Labels des Entwurfs.
-# Vom Maintainer zu pruefen.
+# Vom Maintainer am 2026-10-14 bestaetigt (inkl. akteure:).
 
 leistung: kita-platz
-status: vorschlag
+status: bestaetigt
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
