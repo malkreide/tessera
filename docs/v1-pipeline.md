@@ -227,7 +227,8 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
 - **Zweck:** Erst diese Zahlen entscheiden, ob die Extraktion brauchbar ist
   und welche weitere Massnahme dringend ist — insbesondere, ob `veranstaltung`
   (bis zum Pilot gesperrt) wieder freigeschaltet wird. Report als Pilot-Beleg
-  bewusst committen.
+  bewusst committen. Erster Pilot (fundsache, kita-platz, Oktober 2026):
+  `reports/pilot-2026-10.md`.
 - **Ohne Handdatei** (404) oder bei 401/403/Netzfehler: Umgebungsbefund,
   Leistung uebersprungen — kein Traceback, kein Raten.
 

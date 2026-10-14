@@ -38,6 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names both services.
 
 ### Added
+- **Pilot report** `reports/pilot-2026-10.md`: the first live pilot
+  (`fundsache`, `kita-platz`, 2026-10-12 to 2026-10-14) — measured runs with
+  their figures, the twelve findings with cause and fixing PR (#64–#77), what
+  holds (nothing invented, cardinal rule, order, actors, binding references
+  after #74–#76), what does not (decision/rejection/appeal branches, run-to-run
+  variance, kita references), the limits of the measurement (pairings are
+  unconfirmed proposals) and the open maintainer items. Recommends a
+  `veranstaltung` test run without `pr`, which only the maintainer can unlock.
 - **Actor mapping for `tessera eval`** (`akteure:` in
   `reports/eval/<id>.pairs.yaml`). Since `notes` no longer leak the target
   file's actor ids (#70), the model names roles as the source does
