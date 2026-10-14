@@ -83,15 +83,15 @@ gruppen:
   - extraktion: {}
     hand:
       4: "Fund erfassen und aufbewahren"
-    notiz: "fehlt in der Extraktion; pruefen, ob die Quelle Erfassung/Aufbewahrung nennt"
+    notiz: "Aufbewahrung steht in der Quelle (versteigerung.html, rechtsgrundlage.html), Erfassung von Funden nicht ausdruecklich (geprueft 2026-10-14) — teilweise echte Luecke"
   - extraktion: {}
     hand:
       5: "Fund gemeldet (ggf. Finderlohn-Anspruch)"
-    notiz: "Endzustand; der Finderlohn-Hinweis waere belegbar, falls die Quelle ihn nennt — darum nicht als unbelegbar markiert"
+    notiz: "Endzustand; die Quelle nennt Finderlohn nur verneinend fuer das Unternehmen (rechtsgrundlage.html), keinen Anspruch der Finderin/des Finders (geprueft 2026-10-14)"
   - extraktion: {}
     hand:
       7: "Mit Fundbestand abgleichen"
-    notiz: "fehlt in diesem Lauf (im Lauf vom 2026-10-12 in Ext 12 enthalten)"
+    notiz: "fehlt in diesem Lauf (im Lauf vom 2026-10-12 in Ext 12 enthalten); die Quelle nennt den Abgleich nicht ausdruecklich, nur die Benachrichtigung (geprueft 2026-10-14)"
   - extraktion: {}
     hand:
       8: "Gegenstand vorhanden?"

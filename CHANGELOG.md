@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Missing branches checked against the sources.** For every hand-file step
+  without a counterpart in the pilot's second run, the source pages were checked
+  (2026-10-14). Waiting list, rejection and appeal (`kita-platz`) as well as
+  finder's reward and matching (`fundsache`) are not on the pages, so their
+  absence is not an extraction error; only safekeeping (`fundsache`) is a real
+  gap. Two `kita-platz` steps live on a page outside `official_urls`. Recorded as
+  an addendum to `reports/pilot-2026-10.md` and in the pairing-file notes;
+  status and pairings are unchanged.
 - **Eval pairings for `fundsache` and `kita-platz` confirmed.** The maintainer
   confirmed both curated pairing files (`reports/eval/*.pairs.yaml`, incl. the
   `akteure:` mapping); `status` is now `bestaetigt`, so `tessera eval` no longer
