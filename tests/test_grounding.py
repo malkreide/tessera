@@ -112,6 +112,24 @@ def test_normalize_markdown_links() -> None:
     assert corpus.contains("bei [Externer Link:AMICUS](http://www.amicus.ch) registriert")
 
 
+def test_normalize_link_with_parentheses_in_url() -> None:
+    # kita-platz-Pilot: der Stadtplan-Link traegt Klammern in der URL; vorher
+    # endete die Linkerkennung an der ersten «)» und der URL-Rest landete im
+    # Satz -> das woertliche Zitat fiel durchs Gate.
+    md = (
+        "Auf dem[\u00a0Stadtplan\u00a0der Stadt Zürich](https://www.maps.stadt-zuerich.ch/"
+        "zueriplan3/stadtplan.aspx#basemap=Basiskarte+(Geb%C3%A4udeschr%C3%A4gansicht)"
+        "&map=&scale=8000&layer=Kita%3A%3A38&drawings=) finden Sie alle Kitas mit einer "
+        "gültigen Betriebsbewilligung."
+    )
+    quote = "Auf dem Stadtplan der Stadt Zürich finden Sie alle Kitas mit einer gültigen Betriebsbewilligung."
+    assert Corpus(md).contains(quote), normalize(md)
+    assert "scale" not in normalize(md), normalize(md)
+    # Zwei Links im selben Absatz: kein Verschlucken des Texts dazwischen.
+    two = "Siehe [A](https://a.example/x(1)) und dann [B](https://b.example/y) fertig."
+    assert normalize(two) == "Siehe A und dann B fertig.", normalize(two)
+
+
 def test_reference_gate() -> None:
     process, quotes = _process()
     gated, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))

@@ -67,7 +67,11 @@ _QUOTE_MAP = str.maketrans(
 # Word-Joiner und ZWNBSP/BOM. `\s` faengt diese NICHT — also explizit entfernen,
 # sonst faellt ein gueltiger Beleg faelschlich durchs Gate.
 _ZERO_WIDTH = re.compile("[­​‌‍⁠﻿]")
-_MD_LINK = re.compile(r"\[([^\]]*)\]\([^)]*\)")  # [Text](url) -> Text
+# [Text](url) -> Text. Die URL darf einfach geschachtelte Klammern tragen
+# (Stadtplan-Links: «…basemap=Basiskarte+(Gebaeudeschraegansicht)&map=…»);
+# sonst endete der Link an der ersten «)», und der URL-Rest stuende mitten im
+# Satz — ein woertliches Zitat fiele durchs Gate (kita-platz-Pilot).
+_MD_LINK = re.compile(r"\[([^\]]*)\]\((?:[^()\s]|\([^()\s]*\))*\)")
 _URL = re.compile(r"https?://\S+")
 # Accessibility-Labels, die Extraktoren in Anker-Texte einbetten (kein Inhalt).
 _A11Y_LABEL = re.compile(r"(?:Externer|Interner) Link:\s*", re.IGNORECASE)
