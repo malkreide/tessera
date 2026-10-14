@@ -151,6 +151,12 @@ processes:
       - "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/betreuungskosten-und-subventionen.html"
       - "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/kitaplatz-finden.html"
       - "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/faq.html"
+      # 2026-10-14 ergaenzt (Maintainer-Entscheid, reports/pilot-2026-10.md):
+      # richtet sich an Kitas, beschreibt aber den Finanzierungsantrag ueber
+      # KiBEA und die Festlegung des Elternbeitrags — beides steht auf keiner
+      # der drei Elternseiten. Die Handdatei fuehrt die Seite als Quelle
+      # (q-stz-kitafin). HTTP 200 und robots.txt erlaubt am 2026-10-14.
+      - "https://www.stadt-zuerich.ch/de/stadtleben/wirtschaft-und-gewerbe/fuer-kitas/subventionen.html"
     catalog_keywords: ["kita", "betreuung", "betreuungsgutschein", "kinderbetreuung"]
     notes: >-
       Einkommensabhaengig -> SENSIBEL. Struktur-only bleibt zwingend: keine

@@ -82,7 +82,7 @@ gruppen:
   - extraktion: {}
     hand:
       4: "Auf Warteliste bleiben"
-    notiz: "keine Quellseite nennt eine Warteliste (geprueft 2026-10-14); nur fuer-kitas/subventionen.html, nicht gecrawlt: Kitas entscheiden selber ueber die Vergabe"
+    notiz: "keine Quellseite nennt eine Warteliste (geprueft 2026-10-14); nur fuer-kitas/subventionen.html (bei diesem Lauf nicht gecrawlt): Kitas entscheiden selber ueber die Vergabe"
   - extraktion: {}
     hand:
       8: "Anspruch auf Subventionen?"
@@ -91,7 +91,7 @@ gruppen:
   - extraktion: {}
     hand:
       11: "Finanzierungsantrag bewilligen und Elternbeitrag festlegen"
-    notiz: "fehlt in diesem Lauf (siehe Ext 14); steht nur auf fuer-kitas/subventionen.html, die nicht in official_urls ist (geprueft 2026-10-14)"
+    notiz: "fehlt in diesem Lauf (siehe Ext 14); steht nur auf fuer-kitas/subventionen.html, die bei diesem Lauf nicht in official_urls war (seit 2026-10-14 aufgenommen)"
   - extraktion: {}
     hand:
       12: "Subventionierter Kita-Platz"
@@ -118,7 +118,7 @@ gruppen:
   - extraktion: {}
     hand:
       20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
-    notiz: "fehlt in diesem Lauf (siehe Ext 14); steht nur auf fuer-kitas/subventionen.html, die nicht in official_urls ist (geprueft 2026-10-14)"
+    notiz: "fehlt in diesem Lauf (siehe Ext 14); steht nur auf fuer-kitas/subventionen.html, die bei diesem Lauf nicht in official_urls war (seit 2026-10-14 aufgenommen)"
 
 # Rollennamen der Extraktion, die weder ID noch Label der Handdatei-actors[]
 # treffen (eltern, kita, schulamt, sozialdept, bezirksrat). Vorschlag von

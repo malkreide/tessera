@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` now also crawls `fuer-kitas/subventionen.html`.** The page
+  addresses daycare centres but is the only source for the financing
+  application via KiBEA and for how the parental contribution is set (hand
+  steps 11 and 20). Same domain, so the existing ToU verdict covers it;
+  robots.txt allows it. `tessera diff` reports it as a new URL until the next
+  `fingerprint` run; `reports/scraping-compliance.md` picks it up on the next
+  `preflight`.
 - **Missing branches checked against the sources.** For every hand-file step
   without a counterpart in the pilot's second run, the source pages were checked
   (2026-10-14). Waiting list, rejection and appeal (`kita-platz`) as well as
