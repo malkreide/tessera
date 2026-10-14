@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`veranstaltung` stays paused after the pilot, with a new reason.** A local
+  test run (2026-10-14, no `pr`) verified all 3 binding references (incl. the
+  application lead time) and passed the high-risk validator, but produced only
+  5 steps: permit decision, fee, rejection and appeal are not on the three
+  source pages — they live in PDF ordinances of the Amtliche Sammlung
+  (551.210/214/280), and v1 does not parse PDFs. The `paused` reason in
+  `sources.yaml`, `CLAUDE.md`, README and `docs/v1-pipeline.md` now say so; the
+  run is recorded as an addendum to `reports/pilot-2026-10.md`.
 - **Order-plausibility check ignores FAQ pages.** On an FAQ page the text
   follows the questions, not the process. In the `kita-platz` pilot all 4
   order hints came from `faq.html`, while `tessera eval` found 0 reversed
