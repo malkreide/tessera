@@ -139,6 +139,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   report's labels, to be confirmed by the maintainer.
 
 ### Fixed
+- **Grounding: Markdown links whose URL contains parentheses.** `normalize`
+  reduces `[text](url)` to `text`, but the pattern ended at the first `)`. The
+  city-map link on `kitaplatz-finden.html` carries `…Basiskarte+(…ansicht)&map=…`,
+  so the rest of the URL landed mid-sentence and a verbatim quote failed the
+  gate: «Kita-Platz suchen» was dropped in all four `kita-platz` runs. The
+  rejected quote in the new flag (#88) showed it. The pattern now allows one
+  level of nested parentheses. Because `diff` hashes the normalized text, the
+  `kita-platz` fingerprints of `faq.html` and `kitaplatz-finden.html` change
+  once (checked: `fundsache`, `parkplatz`, `umzug-melden` unchanged) — re-run
+  the `fingerprint` workflow for `kita-platz` after merging.
 - **Fee references quoted the sentence that merely mentions the fee.** After
   the fee table reached the corpus (#75), the model still quoted "Bei Abholung
   eines Fundgegenstandes wird eine Gebühr erhoben" (with a link to the table)
