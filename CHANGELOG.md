@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Eval pairings for `fundsache` and `kita-platz` confirmed.** The maintainer
+  confirmed both curated pairing files (`reports/eval/*.pairs.yaml`, incl. the
+  `akteure:` mapping); `status` is now `bestaetigt`, so `tessera eval` no longer
+  marks the step pairing as "noch zu bestaetigen". Groups and mappings are
+  unchanged; the pilot report notes the confirmation.
 - **`veranstaltung` stays paused after the pilot, with a new reason.** A local
   test run (2026-10-14, no `pr`) verified all 3 binding references (incl. the
   application lead time) and passed the high-risk validator, but produced only
