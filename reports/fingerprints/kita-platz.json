@@ -10,14 +10,14 @@
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/kitaplatz-finden.html",
-      "sha256": "f8a51845a2d379b33b730a4cda0a5d7bc3794a498c7af0a515b66bbdbaf89d94",
-      "chars": 1400,
+      "sha256": "b7cbec544e15b9b979568a478cad5daa78950a7fcd770e3132cf8fa0b0afb365",
+      "chars": 1224,
       "text_file": "kita-platz/02-kitaplatz-finden.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/faq.html",
-      "sha256": "5435a187757b5ec7c0b35c618c024a113882e03b15f5ecfd85611933f21bdd3c",
-      "chars": 12753,
+      "sha256": "32ed8172984e3eed28b821e04f3f73728ce422cdf99e2b927bdd28a237381233",
+      "chars": 12400,
       "text_file": "kita-platz/03-faq.txt"
     },
     {
