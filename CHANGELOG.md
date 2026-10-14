@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Unquoted hand steps marked `nicht_belegbar` in the eval pairings.** After
+  the source check, hand steps that no source page names are excluded from
+  "recall belegbar" like start, decision and end nodes: `kita-platz` 4, 13, 15
+  (waiting list, rejection, appeal) and `fundsache` 5, 7 (finder's reward,
+  matching). L2 recall belegbar: `kita-platz` 57 % -> 73 %, `fundsache`
+  57 % -> 80 %. Safekeeping (`fundsache` 4) stays countable — the source names it.
 - **`kita-platz` now also crawls `fuer-kitas/subventionen.html`.** The page
   addresses daycare centres but is the only source for the financing
   application via KiBEA and for how the parental contribution is set (hand

@@ -82,6 +82,7 @@ gruppen:
   - extraktion: {}
     hand:
       4: "Auf Warteliste bleiben"
+    nicht_belegbar: true
     notiz: "keine Quellseite nennt eine Warteliste (geprueft 2026-10-14); nur fuer-kitas/subventionen.html (bei diesem Lauf nicht gecrawlt): Kitas entscheiden selber ueber die Vergabe"
   - extraktion: {}
     hand:
@@ -100,6 +101,7 @@ gruppen:
   - extraktion: {}
     hand:
       13: "Antrag ablehnen (mit Begründung)"
+    nicht_belegbar: true
     notiz: "keine Quellseite nennt eine Ablehnung des Antrags (geprueft 2026-10-14); die Handdatei hat fuer diesen Schritt weder Quelle noch Reference"
   - extraktion: {}
     hand:
@@ -109,6 +111,7 @@ gruppen:
   - extraktion: {}
     hand:
       15: "Rechtsmittel gemäss Rechtsmittelbelehrung im Entscheid"
+    nicht_belegbar: true
     notiz: "keine Quellseite nennt Rechtsmittel (geprueft 2026-10-14); die Handdatei hat fuer diesen Schritt weder Quelle noch Reference"
   - extraktion: {}
     hand:
