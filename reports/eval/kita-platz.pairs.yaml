@@ -82,7 +82,7 @@ gruppen:
   - extraktion: {}
     hand:
       4: "Auf Warteliste bleiben"
-    notiz: "fehlt in der Extraktion; pruefen, ob die Quelle die Warteliste nennt"
+    notiz: "keine Quellseite nennt eine Warteliste (geprueft 2026-10-14); nur fuer-kitas/subventionen.html, nicht gecrawlt: Kitas entscheiden selber ueber die Vergabe"
   - extraktion: {}
     hand:
       8: "Anspruch auf Subventionen?"
@@ -91,7 +91,7 @@ gruppen:
   - extraktion: {}
     hand:
       11: "Finanzierungsantrag bewilligen und Elternbeitrag festlegen"
-    notiz: "fehlt in diesem Lauf (siehe Ext 14)"
+    notiz: "fehlt in diesem Lauf (siehe Ext 14); steht nur auf fuer-kitas/subventionen.html, die nicht in official_urls ist (geprueft 2026-10-14)"
   - extraktion: {}
     hand:
       12: "Subventionierter Kita-Platz"
@@ -100,7 +100,7 @@ gruppen:
   - extraktion: {}
     hand:
       13: "Antrag ablehnen (mit Begründung)"
-    notiz: "Ablehnungszweig fehlt in der Extraktion; pruefen, ob die Quelle ihn nennt"
+    notiz: "keine Quellseite nennt eine Ablehnung des Antrags (geprueft 2026-10-14); die Handdatei hat fuer diesen Schritt weder Quelle noch Reference"
   - extraktion: {}
     hand:
       14: "Rechtsmittel ergreifen?"
@@ -109,7 +109,7 @@ gruppen:
   - extraktion: {}
     hand:
       15: "Rechtsmittel gemäss Rechtsmittelbelehrung im Entscheid"
-    notiz: "Rechtsmittelzweig fehlt in der Extraktion; pruefen, ob die drei Quellseiten ihn nennen"
+    notiz: "keine Quellseite nennt Rechtsmittel (geprueft 2026-10-14); die Handdatei hat fuer diesen Schritt weder Quelle noch Reference"
   - extraktion: {}
     hand:
       16: "Antrag rechtskräftig abgelehnt"
@@ -118,7 +118,7 @@ gruppen:
   - extraktion: {}
     hand:
       20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
-    notiz: "fehlt in diesem Lauf (siehe Ext 14)"
+    notiz: "fehlt in diesem Lauf (siehe Ext 14); steht nur auf fuer-kitas/subventionen.html, die nicht in official_urls ist (geprueft 2026-10-14)"
 
 # Rollennamen der Extraktion, die weder ID noch Label der Handdatei-actors[]
 # treffen (eltern, kita, schulamt, sozialdept, bezirksrat). Vorschlag von
