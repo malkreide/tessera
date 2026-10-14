@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` run L3 recorded in the pilot report.** With the fourth source
+  page the run finds the KiBEA financing application and its approval; recall
+  belegbar 82 % (9/11, L2: 73 %), precision 82 %, 0 unverified binding
+  references. The gate dropped "find a daycare place" for the third time and,
+  this run, the main SBU channel via "Mein Konto"; the pairing notes now say
+  so (the earlier guess that the dropped step was hand 10 was wrong).
 - **`kita-platz` pairing for run L3 (four source pages).** The re-run after #83
   made the confirmed L2 pairing stale (new step ids). The `--propose-pairs` draft
   is curated by the L2 rules (grouped SBU channels, `nicht_belegbar`, actor
