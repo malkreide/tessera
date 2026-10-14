@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` L4 pairing confirmed.** The maintainer confirmed the curated
+  pairing for run L4 (incl. `akteure:`); `status` is now `bestaetigt`. Groups,
+  notes and metrics are unchanged.
 - **`kita-platz` run L4 recorded in the pilot report.** First run after #88/#89:
   0 % gate dropout (L1–L3: 7–15 %), recall belegbar 91 % (10/11), precision
   86 %. The "systematic" drop of "find a daycare place" was the link bug fixed
