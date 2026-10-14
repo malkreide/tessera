@@ -6,15 +6,20 @@
 # woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
 # zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
 # die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
 # Nach dem Pruefen `status: bestaetigt` setzen.
 #
-# Vorschlag von Claude fuer den Lauf vom 2026-10-13 (nach review_notes, PR #70),
-# aus dem `--propose-pairs`-Entwurf korrigiert — out/kita-platz.json und die
-# Quellseiten wurden dabei nicht eingesehen. Gleiche Regeln wie beim ersten
-# Lauf. Vom Maintainer am 2026-10-14 bestaetigt (inkl. akteure:).
+# Lauf L3 vom 2026-10-14 (vier Quellseiten, neu fuer-kitas/subventionen.html,
+# #83). Vorschlag von Claude aus dem `--propose-pairs`-Entwurf, korrigiert nach
+# denselben Regeln wie die bestaetigte L2-Paarung (Git-Historie, fa4e0f5);
+# out/kita-platz.json wurde dabei nicht eingesehen, nur die Labels des Entwurfs.
+# Das Gate verwarf in diesem Lauf 2 Schritte (IDs 1 und 4 fehlen in out/);
+# welche, zeigt out/kita-platz.flags.json. Vom Maintainer zu pruefen.
 
 leistung: kita-platz
-status: bestaetigt
+status: vorschlag
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
@@ -26,43 +31,46 @@ gruppen:
     hand:
       7: "Einkommen und Vermögen prüfen"
       9: "Beitragsfaktor nach Einkommen und Vermögen berechnen"
-    notiz: "Pruefen und Festlegen in einem Schritt; die Heuristik paarte faelschlich mit Hand 11"
+    notiz: "Pruefen und Festlegen in einem Schritt (wie L2); die Heuristik paarte nur Hand 7"
   - extraktion:
-      4: "Beitragsfaktorbestätigung ausstellen"
-    hand:
-      10: "Beitragsfaktorbestätigung ausstellen (Verfügung)"
-  - extraktion:
-      5: "Bestätigung über den subventionsberechtigten Betreuungsumfang (SBU) beim Sozialdepartement beantragen"
-      6: "Betreuungsgrund wählen (z.B. Erwerbstätigkeit, Aus-/Weiterbildung, Stellensuche, Freiwilligenarbeit)"
-      7: "SBU-Gesuch online über «Mein Konto» stellen und Stellenprozente oder Stundenanzahl angeben"
-      8: "Für SBU bei sprachlicher/sozialer Integration an Sozialarbeiter:in oder Familienberatung wenden"
-      9: "Für SBU bei gesundheitlichen Problemen Antragsformulare über die Hotline anfordern"
+      5: "SBU über Sozialarbeiter:in oder Familienberatung beantragen (bei sprachlicher oder sozialer Integration des Kindes)"
+      6: "SBU-Antragsformulare über die Hotline anfordern (bei gesundheitlichen Gründen)"
     hand:
       18: "SBU-Bestätigung beantragen (Betreuungsumfang)"
-    notiz: "SBU-Antrag samt Betreuungsgrund und Antragsweg je Grund einzeln extrahiert; die Handdatei fasst ihn zusammen"
+    notiz: "SBU-Antrag je Antragsweg einzeln extrahiert (wie L2); die Heuristik liess Ext 6 ungepaart"
   - extraktion:
-      10: "Benötigten Betreuungsumfang prüfen und SBU ausstellen"
+      7: "Subventionsberechtigten Betreuungsumfang prüfen und Bestätigung ausstellen"
     hand:
       19: "Betreuungsumfang prüfen und SBU-Bestätigung ausstellen"
   - extraktion:
-      13: "Subventionsunterlagen bei der Anmeldung in der Kita abgeben"
+      8: "Kind in der Kita anmelden und Betreuungsvertrag abschliessen"
+    hand:
+      5: "Betreuungsvertrag mit der Kita abschliessen"
+    notiz: "Anmeldung und Vertrag in einem Schritt; Kante zu Hand 17 wieder umgekehrt — die Quelle legt die Reihenfolge nicht fest (pilot-2026-10.md)"
+  - extraktion:
+      9: "Beide Bestätigungen vor Start bei der Kitaleitung abgeben"
     hand:
       17: "Bei der Anmeldung beide Bestätigungen der Kita abgeben"
   - extraktion:
-      12: "Betreuungsvertrag mit der Kita abschliessen"
+      10: "Kind für subventionierten Platz dem Sozialdepartement melden (Finanzierungsantrag)"
     hand:
-      5: "Betreuungsvertrag mit der Kita abschliessen"
-    notiz: "Kante zu Hand 17 umgekehrt; die Quelle (nur faq.html) legt die Reihenfolge nicht fest, siehe pilot-2026-10.md"
+      20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
+    notiz: "neu in L3 — Quelle fuer-kitas/subventionen.html (#83)"
+  - extraktion:
+      11: "Finanzierungsantrag bewilligen und Höhe des Elternbeitrags festlegen"
+    hand:
+      11: "Finanzierungsantrag bewilligen und Elternbeitrag festlegen"
+    notiz: "neu in L3 — Quelle fuer-kitas/subventionen.html (#83)"
 
   # --- Nur in der Extraktion --------------------------------------------------
   - extraktion:
-      11: "Anträge vor dem Start in der Kita stellen"
+      12: "Reduzierten Elternbeitrag direkt an die Kita bezahlen"
     hand: {}
-    notiz: "Zeitpunkt-Hinweis, kein eigener Schritt in der Handdatei"
+    notiz: "Zahlung der Eltern an die Kita; die Handdatei nennt sie nur in der Beschreibung von Hand 11"
   - extraktion:
-      14: "Subventionen direkt an die Kita auszahlen, solange das Kind betreut wird"
+      13: "Subventionierten Kostenanteil der Kita überweisen"
     hand: {}
-    notiz: "Auszahlung an die Kita; die Handdatei modelliert Finanzierungsantrag und Bewilligung (Hand 20, 11), nicht die Auszahlung — verwandt, nicht gleich (Heuristik paarte faelschlich mit Hand 1)"
+    notiz: "Auszahlung an die Kita, wie L2 ohne eigenen Handschritt (Hand 11 nennt sie nur in der Beschreibung); die Heuristik paarte faelschlich mit dem Endzustand Hand 12"
 
   # --- Nur in der Handdatei ---------------------------------------------------
   - extraktion: {}
@@ -73,7 +81,7 @@ gruppen:
   - extraktion: {}
     hand:
       2: "Freien Kita-Platz suchen"
-    notiz: "entspricht wieder dem vom Grounding-Gate verworfenen Extraktionsschritt 1 (Belegstelle nicht woertlich)"
+    notiz: "fehlt; in L1 und L2 vom Grounding-Gate verworfen — pruefen, ob Ext 1 dieses Laufs wieder dieser Schritt war"
   - extraktion: {}
     hand:
       3: "Subventionierter Platz frei?"
@@ -83,7 +91,7 @@ gruppen:
     hand:
       4: "Auf Warteliste bleiben"
     nicht_belegbar: true
-    notiz: "keine Quellseite nennt eine Warteliste (geprueft 2026-10-14); nur fuer-kitas/subventionen.html (bei diesem Lauf nicht gecrawlt): Kitas entscheiden selber ueber die Vergabe"
+    notiz: "keine Quellseite nennt eine Warteliste (geprueft 2026-10-14); fuer-kitas/subventionen.html sagt nur: Kitas entscheiden selber ueber die Vergabe"
   - extraktion: {}
     hand:
       8: "Anspruch auf Subventionen?"
@@ -91,8 +99,8 @@ gruppen:
     notiz: "Entscheidung"
   - extraktion: {}
     hand:
-      11: "Finanzierungsantrag bewilligen und Elternbeitrag festlegen"
-    notiz: "fehlt in diesem Lauf (siehe Ext 14); steht nur auf fuer-kitas/subventionen.html, die bei diesem Lauf nicht in official_urls war (seit 2026-10-14 aufgenommen)"
+      10: "Beitragsfaktorbestätigung ausstellen (Verfügung)"
+    notiz: "fehlt in diesem Lauf (in L2 Ext 4); pruefen, ob der verworfene Ext 4 dieser Schritt war"
   - extraktion: {}
     hand:
       12: "Subventionierter Kita-Platz"
@@ -118,15 +126,9 @@ gruppen:
       16: "Antrag rechtskräftig abgelehnt"
     nicht_belegbar: true
     notiz: "Endzustand"
-  - extraktion: {}
-    hand:
-      20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
-    notiz: "fehlt in diesem Lauf (siehe Ext 14); steht nur auf fuer-kitas/subventionen.html, die bei diesem Lauf nicht in official_urls war (seit 2026-10-14 aufgenommen)"
 
 # Rollennamen der Extraktion, die weder ID noch Label der Handdatei-actors[]
-# treffen (eltern, kita, schulamt, sozialdept, bezirksrat). Vorschlag von
-# Claude, aus den review_notes — Departement -> Kurz-ID der Handdatei pruefen.
+# treffen (eltern, kita, schulamt, sozialdept, bezirksrat). Wie in L2.
 akteure:
   "Schul- und Sportdepartement": schulamt
   "Sozialdepartement": sozialdept
-  "Stadt Zürich": null  # zu unspezifisch fuer eine Zuordnung
