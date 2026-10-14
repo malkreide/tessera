@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` pairing for run L3 (four source pages).** The re-run after #83
+  made the confirmed L2 pairing stale (new step ids). The `--propose-pairs` draft
+  is curated by the L2 rules (grouped SBU channels, `nicht_belegbar`, actor
+  map); status `vorschlag` until the maintainer confirms. The run now finds the
+  KiBEA financing application and its approval (hand 20 and 11) from the new
+  page; recall belegbar 9/11, precision 9/11. The L2 pairing stays in history.
 - **Unquoted hand steps marked `nicht_belegbar` in the eval pairings.** After
   the source check, hand steps that no source page names are excluded from
   "recall belegbar" like start, decision and end nodes: `kita-platz` 4, 13, 15
