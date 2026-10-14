@@ -68,8 +68,9 @@ is real harm.
 
 As of v2, exactly ONE high-risk case — `veranstaltung` — is foreseen for automated
 extraction, under the maximal gate: output only as a **draft PR**, merged by a human
-alone. **It is currently paused until the pilot** (`paused` in `sources.yaml`): first
-extract a low-risk service live and measure it with `tessera eval`, then decide.
+alone. **It is currently paused** (`paused` in `sources.yaml`, maintainer decision after
+the pilot, see `reports/pilot-2026-10.md`): permit, fee and appeal are not on the source
+pages but only in PDF ordinances, and v1 does not parse PDFs.
 Monitoring (`verify`, `fingerprint`, `diff`) keeps running. `baugesuch` and
 `sozialhilfe` stay excluded (existential and most
 litigious risk respectively; see `sources.yaml`). The registry `src/tessera/risk.py`

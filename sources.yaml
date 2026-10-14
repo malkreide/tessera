@@ -185,7 +185,12 @@ processes:
     # Erster Lauf 2026-10-12 gemessen (reports/eval/fundsache.pairs.yaml); auf
     # Maintainer-Entscheid vom 2026-10-13 folgt kita-platz als zweiter Lauf, bevor
     # ueber die Freischaltung entschieden wird.
-    paused: "bis zum Pilot — erst fundsache und kita-platz live extrahieren und mit `tessera eval` messen"
+    # Lokaler Testlauf 2026-10-14 (ohne pr): 3/3 bindende References verifiziert
+    # (u.a. Vorlauffrist), aber nur 5 Schritte — Bewilligung, Gebuehr, Ablehnung
+    # und Rekurs stehen auf keiner der drei Quellseiten, sondern in PDF-Erlassen
+    # der Amtlichen Sammlung (551.210/214/280). Maintainer-Entscheid 2026-10-14:
+    # weiter gesperrt (reports/pilot-2026-10.md, Nachtrag).
+    paused: "Quellen fuer Bewilligung, Gebuehr und Rekurs nur als PDF-Erlasse — v1 ohne PDF-Parsing (siehe reports/pilot-2026-10.md)"
     notes: >-
       HOCHRISIKO — als einzige Ausnahme vorgesehen (Draft-PR, Merge nur durch
       Menschen), derzeit gesperrt (`paused`). Erhoehter Gate greift automatisch (risk.py): JEDE

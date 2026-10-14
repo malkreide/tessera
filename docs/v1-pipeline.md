@@ -226,7 +226,7 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
   Handdatei = Fehlalarm-Basis).
 - **Zweck:** Erst diese Zahlen entscheiden, ob die Extraktion brauchbar ist
   und welche weitere Massnahme dringend ist — insbesondere, ob `veranstaltung`
-  (bis zum Pilot gesperrt) wieder freigeschaltet wird. Report als Pilot-Beleg
+  (gesperrt) freigeschaltet wird. Report als Pilot-Beleg
   bewusst committen. Erster Pilot (fundsache, kita-platz, Oktober 2026):
   `reports/pilot-2026-10.md`.
 - **Ohne Handdatei** (404) oder bei 401/403/Netzfehler: Umgebungsbefund,
@@ -294,7 +294,8 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
 tragen das hoechste Reputationsrisiko. Ab v2 ist als **bewusste Ausnahme** genau
 EIN Fall — `veranstaltung` — in `sources.yaml` fuer die automatische Extraktion
 vorgesehen, mit maximalem Gate: nur als **Draft-PR**, Merge ausschliesslich
-durch einen Menschen. **Derzeit bis zum Pilot gesperrt** (`paused`): `crawl`,
+durch einen Menschen. **Derzeit gesperrt** (`paused`, nach dem Pilot: Bewilligung,
+Gebuehr und Rekurs nur in PDF-Erlassen, siehe `reports/pilot-2026-10.md`): `crawl`,
 `extract` und `pr` verweigern die Leistung (ohne `--id` uebersprungen, mit
 `--id` Abbruch); `preflight`, `verify`, `fingerprint`, `diff` und `eval`
 ueberwachen sie weiter. Freischalten = die `paused`-Zeile entfernen, nach
@@ -327,7 +328,7 @@ Hochrisiko ein Validator-Fehler — im Normalfall nur ein Hinweis.
 - **Akzeptanz:** wie B (Validator Exit 0, `verify` sauber, Ziel-CI gruen).
   **`baugesuch` und `sozialhilfe` bleiben ausgeschlossen** (`risk.py`);
   `veranstaltung` ist die einzige vorgesehene Hochrisiko-Ausnahme (Draft-PR,
-  Merge nur durch Menschen), derzeit bis zum Pilot gesperrt.
+  Merge nur durch Menschen), derzeit gesperrt (Quellen nur als PDF, siehe Pilot-Bericht).
 - **Vorgehen:** Auswahl begruenden, mit dem Crawl auf Maintainer-Freigabe warten.
 
 ## Phase D — v2-Ausblick (nur bei Bedarf, nach Rueckfrage)

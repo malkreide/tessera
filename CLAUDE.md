@@ -45,9 +45,10 @@ Maschinerie. Legitim, aber höchstes Reputationsrisiko. Ab v2 ist als **bewusste
 Ausnahme** genau EINER dieser Fälle – `veranstaltung` – für die automatische
 Extraktion vorgesehen (`sources.yaml`), mit maximalem Gate: Ausgabe nur als
 Draft-PR, Merge ausschliesslich durch einen Menschen. **Derzeit ist `veranstaltung`
-bis zum Pilot gesperrt** (`paused` in `sources.yaml`, Maintainer-Entscheid): erst
-eine risikoarme Leistung live extrahieren und mit `tessera eval` messen, dann über
-die Freischaltung entscheiden. `baugesuch` und `sozialhilfe`
+gesperrt** (`paused` in `sources.yaml`, Maintainer-Entscheid 2026-10-14 nach dem
+Pilot, `reports/pilot-2026-10.md`): Bewilligung, Gebühr und Rekurs stehen nicht
+auf den Quellseiten, sondern nur in PDF-Erlassen — PDF-Parsing ist nicht in v1.
+`baugesuch` und `sozialhilfe`
 bleiben bewusst ausgeschlossen. Die Registry ist zentral in `src/tessera/risk.py`
 (`HIGH_RISK_IDS`) und führt weiterhin alle drei – die Freischaltung steuert allein
 `sources.yaml`, damit der erhöhte Review für jeden der drei greift, sobald er die
