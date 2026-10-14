@@ -208,6 +208,59 @@ def test_document_grounding() -> None:
     assert rep.ok, rep.errors
 
 
+def test_rejected_quote_in_step_and_document_flags() -> None:
+    # Ein verworfener Schritt/ein verworfenes Dokument zeigt sein abgelehntes
+    # Zitat im Flag (Diagnose ohne neuen Lauf); ohne Zitat kein leerer Zusatz.
+    process, quotes = _process()
+    quotes[2] = "Das Amt prueft die Anmeldung umgehend."  # umformuliert, nicht im Korpus
+    process["steps"][0]["documents"] = [{"label": {"de": "Erfundenes Formular"}}]
+    doc_quotes = {(1, 0): "Dieses Dokument steht nirgends im Korpus."}
+    _, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT), doc_quotes)
+    step2 = next(f for f in flags if f.startswith("Schritt 2"))
+    assert "VERWORFEN" in step2, step2  # evaluate zaehlt Gate-Ausfaelle daran
+    assert step2.endswith("Abgelehntes Zitat: «Das Amt prueft die Anmeldung umgehend.»"), step2
+    doc = next(f for f in flags if f.startswith("Dokument"))
+    assert "Abgelehntes Zitat: «Dieses Dokument steht nirgends im Korpus.»" in doc, doc
+
+    process, quotes = _process()  # Schritt 2 ohne Belegstelle
+    _, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    step2 = next(f for f in flags if f.startswith("Schritt 2"))
+    assert "ohne Belegstelle" in step2 and "Abgelehntes Zitat" not in step2, step2
+
+
+def test_rejected_quote_is_truncated_and_flattened() -> None:
+    process, quotes = _process()
+    quotes[2] = "Sie koennen das Gesuch stellen, wenn Sie:\n- erwerbstaetig sind\n" + "x" * 400
+    _, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    step2 = next(f for f in flags if f.startswith("Schritt 2"))
+    shown = step2.split("Abgelehntes Zitat: «", 1)[1]
+    assert "\n" not in shown, shown  # Zeilenumbrueche (Listenpunkte) sichtbar als Leerzeichen
+    assert "wenn Sie: - erwerbstaetig sind" in shown, shown
+    assert shown.endswith("…»") and len(shown) <= 200 + 2, len(shown)
+
+
+def test_rejected_step_quote_masks_binding_values() -> None:
+    # Kardinalregel auch im Flag: ein unbelegtes Zitat kann eine Frist oder
+    # Gebuehr tragen; der PR-Body ist oeffentlich -> Wert maskieren, Wortlaut
+    # bleibt fuer die Diagnose.
+    process, quotes = _process()
+    quotes[2] = "Das Gesuch muss 30 Tage vorher eingereicht werden, Gebuehr CHF 120."
+    _, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    step2 = next(f for f in flags if f.startswith("Schritt 2"))
+    assert "30 Tage" not in step2 and "120" not in step2, step2
+    assert "Das Gesuch muss [Wert] vorher eingereicht werden" in step2, step2
+
+
+def test_reference_flag_does_not_echo_rejected_quote() -> None:
+    # Bindende Werte: ein abgelehntes Reference-Zitat kann einen unbelegten
+    # Betrag tragen; Flags landen im PR-Body -> dort nie wiederholen.
+    process, quotes = _process()
+    process["references"][1]["source_quote"] = "Die Gebuehr betraegt CHF 99.00 pro Jahr."
+    _, flags = apply_gate(process, quotes, Corpus(CORPUS_TEXT))
+    ref2 = next(f for f in flags if f.startswith("Reference 2"))
+    assert "99.00" not in ref2 and "Abgelehntes Zitat" not in ref2, ref2
+
+
 def test_document_gate_backward_compatible() -> None:
     # Ohne doc_quotes werden Dokumente nicht gegated (Rueckwaertskompatibilitaet).
     process, quotes = _process()

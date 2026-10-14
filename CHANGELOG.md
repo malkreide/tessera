@@ -93,6 +93,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names both services.
 
 ### Added
+- **Gate flags show the rejected quote of a dropped step or document.** In the
+  `kita-platz` pilot (L3) the gate dropped "find a daycare place" for the third
+  time and the main SBU channel, but the flags did not say what the model had
+  quoted, so the cause (paraphrase? quote across list items?) needed a new run.
+  The flag now ends with `Abgelehntes Zitat: «…»` — whitespace flattened, cut at
+  `grounding.REJECTED_QUOTE_CHARS` (200). Flags are rendered (Markdown-
+  neutralized) into the public PR body, so binding values in the quote are
+  masked as `[Wert]` (strict lint); references are left out entirely — their
+  quote is the value.
 - **Pilot report** `reports/pilot-2026-10.md`: the first live pilot
   (`fundsache`, `kita-platz`, 2026-10-12 to 2026-10-14) — measured runs with
   their figures, the twelve findings with cause and fixing PR (#64–#77), what
