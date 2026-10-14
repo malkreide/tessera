@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `akteure:` mapping); `status` is now `bestaetigt`, so `tessera eval` no longer
   marks the step pairing as "noch zu bestaetigen". Groups and mappings are
   unchanged; the pilot report notes the confirmation.
+- **`kita-platz` reversed edge checked against the source.** The one reversed
+  edge in the pilot (contract before handing in the subsidy documents) is not an
+  extraction error: both steps appear only on `faq.html`, in separate questions,
+  and no source page fixes their order — the model followed the FAQ order. The
+  hand file's order is plausible but unquoted too. Recorded as an addendum to
+  `reports/pilot-2026-10.md` and as a note in the pairing file.
 - **`veranstaltung` stays paused after the pilot, with a new reason.** A local
   test run (2026-10-14, no `pr`) verified all 3 binding references (incl. the
   application lead time) and passed the high-risk validator, but produced only
