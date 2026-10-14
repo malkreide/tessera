@@ -87,10 +87,12 @@ gruppen:
   - extraktion: {}
     hand:
       5: "Fund gemeldet (ggf. Finderlohn-Anspruch)"
+    nicht_belegbar: true
     notiz: "Endzustand; die Quelle nennt Finderlohn nur verneinend fuer das Unternehmen (rechtsgrundlage.html), keinen Anspruch der Finderin/des Finders (geprueft 2026-10-14)"
   - extraktion: {}
     hand:
       7: "Mit Fundbestand abgleichen"
+    nicht_belegbar: true
     notiz: "fehlt in diesem Lauf (im Lauf vom 2026-10-12 in Ext 12 enthalten); die Quelle nennt den Abgleich nicht ausdruecklich, nur die Benachrichtigung (geprueft 2026-10-14)"
   - extraktion: {}
     hand:
