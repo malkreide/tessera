@@ -11,10 +11,10 @@
 # Vorschlag von Claude fuer den Lauf vom 2026-10-13 (nach review_notes, PR #70),
 # aus dem `--propose-pairs`-Entwurf korrigiert — out/fundsache.json und die
 # Quellseiten wurden dabei nicht eingesehen. Gleiche Regeln wie beim Lauf vom
-# 2026-10-12. Vom Maintainer gegen beide Dateien zu pruefen.
+# 2026-10-12. Vom Maintainer am 2026-10-14 bestaetigt (inkl. akteure:).
 
 leistung: fundsache
-status: vorschlag
+status: bestaetigt
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
