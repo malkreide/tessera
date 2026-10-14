@@ -1,21 +1,24 @@
 {
   "id": "kita-platz",
-  "retrieved_at": "2026-10-05",
+  "retrieved_at": "2026-10-14",
   "urls": [
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/betreuungskosten-und-subventionen.html",
-      "sha256": "92458588dab3fcc813576968b1b136e185563b7deff8442f8e11e196c5d9a7d1",
-      "chars": 2675
+      "sha256": "4ccc55b6a5cad68a8910abf331314a1dd9182e551f073a39bc702e5fe3f60e29",
+      "chars": 3913,
+      "text_file": "kita-platz/01-betreuungskosten-und-subventionen.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/kitaplatz-finden.html",
-      "sha256": "e2e33d99da4efdba1e43a5b1bfadc13d403ad4781e107bb9b5dbbb1afcf867a1",
-      "chars": 1290
+      "sha256": "f8a51845a2d379b33b730a4cda0a5d7bc3794a498c7af0a515b66bbdbaf89d94",
+      "chars": 1400,
+      "text_file": "kita-platz/02-kitaplatz-finden.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/lebenslagen/jugend-und-familie/fruehe-kindheit/familienergaenzende-kinderbetreuung/faq.html",
-      "sha256": "e3de6c45ce5a188b5efd7f96048fb39de1451efc1d1ae759f444a7a59d201a1c",
-      "chars": 12412
+      "sha256": "5435a187757b5ec7c0b35c618c024a113882e03b15f5ecfd85611933f21bdd3c",
+      "chars": 12753,
+      "text_file": "kita-platz/03-faq.txt"
     }
   ]
 }
