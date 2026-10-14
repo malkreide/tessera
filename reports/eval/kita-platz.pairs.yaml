@@ -52,6 +52,7 @@ gruppen:
       12: "Betreuungsvertrag mit der Kita abschliessen"
     hand:
       5: "Betreuungsvertrag mit der Kita abschliessen"
+    notiz: "Kante zu Hand 17 umgekehrt; die Quelle (nur faq.html) legt die Reihenfolge nicht fest, siehe pilot-2026-10.md"
 
   # --- Nur in der Extraktion --------------------------------------------------
   - extraktion:
