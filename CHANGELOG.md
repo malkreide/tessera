@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` run L4 recorded in the pilot report.** First run after #88/#89:
+  0 % gate dropout (L1–L3: 7–15 %), recall belegbar 91 % (10/11), precision
+  86 %. The "systematic" drop of "find a daycare place" was the link bug fixed
+  in #89, not the model; the L3 addendum's guess is corrected in place.
 - **`kita-platz` pairing for run L4 (after the link fix #89).** The first run
   with the fixed normalization dropped nothing (14 steps, 0 flags); "find a
   daycare place" (hand 2) is now extracted and grounded. The `--propose-pairs`
