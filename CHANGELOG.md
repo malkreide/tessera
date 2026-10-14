@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` pairing for run L4 (after the link fix #89).** The first run
+  with the fixed normalization dropped nothing (14 steps, 0 flags); "find a
+  daycare place" (hand 2) is now extracted and grounded. The `--propose-pairs`
+  draft is curated by the L3 rules; status `vorschlag`. Recall belegbar 10/11,
+  precision 12/14. The L3 pairing stays in history.
 - **`kita-platz` L3 pairing confirmed.** The maintainer confirmed the curated
   pairing for run L3 (incl. `akteure:`); `status` is now `bestaetigt`. Groups,
   notes and metrics are unchanged.

@@ -11,21 +11,24 @@
 # Entsprechung) oder `Name: ""` (noch offen).
 # Nach dem Pruefen `status: bestaetigt` setzen.
 #
-# Lauf L3 vom 2026-10-14 (vier Quellseiten, neu fuer-kitas/subventionen.html,
-# #83). Vorschlag von Claude aus dem `--propose-pairs`-Entwurf, korrigiert nach
-# denselben Regeln wie die bestaetigte L2-Paarung (Git-Historie, fa4e0f5);
+# Lauf L4 vom 2026-10-14: vier Quellseiten, erstmals mit der Link-Korrektur in
+# grounding.normalize (#89) — 14 Schritte, 0 Flags (kein Gate-Ausfall).
+# Vorschlag von Claude aus dem `--propose-pairs`-Entwurf, korrigiert nach
+# denselben Regeln wie die bestaetigte L3-Paarung (Git-Historie, d794f20);
 # out/kita-platz.json wurde dabei nicht eingesehen, nur die Labels des Entwurfs.
-# Das Gate verwarf 2 Schritte (laut out/kita-platz.flags.json): Ext 1 «Kita
-# oder Tagesfamilie mit subventionierten Plätzen suchen» (= Hand 2) und Ext 4
-# «SBU online über «Mein Konto» beantragen …» (gehoerte zu Hand 18).
-# Vom Maintainer am 2026-10-14 bestaetigt (inkl. akteure:).
+# Vom Maintainer zu pruefen.
 
 leistung: kita-platz
-status: bestaetigt
+status: vorschlag
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
-      2: "Beitragsfaktorbestätigung beim Schul- und Sportdepartement online oder per Post beantragen"
+      1: "Kita oder Tagesfamilie mit subventionierten Plätzen finden"
+    hand:
+      2: "Freien Kita-Platz suchen"
+    notiz: "erstmals belegt — in L1–L3 fiel der Schritt durchs Gate (Link mit Klammern in der URL, #89); die Heuristik paarte faelschlich mit der Entscheidung Hand 3"
+  - extraktion:
+      2: "Beitragsfaktorbestätigung beim Schul- und Sportdepartement beantragen (online oder per Post)"
     hand:
       6: "Beitragsfaktorbestätigung beantragen"
   - extraktion:
@@ -33,46 +36,46 @@ gruppen:
     hand:
       7: "Einkommen und Vermögen prüfen"
       9: "Beitragsfaktor nach Einkommen und Vermögen berechnen"
-    notiz: "Pruefen und Festlegen in einem Schritt (wie L2); die Heuristik paarte nur Hand 7"
+    notiz: "Pruefen und Festlegen in einem Schritt (wie L2/L3); die Heuristik paarte nur Hand 7"
   - extraktion:
-      5: "SBU über Sozialarbeiter:in oder Familienberatung beantragen (bei sprachlicher oder sozialer Integration des Kindes)"
-      6: "SBU-Antragsformulare über die Hotline anfordern (bei gesundheitlichen Gründen)"
+      4: "Bestätigung des subventionsberechtigten Betreuungsumfangs (SBU) beim Sozialdepartement beantragen"
+      5: "SBU-Antrag je nach Betreuungsgrund über «Mein Konto» oder über Fachstelle/Hotline stellen"
+      6: "Bei sprachlicher oder sozialer Integration des Kindes an Sozialarbeiter:in oder Familienberatung wenden"
+      7: "Bei gesundheitlichen Problemen an die Hotline wenden und Antragsformulare erhalten"
     hand:
       18: "SBU-Bestätigung beantragen (Betreuungsumfang)"
-    notiz: "SBU-Antrag je Antragsweg einzeln extrahiert (wie L2); die Heuristik liess Ext 6 ungepaart. Der Hauptweg ueber «Mein Konto» (Ext 4) fiel durchs Gate"
+    notiz: "SBU-Antrag samt Antragswegen je Betreuungsgrund einzeln extrahiert (wie L2/L3); die Heuristik liess Ext 5–7 ungepaart"
   - extraktion:
-      7: "Subventionsberechtigten Betreuungsumfang prüfen und Bestätigung ausstellen"
+      8: "SBU prüfen (Selbstdeklaration, Stichprobenkontrollen möglich)"
     hand:
       19: "Betreuungsumfang prüfen und SBU-Bestätigung ausstellen"
+    notiz: "nur das Pruefen; das Ausstellen der Bestaetigung nennt der Schritt nicht"
   - extraktion:
-      8: "Kind in der Kita anmelden und Betreuungsvertrag abschliessen"
+      9: "Betreuungsvertrag mit der Kita abschliessen"
     hand:
       5: "Betreuungsvertrag mit der Kita abschliessen"
-    notiz: "Anmeldung und Vertrag in einem Schritt; Kante zu Hand 17 wieder umgekehrt — die Quelle legt die Reihenfolge nicht fest (pilot-2026-10.md)"
   - extraktion:
-      9: "Beide Bestätigungen vor Start bei der Kitaleitung abgeben"
+      10: "Beide Bestätigungen bei der Anmeldung bei der Kitaleitung abgeben"
     hand:
       17: "Bei der Anmeldung beide Bestätigungen der Kita abgeben"
   - extraktion:
-      10: "Kind für subventionierten Platz dem Sozialdepartement melden (Finanzierungsantrag)"
+      11: "Kind mit subventioniertem Platz dem Sozialdepartement melden (Finanzierungsantrag)"
     hand:
       20: "Kind über KiBEA beim Sozialdepartement melden (Finanzierungsantrag)"
-    notiz: "neu in L3 — Quelle fuer-kitas/subventionen.html (#83)"
   - extraktion:
-      11: "Finanzierungsantrag bewilligen und Höhe des Elternbeitrags festlegen"
+      12: "Finanzierungsantrag bewilligen und Höhe des Elternbeitrags festlegen"
     hand:
       11: "Finanzierungsantrag bewilligen und Elternbeitrag festlegen"
-    notiz: "neu in L3 — Quelle fuer-kitas/subventionen.html (#83)"
 
   # --- Nur in der Extraktion --------------------------------------------------
   - extraktion:
-      12: "Reduzierten Elternbeitrag direkt an die Kita bezahlen"
+      13: "Subventionierten Kostenanteil direkt an die Kita überweisen"
+    hand: {}
+    notiz: "Auszahlung an die Kita, wie L2/L3 ohne eigenen Handschritt (Hand 11 nennt sie nur in der Beschreibung); die Heuristik paarte faelschlich mit dem Endzustand Hand 12"
+  - extraktion:
+      14: "Reduzierten Elternbeitrag direkt an die Kita bezahlen"
     hand: {}
     notiz: "Zahlung der Eltern an die Kita; die Handdatei nennt sie nur in der Beschreibung von Hand 11"
-  - extraktion:
-      13: "Subventionierten Kostenanteil der Kita überweisen"
-    hand: {}
-    notiz: "Auszahlung an die Kita, wie L2 ohne eigenen Handschritt (Hand 11 nennt sie nur in der Beschreibung); die Heuristik paarte faelschlich mit dem Endzustand Hand 12"
 
   # --- Nur in der Handdatei ---------------------------------------------------
   - extraktion: {}
@@ -80,10 +83,6 @@ gruppen:
       1: "Betreuungsbedarf für das Kind"
     nicht_belegbar: true
     notiz: "Startknoten"
-  - extraktion: {}
-    hand:
-      2: "Freien Kita-Platz suchen"
-    notiz: "fehlt; zum dritten Mal vom Grounding-Gate verworfen (L3: Ext 1 «Kita oder Tagesfamilie mit subventionierten Plätzen suchen»)"
   - extraktion: {}
     hand:
       3: "Subventionierter Platz frei?"
@@ -102,7 +101,7 @@ gruppen:
   - extraktion: {}
     hand:
       10: "Beitragsfaktorbestätigung ausstellen (Verfügung)"
-    notiz: "fehlt in diesem Lauf (in L2 Ext 4) — nicht extrahiert, nicht vom Gate verworfen (Laufvarianz)"
+    notiz: "fehlt wie in L3 (in L2 Ext 4) — nicht extrahiert, nicht vom Gate verworfen"
   - extraktion: {}
     hand:
       12: "Subventionierter Kita-Platz"
@@ -130,7 +129,7 @@ gruppen:
     notiz: "Endzustand"
 
 # Rollennamen der Extraktion, die weder ID noch Label der Handdatei-actors[]
-# treffen (eltern, kita, schulamt, sozialdept, bezirksrat). Wie in L2.
+# treffen (eltern, kita, schulamt, sozialdept, bezirksrat). Wie in L2/L3.
 akteure:
   "Schul- und Sportdepartement": schulamt
   "Sozialdepartement": sozialdept
