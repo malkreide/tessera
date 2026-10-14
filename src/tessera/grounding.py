@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import re
 
-from .binding import label_value_mismatch
+from .binding import BINDING_VALUE_STRICT, label_value_mismatch
 
 # Praefix der Flags fuer Kanten, die erst durch das Rewiring entstanden sind (bzw.
 # Vorgaenger, die ersatzlos wegfielen). PR-Body und Hochrisiko-Vertrag erkennen
@@ -110,6 +110,22 @@ MIN_QUOTE_CHARS = 25
 
 def _too_unspecific(quote: str) -> bool:
     return len(normalize(quote)) < MIN_QUOTE_CHARS
+
+
+# Ein verworfener Schritt bzw. ein verworfenes Dokument fuehrt sein abgelehntes
+# Zitat (gekuerzt) im Flag mit: ohne es laesst sich nicht sehen, ob das Modell
+# umformuliert, ueber Listenpunkte hinweg zitiert oder erfunden hat (kita-platz-
+# Pilot L3). Flags landen im (oeffentlichen) PR-Body, darum gilt die
+# Kardinalregel auch hier: bindende Werte im Zitat werden als «[Wert]» maskiert
+# (strenger Lint). References bleiben ganz aussen vor — ihr Zitat IST der Wert.
+REJECTED_QUOTE_CHARS = 200
+
+
+def _rejected_quote(quote: str) -> str:
+    q = BINDING_VALUE_STRICT.sub("[Wert]", _WS.sub(" ", quote).strip())
+    if len(q) > REJECTED_QUOTE_CHARS:
+        q = q[:REJECTED_QUOTE_CHARS].rstrip() + "…"
+    return f" Abgelehntes Zitat: «{q}»"
 
 
 def _url_key(url: object) -> str:
@@ -206,6 +222,7 @@ def apply_gate(
             flags.append(
                 f"Schritt {sid} «{step.get('label', {}).get('de', '?')}» {reason} "
                 "-> VERWORFEN (Grounding-Gate). Nachfolger erben seine Vorgaenger."
+                + (_rejected_quote(quote) if quote.strip() else "")
             )
             dropped[sid] = list(step.get("depends_on", []))
 
@@ -291,6 +308,7 @@ def apply_gate(
                         reason = "Belegstelle nicht woertlich im Korpus"
                     flags.append(
                         f"Dokument «{label_de}» bei Schritt {sid} {reason} -> VERWORFEN (Grounding-Gate)."
+                        + (_rejected_quote(quote) if quote.strip() else "")
                     )
             if kept_docs:
                 step["documents"] = kept_docs

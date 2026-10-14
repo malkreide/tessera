@@ -163,7 +163,13 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
   `source_url` stehen, nicht bloss irgendwo im Korpus — sonst Abstinenz mit
   Flag, das die tatsaechliche Fundseite nennt) und **Mindest-Spezifitaet**
   (Zitate unter `grounding.MIN_QUOTE_CHARS` = 25 normalisierten Zeichen belegen
-  nichts → Abstinenz bzw. Verwurf mit Flag).
+  nichts → Abstinenz bzw. Verwurf mit Flag). Das Flag eines verworfenen
+  Schritts oder Dokuments nennt das abgelehnte Zitat (Zeilenumbrueche als
+  Leerzeichen, gekuerzt auf `grounding.REJECTED_QUOTE_CHARS` = 200 Zeichen) —
+  so ist ohne neuen Lauf erkennbar, ob umformuliert oder ueber Listenpunkte
+  hinweg zitiert wurde. Flags landen im PR-Body, darum maskiert das Flag
+  bindende Werte im Zitat als «[Wert]» (strenger Lint); References bleiben
+  ganz aussen vor — ihr Zitat ist der Wert.
 - **Injection-Screening (Flag, kein Gate):** Der Korpus ist untrusted
   LLM-Input; das Grounding-Gate beweist Herkunft, nicht Legitimitaet —
   injizierter Seitentext wuerde es bestehen. `screening.py` flaggt
