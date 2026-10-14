@@ -15,8 +15,10 @@
 # #83). Vorschlag von Claude aus dem `--propose-pairs`-Entwurf, korrigiert nach
 # denselben Regeln wie die bestaetigte L2-Paarung (Git-Historie, fa4e0f5);
 # out/kita-platz.json wurde dabei nicht eingesehen, nur die Labels des Entwurfs.
-# Das Gate verwarf in diesem Lauf 2 Schritte (IDs 1 und 4 fehlen in out/);
-# welche, zeigt out/kita-platz.flags.json. Vom Maintainer zu pruefen.
+# Das Gate verwarf 2 Schritte (laut out/kita-platz.flags.json): Ext 1 «Kita
+# oder Tagesfamilie mit subventionierten Plätzen suchen» (= Hand 2) und Ext 4
+# «SBU online über «Mein Konto» beantragen …» (gehoerte zu Hand 18).
+# Vom Maintainer zu pruefen.
 
 leistung: kita-platz
 status: vorschlag
@@ -37,7 +39,7 @@ gruppen:
       6: "SBU-Antragsformulare über die Hotline anfordern (bei gesundheitlichen Gründen)"
     hand:
       18: "SBU-Bestätigung beantragen (Betreuungsumfang)"
-    notiz: "SBU-Antrag je Antragsweg einzeln extrahiert (wie L2); die Heuristik liess Ext 6 ungepaart"
+    notiz: "SBU-Antrag je Antragsweg einzeln extrahiert (wie L2); die Heuristik liess Ext 6 ungepaart. Der Hauptweg ueber «Mein Konto» (Ext 4) fiel durchs Gate"
   - extraktion:
       7: "Subventionsberechtigten Betreuungsumfang prüfen und Bestätigung ausstellen"
     hand:
@@ -81,7 +83,7 @@ gruppen:
   - extraktion: {}
     hand:
       2: "Freien Kita-Platz suchen"
-    notiz: "fehlt; in L1 und L2 vom Grounding-Gate verworfen — pruefen, ob Ext 1 dieses Laufs wieder dieser Schritt war"
+    notiz: "fehlt; zum dritten Mal vom Grounding-Gate verworfen (L3: Ext 1 «Kita oder Tagesfamilie mit subventionierten Plätzen suchen»)"
   - extraktion: {}
     hand:
       3: "Subventionierter Platz frei?"
@@ -100,7 +102,7 @@ gruppen:
   - extraktion: {}
     hand:
       10: "Beitragsfaktorbestätigung ausstellen (Verfügung)"
-    notiz: "fehlt in diesem Lauf (in L2 Ext 4); pruefen, ob der verworfene Ext 4 dieser Schritt war"
+    notiz: "fehlt in diesem Lauf (in L2 Ext 4) — nicht extrahiert, nicht vom Gate verworfen (Laufvarianz)"
   - extraktion: {}
     hand:
       12: "Subventionierter Kita-Platz"
