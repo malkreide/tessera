@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` L3 pairing confirmed.** The maintainer confirmed the curated
+  pairing for run L3 (incl. `akteure:`); `status` is now `bestaetigt`. Groups,
+  notes and metrics are unchanged.
 - **`kita-platz` run L3 recorded in the pilot report.** With the fourth source
   page the run finds the KiBEA financing application and its approval; recall
   belegbar 82 % (9/11, L2: 73 %), precision 82 %, 0 unverified binding

@@ -18,10 +18,10 @@
 # Das Gate verwarf 2 Schritte (laut out/kita-platz.flags.json): Ext 1 «Kita
 # oder Tagesfamilie mit subventionierten Plätzen suchen» (= Hand 2) und Ext 4
 # «SBU online über «Mein Konto» beantragen …» (gehoerte zu Hand 18).
-# Vom Maintainer zu pruefen.
+# Vom Maintainer am 2026-10-14 bestaetigt (inkl. akteure:).
 
 leistung: kita-platz
-status: vorschlag
+status: bestaetigt
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
