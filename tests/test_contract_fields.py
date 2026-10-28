@@ -12,6 +12,8 @@ erlauben — sonst lehnt er einen gemergten Stand ab, den die Ziel-CI akzeptiert
   * 'bewertung' (kanonisches additives Feld) wird akzeptiert;
   * ein echtes Fremdfeld wird weiterhin als 'Unbekanntes Feld' abgelehnt
     (Gegenprobe: die Allowlist gated noch).
+  * 'meta.herkunft' (kanonisch seit 0.2.0) wird akzeptiert und nach denselben
+    Regeln geprueft wie im Ziel-Repo (art, tessera_prs, geprueft_am, Version).
 """
 
 from __future__ import annotations
@@ -28,7 +30,7 @@ from validate_contract import Report, validate  # noqa: E402
 def _minimal_process() -> dict:
     """Minimaler, gueltiger struktur-only Prozess (risikoarm, ohne actors[])."""
     return {
-        "schema_version": "0.1.0",
+        "schema_version": "0.2.0",
         "id": "muster-prozess",
         "lebenslage_ref": "muster-prozess",
         "title": {"de": "Muster-Prozess"},
@@ -96,11 +98,11 @@ def test_schema_version_mismatch_is_hint_not_error() -> None:
     kein Fehler — eine kanonische Datei darf einer anderen Contract-Generation
     angehoeren, ohne faelschlich abgelehnt zu werden (Gate-Paritaet)."""
     proc = _minimal_process()
-    proc["schema_version"] = "0.2.0"
+    proc["schema_version"] = "0.3.0"
     rep = Report(Path("synthetic"))
     validate(proc, rep)
     assert rep.ok, rep.errors  # KEIN Fehler
-    assert any("schema_version" in w and "0.2.0" in w for w in rep.warnings), rep.warnings
+    assert any("schema_version" in w and "0.3.0" in w for w in rep.warnings), rep.warnings
 
 
 def test_schema_version_non_semver_is_error() -> None:
@@ -111,6 +113,55 @@ def test_schema_version_non_semver_is_error() -> None:
     validate(proc, rep)
     assert not rep.ok
     assert any("kein SemVer" in e for e in rep.errors)
+
+
+def _mit_herkunft(herkunft: object, **meta: object) -> dict:
+    proc = _minimal_process()
+    proc["meta"] = {"erstellt": "2026-06-06", **meta, "herkunft": herkunft}
+    return proc
+
+
+def _fehler(proc: dict) -> list[str]:
+    rep = Report(Path("synthetic"))
+    validate(proc, rep)
+    return rep.errors
+
+
+def test_herkunft_is_accepted() -> None:
+    """meta.herkunft (kanonisch seit 0.2.0) darf nicht als unbekanntes
+    meta-Feld abgelehnt werden — die 17 Zieldateien tragen es (Gate-Paritaet)."""
+    for h in (
+        {"art": "redaktion"},
+        {"art": "redaktion", "tessera_prs": []},
+        {"art": "gemischt", "tessera_prs": [157, 159]},
+        {"art": "tessera", "tessera_prs": [200], "geprueft_am": "2026-10-01"},
+    ):
+        assert _fehler(_mit_herkunft(h)) == [], h
+
+
+def test_herkunft_rules_mirror_target_ci() -> None:
+    """Dieselben Regeln wie Schema + validate-prozesse.mjs im Ziel-Repo."""
+    faelle = {
+        "art: muss eines von": {"art": "hand"},
+        "Pflicht bei art 'gemischt'": {"art": "gemischt"},
+        "muss bei art 'redaktion' leer sein": {"art": "redaktion", "tessera_prs": [12]},
+        "Liste positiver Ganzzahlen": {"art": "tessera", "tessera_prs": [0]},
+        "PR-Nummern doppelt": {"art": "tessera", "tessera_prs": [5, 5]},
+        "unbekanntes Feld 'wer'": {"art": "redaktion", "wer": "Name"},
+        "in der Zukunft": {"art": "redaktion", "geprueft_am": "2999-01-01"},
+        "vor meta.erstellt": {"art": "redaktion", "geprueft_am": "2026-01-01"},
+        "kein ISO-Datum": {"art": "redaktion", "geprueft_am": "2026-10-01T08:00:00Z"},
+    }
+    for erwartet, h in faelle.items():
+        errs = _fehler(_mit_herkunft(h))
+        assert any(erwartet in e for e in errs), (erwartet, errs)
+
+
+def test_herkunft_needs_contract_0_2() -> None:
+    """Wer meta.herkunft nutzt, deklariert mindestens Vertrag 0.2.0."""
+    proc = _mit_herkunft({"art": "redaktion"})
+    proc["schema_version"] = "0.1.0"
+    assert any("erst ab Vertrag 0.2.0" in e for e in _fehler(proc))
 
 
 def main() -> int:

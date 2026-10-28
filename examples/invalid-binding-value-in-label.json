@@ -1,5 +1,5 @@
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "id": "hund-anmelden-falsch",
   "lebenslage_ref": "hund-anmelden-falsch",
   "title": { "de": "Hund anmelden (Negativ-Beispiel)" },

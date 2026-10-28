@@ -24,6 +24,10 @@ Geprueft wird:
   * Additive kanonische Felder (optional): city, description, actors, legal_basis,
     sources, reife, meta; Step type/description/documents/source_id/loops_back_to;
     Reference status. Damit validiert der Check reale kanonische Dateien 1:1.
+  * meta.herkunft (kanonisch seit 0.2.0): art redaktion|tessera|gemischt,
+    tessera_prs Pflicht bei tessera/gemischt und leer bei redaktion,
+    geprueft_am tagesgenau, nicht in der Zukunft, nicht vor meta.erstellt;
+    verlangt schema_version >= 0.2.0. Gleiche Regeln wie die Ziel-CI.
 
 Hinweis: Dieser Check ist auf das kanonische v0-Schema in maschinerie-zuerich
 abgeglichen (Locale-Key 'ls', depends_on-Objektvariante, tagesgenaues Datum). Er
@@ -59,7 +63,7 @@ from tessera.binding import (  # noqa: E402
     BINDING_VALUE_STRICT,
     label_value_mismatch,
 )
-from tessera.contract import SCHEMA_VERSION  # noqa: E402
+from tessera.contract import HERKUNFT_ARTEN, HERKUNFT_SEIT, SCHEMA_VERSION, major_minor  # noqa: E402
 from tessera.risk import (  # noqa: E402
     HIGH_RISK_DISCLAIMER_KEY,
     is_high_risk,
@@ -502,6 +506,55 @@ def _check_sources(rep: Report, sources: object) -> set[str]:
     return ids
 
 
+def _check_herkunft(rep: Report, meta: dict, schema_version: object) -> None:
+    """meta.herkunft (kanonisch seit Vertrag 0.2.0). Gate-Paritaet zur Ziel-CI
+    (schemas/opengov-process-schema.json + scripts/validate-prozesse.mjs im
+    Ziel-Repo): dieselben Regeln, sonst oeffnet tessera PRs, die dort scheitern,
+    oder lehnt gemergte Staende ab, die dort gueltig sind."""
+    w = "meta.herkunft"
+    h = meta["herkunft"]
+    if not isinstance(h, dict):
+        rep.error(f"{w}: muss ein Objekt sein.")
+        return
+    for f in sorted(set(h) - {"art", "tessera_prs", "geprueft_am"}):
+        rep.error(f"{w}: unbekanntes Feld {f!r}.")
+    art = h.get("art")
+    if art not in HERKUNFT_ARTEN:
+        rep.error(f"{w}.art: muss eines von {list(HERKUNFT_ARTEN)} sein ({art!r}).")
+    prs = h.get("tessera_prs", [])
+    if not isinstance(prs, list) or not all(
+        isinstance(n, int) and not isinstance(n, bool) and n >= 1 for n in prs
+    ):
+        rep.error(f"{w}.tessera_prs: Liste positiver Ganzzahlen erwartet ({prs!r}).")
+    elif len(set(prs)) != len(prs):
+        rep.error(f"{w}.tessera_prs: PR-Nummern doppelt ({prs!r}).")
+    elif art in ("tessera", "gemischt") and not prs:
+        rep.error(f"{w}.tessera_prs: Pflicht bei art {art!r}, mindestens eine PR-Nummer.")
+    elif art == "redaktion" and prs:
+        rep.error(f"{w}.tessera_prs: muss bei art 'redaktion' leer sein ({prs!r}).")
+    if "geprueft_am" in h:
+        g = h["geprueft_am"]
+        try:
+            # Kanonisch 'format: date' — tagesgenau, kein Zeitstempel.
+            if not isinstance(g, str) or len(g) != 10:
+                raise ValueError
+            tag = date.fromisoformat(g)
+        except ValueError:
+            rep.error(f"{w}.geprueft_am: kein ISO-Datum JJJJ-MM-TT ({g!r}).")
+        else:
+            if tag > date.today():
+                rep.error(f"{w}.geprueft_am: {g} liegt in der Zukunft.")
+            erstellt = meta.get("erstellt")
+            if isinstance(erstellt, str) and g < erstellt:
+                rep.error(f"{w}.geprueft_am: {g} liegt vor meta.erstellt {erstellt}.")
+    mm = major_minor(str(schema_version))
+    if mm is not None and mm[0] == 0 and mm < HERKUNFT_SEIT:
+        rep.error(
+            f"{w}: gibt es erst ab Vertrag {HERKUNFT_SEIT[0]}.{HERKUNFT_SEIT[1]}.0 — "
+            f"schema_version {schema_version!r} anheben."
+        )
+
+
 def _check_legal_basis(rep: Report, lb: object) -> None:
     if not isinstance(lb, list):
         rep.error("legal_basis: muss eine Liste sein.")
@@ -672,8 +725,10 @@ def validate(data: object, rep: Report, *, strict_label_value: bool = False) -> 
         if not isinstance(meta, dict):
             rep.error("meta: muss ein Objekt sein.")
         else:
-            for f in sorted(set(meta) - {"erstellt", "aktualisiert", "maintainer", "lizenz"}):
+            for f in sorted(set(meta) - {"erstellt", "aktualisiert", "maintainer", "lizenz", "herkunft"}):
                 rep.error(f"meta: unbekanntes Feld {f!r}.")
+            if "herkunft" in meta:
+                _check_herkunft(rep, meta, data.get("schema_version"))
 
     step_ids = _check_steps(rep, data.get("steps"))
     if isinstance(data.get("steps"), list):

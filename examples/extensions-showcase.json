@@ -1,6 +1,6 @@
 {
   "$schema": "../schemas/opengov-process-schema.json",
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "id": "muster-prozess",
   "lebenslage_ref": "muster-prozess",
   "city": "zh",
