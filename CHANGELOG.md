@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Data contract 0.2.0 (`meta.herkunft`).** The canonical repo added the
+  optional field `meta.herkunft` (maschinerie-zuerich#333). `SCHEMA_VERSION`
+  is now `0.2.0`; examples and test fixtures follow. The contract validator
+  accepts `meta.herkunft` and checks it with the same rules as the target CI:
+  `art` in `redaktion|tessera|gemischt`, `tessera_prs` required for
+  `tessera`/`gemischt` and empty for `redaktion`, `geprueft_am` a date that is
+  neither in the future nor before `meta.erstellt`, and `schema_version`
+  at least `0.2.0`. Before, the validator rejected every target file carrying
+  the field, so tessera would have opened no PR for existing processes (#94).
 - **`kita-platz` L4 pairing confirmed.** The maintainer confirmed the curated
   pairing for run L4 (incl. `akteure:`); `status` is now `bestaetigt`. Groups,
   notes and metrics are unchanged.
@@ -105,6 +114,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names both services.
 
 ### Added
+- **Follow-up commit with the own PR number in `meta.herkunft`.** The PR
+  number exists only after the PR is opened, so `open_draft_pr` pushes a
+  second commit to the same branch (`merge.apply_herkunft`): a new file
+  becomes `tessera`, an existing `redaktion` file becomes `gemischt`, and the
+  number joins `tessera_prs`. `geprueft_am` is never set. A target file
+  without `herkunft` is left alone and flagged for the reviewer instead of
+  guessed. Best effort: if the commit fails, the PR keeps its first state and
+  the reviewer checklist asks for the manual entry. PRs also get the label
+  `quelle:tessera` (#94).
 - **Gate flags show the rejected quote of a dropped step or document.** In the
   `kita-platz` pilot (L3) the gate dropped "find a daycare place" for the third
   time and the main SBU channel, but the flags did not say what the model had

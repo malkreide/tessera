@@ -22,7 +22,7 @@
     "schema_version": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+\\.\\d+$",
-      "description": "SemVer, z.B. 0.1.0"
+      "description": "SemVer, z.B. 0.2.0"
     },
     "id": {
       "type": "string",
@@ -72,7 +72,18 @@
         "erstellt": { "type": "string" },
         "aktualisiert": { "type": "string" },
         "maintainer": { "type": "string" },
-        "lizenz": { "type": "string" }
+        "lizenz": { "type": "string" },
+        "herkunft": {
+          "type": "object",
+          "description": "Ab Vertrag 0.2.0: Entstehungsweg (kanonisch in maschinerie-zuerich). tessera_prs Pflicht bei tessera/gemischt, leer bei redaktion.",
+          "additionalProperties": false,
+          "required": ["art"],
+          "properties": {
+            "art": { "type": "string", "enum": ["redaktion", "tessera", "gemischt"] },
+            "tessera_prs": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "uniqueItems": true },
+            "geprueft_am": { "type": "string", "format": "date" }
+          }
+        }
       }
     }
   },
