@@ -35,7 +35,7 @@ if TYPE_CHECKING:  # nur Typhinweise — kein Laufzeit-Import von config (pydant
     from .config import ProcessSource
 
 from .grounding import BRIDGE_FLAG_PREFIX
-from .merge import MergeConflict, MergeReport, merge_process
+from .merge import MergeConflict, MergeReport, apply_herkunft, merge_process
 from .plausibility import ACTOR_FLAG_PREFIX, ORDER_FLAG_PREFIX
 from .risk import (
     HIGH_RISK_DISCLAIMER_KEY,
@@ -51,6 +51,9 @@ ROOT = Path(__file__).resolve().parents[2]
 OUTBOX = ROOT / "out" / "outbox"
 DEFAULT_TARGET = "malkreide/maschinerie-zuerich"
 TARGET_PATH = "stadt-zuerich-next/data/prozesse/zh"
+# Label im Ziel-Repo (.github/labels.yml): markiert PRs aus tessera, deren
+# Nummer in meta.herkunft.tessera_prs gehoert.
+SOURCE_LABEL = "quelle:tessera"
 
 # GitHub kappt PR-Bodies bei 65 536 Zeichen; Puffer fuer Encoding/Anhaenge.
 MAX_BODY_CHARS = 60_000
@@ -309,6 +312,8 @@ def build_pr_body(
         "(Tabelle oben: Klick auf den Deep-Link, Zitat vergleichen)",
         "- [ ] Unverifizierte References: pruefen, belegen oder entfernen",
         "- [ ] `lebenslage_ref` verlinkt korrekt auf die bestehende Lebenslage",
+        "- [ ] `meta.herkunft` stimmt: ein Folge-Commit setzt `gemischt` bzw. `tessera` "
+        "und die Nummer dieses PRs (fehlt er, von Hand nachtragen)",
         "",
         "Validierung: `scripts/validate_contract.py` (tessera) bestanden — bitte",
         "zusaetzlich `npm run validate:prozesse` im Ziel-Repo laufen lassen.",
@@ -503,7 +508,7 @@ def open_draft_pr(
         }
         if existing_sha:
             put["sha"] = existing_sha
-        client.put(f"{api}/contents/{path}", json=put).raise_for_status()
+        file_sha = client.put(f"{api}/contents/{path}", json=put).raise_for_status().json()["content"]["sha"]
 
         created_pr = client.post(
             f"{api}/pulls",
@@ -530,8 +535,99 @@ def open_draft_pr(
             if existing:
                 url = existing[0]["html_url"]
                 print(f"  [{proc.id}] Bestehender Draft-PR aktualisiert: {url}")
+                _folge_commit_herkunft(
+                    client,
+                    api,
+                    proc,
+                    path,
+                    branch,
+                    final_process,
+                    existing[0]["number"],
+                    file_sha,
+                    body,
+                    neu=existing_sha is None,
+                    http_error=httpx.HTTPError,
+                )
                 return url
             created_pr.raise_for_status()  # 422 aus anderem Grund -> echter Fehler
         pr = created_pr.raise_for_status().json()
-    print(f"  [{proc.id}] Draft-PR erstellt: {pr['html_url']}")
+        print(f"  [{proc.id}] Draft-PR erstellt: {pr['html_url']}")
+        _folge_commit_herkunft(
+            client,
+            api,
+            proc,
+            path,
+            branch,
+            final_process,
+            pr["number"],
+            file_sha,
+            body,
+            neu=existing_sha is None,
+            http_error=httpx.HTTPError,
+        )
     return pr["html_url"]
+
+
+def _folge_commit_herkunft(
+    client,  # httpx.Client (oder ein Test-Double mit put/post)
+    api: str,
+    proc: ProcessSource,
+    path: str,
+    branch: str,
+    process: dict,
+    pr_number: int,
+    file_sha: str,
+    body: str,
+    *,
+    neu: bool,
+    http_error: type[Exception],
+) -> None:
+    """Folge-Commit: die eigene PR-Nummer in meta.herkunft (Vertrag 0.2.0).
+
+    Die Nummer steht erst nach dem Oeffnen des PRs fest, deshalb ein zweiter
+    Commit auf denselben Branch. Best effort: scheitert er, bleibt der PR mit
+    dem ersten (gueltigen) Stand stehen, und die Reviewer-Checkliste verlangt
+    das Nachtragen von Hand. Die Commit-Message beginnt mit 'feat(prozesse):',
+    damit ein Re-Run den Branch weiterhin als tessera-eigen erkennt.
+    `http_error` ist die Fehlerklasse des Clients (httpx.HTTPError) — als
+    Parameter, damit das Modul und seine Tests stdlib-rein bleiben.
+    """
+    import base64  # noqa: PLC0415
+
+    updated, note = apply_herkunft(process, pr_number, neu=neu)
+    if note:
+        print(f"  [{proc.id}] {note}", file=sys.stderr)
+    if updated != process:
+        bundle_dir = write_bundle(proc, updated, body)
+        ok, validator_out = validate_merged(bundle_dir / f"{proc.id}.json")
+        if not ok:
+            print(
+                f"  [{proc.id}] Stand mit meta.herkunft besteht den Vertrags-Validator NICHT "
+                f"— kein Folge-Commit, bitte im Review nachtragen.\n{validator_out.strip()}",
+                file=sys.stderr,
+            )
+            write_bundle(proc, process, body)  # Bundle = tatsaechlich eingereichter Stand
+            return
+        content = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
+        try:
+            client.put(
+                f"{api}/contents/{path}",
+                json={
+                    "message": f"feat(prozesse): {proc.id} — meta.herkunft mit PR #{pr_number} (tessera v1)",
+                    "content": base64.b64encode(content.encode()).decode(),
+                    "branch": branch,
+                    "sha": file_sha,
+                },
+            ).raise_for_status()
+            print(f"  [{proc.id}] meta.herkunft mit PR #{pr_number} nachgetragen (Folge-Commit).")
+        except http_error as exc:
+            write_bundle(proc, process, body)
+            print(
+                f"  [{proc.id}] Folge-Commit fuer meta.herkunft fehlgeschlagen ({exc}) "
+                "— bitte im Review nachtragen.",
+                file=sys.stderr,
+            )
+    try:
+        client.post(f"{api}/issues/{pr_number}/labels", json={"labels": [SOURCE_LABEL]}).raise_for_status()
+    except http_error as exc:
+        print(f"  [{proc.id}] Label {SOURCE_LABEL!r} nicht gesetzt ({exc}).", file=sys.stderr)

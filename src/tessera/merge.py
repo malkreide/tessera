@@ -42,9 +42,12 @@ laufen — wie `tests/test_grounding.py`.
 
 from __future__ import annotations
 
+import copy
 import difflib
 import re
 from dataclasses import dataclass, field
+
+from .contract import HERKUNFT_SEIT, major_minor
 
 # Locale-Keys des Datenvertrags. 'ls' = Leichte Sprache (kanonisch).
 LOCALE_KEYS = ("de", "en", "fr", "it", "ls")
@@ -464,3 +467,43 @@ def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
     _reconcile_step_actors(out, report)
 
     return out, report
+
+
+def apply_herkunft(process: dict, pr_number: int, *, neu: bool) -> tuple[dict, str | None]:
+    """Traegt die eigene PR-Nummer in meta.herkunft ein (Vertrag 0.2.0).
+
+    Laeuft NACH dem Oeffnen des PRs (erst dann steht die Nummer fest) und
+    liefert den Stand fuer den Folge-Commit. Regeln (docs/data-contract.md):
+
+    * neue Datei (`neu`): art 'tessera', tessera_prs [pr_number];
+    * bestehende Datei: 'redaktion' -> 'gemischt'; 'gemischt'/'tessera'
+      bleiben; die Nummer kommt sortiert und ohne Dublette dazu;
+    * geprueft_am setzt nur ein Mensch — wird nie gesetzt oder geaendert;
+    * traegt die bestehende Datei KEINE Herkunft, wird nichts geraten: der
+      Stand bleibt unveraendert, der Hinweis (zweiter Rueckgabewert) geht an
+      den Reviewer.
+
+    Die Eingabe wird nicht mutiert. Wer herkunft setzt, deklariert mindestens
+    Vertrag 0.2.0 — eine aeltere schema_version wird deshalb angehoben.
+    """
+    alt = (process.get("meta") or {}).get("herkunft")
+    if not neu and not isinstance(alt, dict):
+        return process, (
+            "meta.herkunft der Zieldatei fehlt — nicht geraten. Bitte im Review "
+            f"nachtragen (vermutlich 'gemischt' mit PR #{pr_number})."
+        )
+    out = copy.deepcopy(process)
+    meta = out.setdefault("meta", {})
+    if isinstance(alt, dict):
+        h = copy.deepcopy(alt)
+        if h.get("art") == "redaktion":
+            h["art"] = "gemischt"
+    else:
+        h = {"art": "tessera"}
+    prs = [n for n in h.get("tessera_prs", []) if isinstance(n, int)]
+    h["tessera_prs"] = sorted({*prs, pr_number})
+    meta["herkunft"] = h
+    mm = major_minor(str(out.get("schema_version", "")))
+    if mm is None or (mm[0] == 0 and mm < HERKUNFT_SEIT):
+        out["schema_version"] = f"{HERKUNFT_SEIT[0]}.{HERKUNFT_SEIT[1]}.0"
+    return out, None
