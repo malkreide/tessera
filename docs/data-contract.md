@@ -27,7 +27,7 @@ werden.
 
 | Feld | Typ | Pflicht | Anmerkung |
 |---|---|---|---|
-| `schema_version` | string (SemVer) | ja | z.B. `"0.1.0"` |
+| `schema_version` | string (SemVer) | ja | z.B. `"0.2.0"` (kanonisch seit maschinerie-zuerich#333) |
 | `id` | string (kebab-case) | ja | z.B. `"hund-anmelden"` |
 | `lebenslage_ref` | string | ja | Schlüssel der bestehenden Lebenslage in der Maschinerie |
 | `title` | i18n-Objekt | ja | `{de, en, fr, it, ls}` – `ls` = Leichte Sprache; `de` Pflicht |
@@ -67,7 +67,7 @@ Additive Step-Felder (optional, siehe «Additive kanonische Felder»):
 
 ```json
 {
-  "schema_version": "0.1.0",
+  "schema_version": "0.2.0",
   "id": "hund-anmelden",
   "lebenslage_ref": "hund-anmelden",
   "title": { "de": "Hund anmelden", "en": "", "fr": "", "it": "", "ls": "" },
@@ -138,13 +138,44 @@ ignorierbar.
 | Process | `legal_basis` | `{label(string), url?}[]` |
 | Process | `sources` | `{id, title, url, retrieved_at}[]` |
 | Process | `reife` | object (experimentell, passthrough) |
-| Process | `meta` | `{erstellt?, aktualisiert?, maintainer?, lizenz?}` |
+| Process | `meta` | `{erstellt?, aktualisiert?, maintainer?, lizenz?, herkunft?}`; `herkunft` siehe unten (ab 0.2.0) |
 | Step | `type` | start·input·prozess·entscheidung·loop·warten·ende |
 | Step | `description` | i18n (Kardinalregel-Lint) |
 | Step | `documents` | `{label(i18n), url?, required?}[]` |
 | Step | `source_id` | string → `sources[].id` |
 | Step | `loops_back_to` | integer[]; nur bei `type: loop`, **nicht** Teil des DAG |
 | Reference | `status` | `verifiziert` (Default) \| `unverifiziert` |
+
+## `meta.herkunft` (kanonisch ab 0.2.0)
+
+Hält je Prozess fest, auf welchem Weg er entstanden ist; die Maschinerie zeigt
+es öffentlich auf `/belege`. Kanonisch: «Herkunft & Pflege» in
+`docs/process-data-contract.md` (maschinerie-zuerich).
+
+| Feld | Typ | Regel |
+|---|---|---|
+| `art` | `redaktion` \| `tessera` \| `gemischt` | Pflicht, wenn `herkunft` gesetzt ist |
+| `tessera_prs` | integer[] | Pflicht bei `tessera`/`gemischt`, leer bei `redaktion` |
+| `geprueft_am` | ISO-Datum | optional; setzt nur ein Mensch, nicht in der Zukunft, nicht vor `meta.erstellt` |
+
+Wer `herkunft` nutzt, deklariert `schema_version` ≥ 0.2.0. Der Vertrags-Validator
+prüft dieselben Regeln wie die Ziel-CI (Gate-Parität).
+
+**Was tessera setzt** (`merge.apply_herkunft`, Folge-Commit in `pr.open_draft_pr`):
+Die PR-Nummer steht erst nach dem Öffnen fest. Deshalb trägt der erste Commit
+den gemergten Stand mit der bisherigen Herkunft, ein zweiter Commit auf
+denselben Branch die eigene Nummer:
+
+- neue Datei: `{"art": "tessera", "tessera_prs": [<PR>]}`;
+- bestehende Datei: aus `redaktion` wird `gemischt`, `gemischt`/`tessera`
+  bleiben; die Nummer kommt sortiert und ohne Dublette in `tessera_prs`;
+- `geprueft_am` wird nie gesetzt oder geändert;
+- trägt die Zieldatei **keine** Herkunft, wird nichts geraten: kein
+  Folge-Commit, der Reviewer trägt sie nach.
+
+Scheitert der Folge-Commit, bleibt der PR mit dem ersten Stand stehen; die
+Reviewer-Checkliste verlangt dann das Nachtragen von Hand. Der PR erhält das
+Label `quelle:tessera` (best effort).
 
 ## Was bewusst NICHT im Vertrag steht
 

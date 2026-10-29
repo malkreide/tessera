@@ -81,7 +81,7 @@ Die Anmeldung muss innert 14 Tagen nach Umzug erfolgen.
 # Fixture treibt die Strecke auch ohne pydantic.
 FIXED_PROCESS: dict = {
     "$schema": "../../../schemas/opengov-process-schema.json",
-    "schema_version": "0.1.0",
+    "schema_version": "0.2.0",
     "id": PROC_ID,
     "lebenslage_ref": PROC_ID,
     "city": "zh",

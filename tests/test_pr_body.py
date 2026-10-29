@@ -5,6 +5,9 @@
 `tessera.pr` sind stdlib-rein (httpx lazy), damit diese Tests in der
 dependency-freien CI laufen.
 
+Dazu der Folge-Commit fuer meta.herkunft (`_folge_commit_herkunft`) gegen
+einen Test-Double-Client: kein Netz, kein httpx.
+
 Aufruf: python tests/test_pr_body.py — Exit 0 = alle Tests gruen.
 """
 
@@ -22,6 +25,8 @@ from tessera.merge import MergeReport  # noqa: E402
 from tessera.plausibility import ACTOR_FLAG_PREFIX, ORDER_FLAG_PREFIX  # noqa: E402
 from tessera.pr import (  # noqa: E402
     MAX_BODY_CHARS,
+    SOURCE_LABEL,
+    _folge_commit_herkunft,
     _md,
     _md_code,
     build_merge_warning,
@@ -196,6 +201,97 @@ def test_review_notes_shown_to_reviewers_neutralised() -> None:
     assert "## Hinweise fuer Reviewer (kuratiert, nicht im Prompt)" in body, body
     assert "Zieldatei hat actors" in body and "<b>" not in body, body
     assert "Hinweise fuer Reviewer" not in build_pr_body(PROC, _process(), [], META)
+
+
+class _HttpFehler(Exception):
+    pass
+
+
+class _Antwort:
+    def __init__(self, ok: bool = True) -> None:
+        self.ok = ok
+
+    def raise_for_status(self) -> _Antwort:
+        if not self.ok:
+            raise _HttpFehler("HTTP 409")
+        return self
+
+
+class _Client:
+    """Test-Double: zeichnet put/post auf, scheitert auf Wunsch beim PUT."""
+
+    def __init__(self, put_ok: bool = True) -> None:
+        self.put_ok = put_ok
+        self.puts: list[tuple[str, dict]] = []
+        self.posts: list[tuple[str, dict]] = []
+
+    def put(self, url: str, json: dict) -> _Antwort:
+        self.puts.append((url, json))
+        return _Antwort(self.put_ok)
+
+    def post(self, url: str, json: dict) -> _Antwort:
+        self.posts.append((url, json))
+        return _Antwort()
+
+
+def _folge(client: _Client, process: dict, *, neu: bool = False) -> None:
+    _folge_commit_herkunft(
+        client,
+        "https://api.github.com/repos/o/r",
+        PROC,
+        "stadt-zuerich-next/data/prozesse/zh/hund-anmelden.json",
+        "tessera/hund-anmelden-2026-10-28",
+        process,
+        412,
+        "blob-sha-1",
+        "body",
+        neu=neu,
+        http_error=_HttpFehler,
+    )
+
+
+def _mit_meta(herkunft: dict | None) -> dict:
+    p = _process()
+    p["schema_version"] = "0.2.0"
+    p["disclaimer_key"] = "Prozesse.disclaimer"
+    p["meta"] = {"erstellt": "2026-06-06"}
+    if herkunft is not None:
+        p["meta"]["herkunft"] = herkunft
+    return p
+
+
+def test_folge_commit_setzt_herkunft_und_label() -> None:
+    import base64  # noqa: PLC0415
+    import json  # noqa: PLC0415
+
+    client = _Client()
+    _folge(client, _mit_meta({"art": "redaktion"}))
+    assert len(client.puts) == 1, client.puts
+    url, put = client.puts[0]
+    assert url.endswith("/contents/stadt-zuerich-next/data/prozesse/zh/hund-anmelden.json")
+    assert put["sha"] == "blob-sha-1" and put["branch"] == "tessera/hund-anmelden-2026-10-28"
+    # Re-Run-Guard in open_draft_pr erkennt nur 'feat(prozesse):'-Commits als eigene.
+    assert put["message"].startswith("feat(prozesse):") and "#412" in put["message"]
+    doc = json.loads(base64.b64decode(put["content"]).decode())
+    assert doc["meta"]["herkunft"] == {"art": "gemischt", "tessera_prs": [412]}
+    assert client.posts == [
+        ("https://api.github.com/repos/o/r/issues/412/labels", {"labels": [SOURCE_LABEL]})
+    ]
+
+
+def test_folge_commit_raet_nicht_ohne_herkunft() -> None:
+    """Bestehende Datei ohne Herkunft: kein Folge-Commit, nur das Label."""
+    client = _Client()
+    _folge(client, _mit_meta(None))
+    assert client.puts == []
+    assert len(client.posts) == 1
+
+
+def test_folge_commit_fehler_bricht_nicht_ab() -> None:
+    """Scheitert der PUT, bleibt der PR stehen (best effort); Label trotzdem."""
+    client = _Client(put_ok=False)
+    _folge(client, _mit_meta({"art": "gemischt", "tessera_prs": [156]}))
+    assert len(client.puts) == 1 and len(client.posts) == 1
 
 
 def main() -> int:

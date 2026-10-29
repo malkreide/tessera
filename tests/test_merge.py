@@ -9,7 +9,9 @@ Deckt ab:
       sie leer liefert,
   (b) neue Felder/Schritte/References werden ergaenzt,
   (c) der Merge ist stabil ueber step_id/reference_id/actor.id (index-unabhaengig),
-  (d) nicht sauber mergebare Faelle werfen MergeConflict (Aufrufer ueberspringt).
+  (d) nicht sauber mergebare Faelle werfen MergeConflict (Aufrufer ueberspringt),
+  (e) meta.herkunft bleibt beim Merge erhalten; apply_herkunft traegt die eigene
+      PR-Nummer nach (redaktion -> gemischt, neu -> tessera), raet nie.
 """
 
 from __future__ import annotations
@@ -24,7 +26,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from validate_contract import Report, validate  # noqa: E402
 
-from tessera.merge import MergeConflict, merge_process, normalize_i18n  # noqa: E402
+from tessera.merge import MergeConflict, apply_herkunft, merge_process, normalize_i18n  # noqa: E402
 
 
 def _contract_ok(doc: dict) -> Report:
@@ -494,6 +496,65 @@ def test_d_conflict_on_duplicate_keys() -> None:
     except MergeConflict:
         return
     raise AssertionError("MergeConflict bei doppeltem step_id erwartet")
+
+
+def _mit_herkunft(herkunft: dict | None) -> dict:
+    doc = _existing()
+    doc["schema_version"] = "0.2.0"
+    doc["meta"] = {"erstellt": "2026-06-06", "maintainer": "malkreide"}
+    if herkunft is not None:
+        doc["meta"]["herkunft"] = herkunft
+    return doc
+
+
+def test_e_merge_keeps_herkunft() -> None:
+    """(e) Der Merge verliert meta.herkunft der Zieldatei nicht (Basis = bestehend)."""
+    existing = _mit_herkunft({"art": "gemischt", "tessera_prs": [156], "geprueft_am": "2026-10-01"})
+    merged, _ = merge_process(existing, _extraction())
+    assert merged["meta"]["herkunft"] == existing["meta"]["herkunft"]
+    assert merged["schema_version"] == "0.2.0"
+
+
+def test_e_apply_herkunft_redaktion_wird_gemischt() -> None:
+    doc = _mit_herkunft({"art": "redaktion"})
+    out, note = apply_herkunft(doc, 400, neu=False)
+    assert note is None
+    assert out["meta"]["herkunft"] == {"art": "gemischt", "tessera_prs": [400]}
+    assert out["meta"]["maintainer"] == "malkreide"  # restliches meta bleibt
+    assert doc["meta"]["herkunft"] == {"art": "redaktion"}, "Eingabe darf nicht mutiert werden"
+    # Das Fixture ist bewusst nicht actor-paritaetisch; geprueft wird hier nur,
+    # dass der nachgetragene Herkunfts-Stand die Vertragsregeln erfuellt.
+    errs = _contract_ok(out).errors
+    assert not any("herkunft" in e for e in errs), errs
+
+
+def test_e_apply_herkunft_ergaenzt_sortiert_ohne_dublette() -> None:
+    doc = _mit_herkunft({"art": "gemischt", "tessera_prs": [169, 164], "geprueft_am": "2026-10-01"})
+    out, _ = apply_herkunft(doc, 164, neu=False)
+    assert out["meta"]["herkunft"] == {
+        "art": "gemischt",
+        "tessera_prs": [164, 169],
+        "geprueft_am": "2026-10-01",
+    }
+    out, _ = apply_herkunft(doc, 401, neu=False)
+    assert out["meta"]["herkunft"]["tessera_prs"] == [164, 169, 401]
+    assert out["meta"]["herkunft"]["geprueft_am"] == "2026-10-01"  # setzt nur ein Mensch
+
+
+def test_e_apply_herkunft_neu_ist_tessera() -> None:
+    doc = _extraction()  # schema_version 0.1.0, kein meta
+    out, note = apply_herkunft(doc, 402, neu=True)
+    assert note is None
+    assert out["meta"] == {"herkunft": {"art": "tessera", "tessera_prs": [402]}}
+    assert out["schema_version"] == "0.2.0"  # herkunft verlangt Vertrag >= 0.2.0
+
+
+def test_e_apply_herkunft_raet_nicht() -> None:
+    """Bestehende Datei ohne Herkunft: unveraendert, Hinweis an den Reviewer."""
+    doc = _mit_herkunft(None)
+    out, note = apply_herkunft(doc, 403, neu=False)
+    assert out is doc
+    assert note and "nicht geraten" in note and "#403" in note
 
 
 def main() -> int:
