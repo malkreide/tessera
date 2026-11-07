@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`fundsache` pairing follows the corrected hand-file label.** maschinerie-zuerich
+  #357 renamed hand step 5 to «Fund gemeldet» (the old «ggf. Finderlohn-Anspruch»
+  rested on a quote that denies a finder's reward). The confirmed pairing
+  carries the new label so `tessera eval` does not report it as stale; groups
+  and status are unchanged. The pilot report marks the proposal as done.
 - **Data contract 0.2.0 (`meta.herkunft`).** The canonical repo added the
   optional field `meta.herkunft` (maschinerie-zuerich#333). `SCHEMA_VERSION`
   is now `0.2.0`; examples and test fixtures follow. The contract validator
