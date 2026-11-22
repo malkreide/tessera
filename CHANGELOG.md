@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` appeal step now sourced in the hand file.** maschinerie-zuerich
+  #379 added two references to hand step 15 (objection to the contribution-factor
+  confirmation and to the SBU decision), quoted from PDFs linked on `faq.html`.
+  tessera v1 does not read PDFs, so the step stays `nicht_belegbar` for `eval`;
+  the pairing note and the pilot report say where the evidence is.
 - **`fundsache` pairing follows the corrected hand-file label.** maschinerie-zuerich
   #357 renamed hand step 5 to «Fund gemeldet» (the old «ggf. Finderlohn-Anspruch»
   rested on a quote that denies a finder's reward). The confirmed pairing

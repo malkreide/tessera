@@ -121,7 +121,7 @@ gruppen:
     hand:
       15: "Rechtsmittel gemäss Rechtsmittelbelehrung im Entscheid"
     nicht_belegbar: true
-    notiz: "keine Quellseite nennt Rechtsmittel (geprueft 2026-10-14); die Handdatei hat fuer diesen Schritt weder Quelle noch Reference"
+    notiz: "keine gecrawlte Quellseite nennt Rechtsmittel (geprueft 2026-10-14); belegt nur in PDFs (Merkblatt SBU, Muster-Beitragsfaktorbestaetigung) — die Handdatei verlinkt sie seit maschinerie-zuerich#379 als References 14/15, tessera v1 liest keine PDFs"
   - extraktion: {}
     hand:
       16: "Antrag rechtskräftig abgelehnt"
