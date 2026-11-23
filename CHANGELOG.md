@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` pairing follows the split appeal step.** maschinerie-zuerich #382
+  replaced the unsourced `bezirksrat` actor: hand step 15 is now the objection
+  to the School Office, new hand step 21 the objection to the Social Welfare
+  Department. The confirmed pairing carries the new label for 15 and a group
+  for 21; both stay `nicht_belegbar` (evidence only in PDFs). Recall belegbar is
+  unchanged (10/11).
 - **`kita-platz` appeal step now sourced in the hand file.** maschinerie-zuerich
   #379 added two references to hand step 15 (objection to the contribution-factor
   confirmation and to the SBU decision), quoted from PDFs linked on `faq.html`.

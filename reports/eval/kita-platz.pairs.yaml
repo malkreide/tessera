@@ -119,9 +119,14 @@ gruppen:
     notiz: "Entscheidung"
   - extraktion: {}
     hand:
-      15: "Rechtsmittel gemäss Rechtsmittelbelehrung im Entscheid"
+      15: "Einsprache beim Schulamt (gemäss Rechtsmittelbelehrung)"
     nicht_belegbar: true
-    notiz: "keine gecrawlte Quellseite nennt Rechtsmittel (geprueft 2026-10-14); belegt nur in PDFs (Merkblatt SBU, Muster-Beitragsfaktorbestaetigung) — die Handdatei verlinkt sie seit maschinerie-zuerich#379 als References 14/15, tessera v1 liest keine PDFs"
+    notiz: "keine gecrawlte Quellseite nennt die Einsprache (geprueft 2026-10-14); belegt nur im PDF Muster-Beitragsfaktorbestaetigung (Handdatei-Reference 14, maschinerie-zuerich#379/#382), tessera v1 liest keine PDFs"
+  - extraktion: {}
+    hand:
+      21: "Einsprache beim Sozialdepartement gegen den festgelegten Betreuungsumfang"
+    nicht_belegbar: true
+    notiz: "neu seit maschinerie-zuerich#382; belegt nur im PDF Merkblatt SBU, Abschnitt 4.3 (Handdatei-Reference 15), tessera v1 liest keine PDFs"
   - extraktion: {}
     hand:
       16: "Antrag rechtskräftig abgelehnt"
