@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Pilot report: `fundsache` step 9 no longer open.** maschinerie-zuerich #390
+  removed the unsourced «… und Finderlohn nach OR» from the hand-file
+  description of step 9 (all languages). The pairing compares labels only and
+  is unchanged; the pilot report marks the item as done.
 - **`kita-platz` pairing follows the split appeal step.** maschinerie-zuerich #382
   replaced the unsourced `bezirksrat` actor: hand step 15 is now the objection
   to the School Office, new hand step 21 the objection to the Social Welfare
