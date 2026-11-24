@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **`kita-platz` review notes follow the split appeal step.** The curated
+  `review_notes` in `sources.yaml` (shown in the PR body, never in the prompt)
+  still named the Bezirksrat as the appeal body. They now name the objections
+  to the School Office and the Social Welfare Department (maschinerie-zuerich
+  #382) and note that `bezirksrat` is in `actors[]` but on no step. The pilot
+  report marks open items 4 (#77) and 5 (Actions may open PRs) as done.
 - **Pilot report: `fundsache` step 9 no longer open.** maschinerie-zuerich #390
   removed the unsourced «… und Finderlohn nach OR» from the hand-file
   description of step 9 (all languages). The pairing compares labels only and
