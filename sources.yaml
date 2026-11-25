@@ -165,8 +165,11 @@ processes:
       Zahl + Deep-Link + woertliches Zitat).
     review_notes: >-
       Bestehende Zieldatei hat actors[] (eltern, kita, schulamt, sozialdept,
-      bezirksrat) -> Actor-Abgleich greift. Rekurs (Bezirksrat) ist Teil des
-      Prozesses; kita-platz ist KEIN Hochrisiko-Fall im Sinne der Registry
+      bezirksrat) -> Actor-Abgleich greift. Rechtsmittel sind Teil des
+      Prozesses: Einsprache beim Schulamt gegen die Beitragsfaktorbestaetigung
+      und beim Sozialdepartement gegen den SBU (seit maschinerie-zuerich#382;
+      `bezirksrat` steht noch in actors[], aber an keinem Schritt; Beleg nur in
+      PDFs, die v1 nicht liest). kita-platz ist KEIN Hochrisiko-Fall im Sinne der Registry
       (anders als sozialhilfe), aber beim Review besonders auf die
       Kardinalregel und Belegbarkeit achten. Bis 2026-10-13 standen die
       Akteur-IDs in `notes` und damit im Prompt — Pilot-Lauf 2026-10-13
