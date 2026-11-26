@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Schalter anmelden». `evaluate`'s pairing heuristic is unchanged.
 
 ### Changed
+- **`abfall` and `heiraten` without their overview pages.** The fingerprint
+  run of 2026-11-26 (#105) extracted only 52 characters of skip links from
+  `entsorgung.html` and `heiraten.html`: both are navigation hubs (cards and
+  news teasers), not process pages. They are removed from `official_urls`;
+  the hand files keep them as `source_url` (the reconciliation does not touch
+  it).
 - **Pilot report: from merge to reconciliation.** New addendum on the merge
   probe of `hund-anmelden` (a foreign step merged, a reference linked wrongly,
   validator green), the ID-pair analysis for `kita-platz` and `fundsache`, and
