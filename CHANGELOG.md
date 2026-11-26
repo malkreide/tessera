@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Schalter anmelden». `evaluate`'s pairing heuristic is unchanged.
 
 ### Changed
+- **`parkplatz` and `umzug-melden` without pages that yield no process text.**
+  Their fingerprints held a 52-character entry, like `abfall` and `heiraten`
+  before #106. `antragsformular-ap-privatpersonen.html` is an online form whose
+  fields trafilatura drops; `umziehen-melden.html` is an overview of entry cards
+  (now 380 characters, which is why issue #44 lists it as changed). Both are
+  removed from `official_urls`; the process text is on the remaining pages.
 - **`abfall` and `heiraten` without their overview pages.** The fingerprint
   run of 2026-11-26 (#105) extracted only 52 characters of skip links from
   `entsorgung.html` and `heiraten.html`: both are navigation hubs (cards and

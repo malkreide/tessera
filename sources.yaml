@@ -85,7 +85,9 @@ processes:
     service_name: "Umzug melden (Zuzug, Umzug, Wegzug)"
     target_audience: bevoelkerung
     official_urls:
-      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden.html"
+      # Ohne die Uebersichtsseite umziehen-melden.html: nur Einstiegskacheln und
+      # zwei Saetze Einleitung (Baseline 2026-10-05: 52 Zeichen, 2026-11-26: 380);
+      # der Ablauf steht auf den drei Unterseiten.
       - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/zuzug.html"
       - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/umzug.html"
       - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/umziehen-melden/wegzug.html"
@@ -128,7 +130,10 @@ processes:
       # statthalter. Die AGB-Seite traegt Gebuehren + Rekurs-/Rechtsgrundlage.
       - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen.html"
       - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte.html"
-      - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte/antragsformular-ap-privatpersonen.html"
+      # Ohne antragsformular-ap-privatpersonen.html: Online-Formular, trafilatura
+      # verwirft die Felder (Baseline: 52 Zeichen Sprunglinks). Die Unterlagen
+      # stehen auch auf anwohnerparkkarte.html; die Zahlungswege nur in den
+      # Formular-Optionen (2026-11-26 geprueft).
       - "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/rechtliche-grundlagen/agb.html"
     catalog_keywords: ["park", "parkkarte", "parkbewilligung", "anwohner"]
     notes: >-
