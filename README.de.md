@@ -81,7 +81,7 @@ Risiko; siehe `sources.yaml`). Die Registry `src/tessera/risk.py` führt weiterh
 alle drei — die Freischaltung steuert allein `sources.yaml`, damit der erhöhte Gate
 für jeden der drei greift, wo immer er die Pipeline berührt.
 
-Für einen Hochrisiko-Fall in der Pipeline (freigeschaltet oder via Merge gegen eine
+Für einen Hochrisiko-Fall in der Pipeline (freigeschaltet oder via Abgleich gegen eine
 bestehende Datei) gilt erhöhter Review — einmal definiert in `src/tessera/risk.py`
 und vom Vertrags-Validator erzwungen:
 

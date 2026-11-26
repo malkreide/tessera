@@ -38,7 +38,7 @@ from validate_contract import Report, validate  # noqa: E402
 
 from tessera import contracts  # noqa: E402
 from tessera.grounding import Corpus, apply_gate  # noqa: E402
-from tessera.merge import merge_process  # noqa: E402
+from tessera.merge import sync_existing  # noqa: E402
 
 # to_contract braucht pydantic (Runtime-Dep). Fehlt es (CI ohne Deps), wird der
 # Faithfulness-Test sauber uebersprungen — die Strecke selbst testet die Fixture.
@@ -203,16 +203,18 @@ def test_gated_output_passes_contract_validator() -> None:
 
 def test_gated_output_is_struktur_only() -> None:
     """Die gegatete Extraktion ist struktur-only (de + leere en/fr/it) — die
-    Invariante, die der feldweise Merge der Maschinerie schuetzt. Der neue
+    Invariante, die die Maschinerie fuer tessera-PRs voraussetzt. Der neue
     Component-Vertrag findet hier keinen Verstoss."""
     gated, _ = _gated()
     assert contracts.struktur_only(gated) == [], contracts.struktur_only(gated)
 
 
-def test_gated_output_merges_without_regression() -> None:
-    """Kapstein (DoD): die schema-valide, struktur-only Extraktion merged in eine
-    handuebersetzte Zieldatei, OHNE bestehende Uebersetzungen/description zu leeren
-    (Regression-Guard) — und das Ergebnis besteht weiterhin den Vertrags-Validator."""
+def test_gated_output_syncs_without_regression() -> None:
+    """Kapstein (DoD): gegen eine handuebersetzte Zieldatei wird die schema-valide,
+    struktur-only Extraktion NICHT eingespielt, sondern abgeglichen — die
+    Handdatei bleibt bis auf `retrieved_at` unveraendert (Regression-Guard), die
+    Extraktion steht als Vorschlag im Bericht, und das Ergebnis besteht den
+    Vertrags-Validator."""
     gated, _ = _gated()
 
     # Handgepflegte Zieldatei: de + volle en/fr/it + description (wie im Ziel-Repo).
@@ -247,15 +249,13 @@ def test_gated_output_merges_without_regression() -> None:
         "disclaimer_key": "Prozesse.disclaimer",
     }
 
-    merged, report = merge_process(existing, gated)
+    merged, report = sync_existing(existing, gated)
 
-    # Regression-Guard: keine belegte Uebersetzung/description wurde geleert.
-    assert merged["title"]["en"] == "Report a move"
-    assert merged["title"]["fr"] == "Annoncer un demenagement"
-    assert merged["description"]["de"] == "Adressaenderung bei einem Umzug."
-    step1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert step1["label"]["en"] == "Report new address"
-    assert report.preserved, "Merge haette die geschuetzten Locale-Werte protokollieren muessen."
+    # Regression-Guard: nichts an der Handdatei veraendert ausser der Provenienz.
+    assert {k: v for k, v in merged.items() if k != "retrieved_at"} == {
+        k: v for k, v in existing.items() if k != "retrieved_at"
+    }
+    assert report.step_proposals, "Die Extraktion haette als Vorschlag im Bericht stehen muessen."
 
     # Frisches Crawl-Datum gewinnt (Provenienz), aber schema-valide bleibt es.
     assert merged["retrieved_at"] == RETRIEVED_AT

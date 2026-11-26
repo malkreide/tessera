@@ -162,20 +162,19 @@ Wer `herkunft` nutzt, deklariert `schema_version` ≥ 0.2.0. Der Vertrags-Valida
 prüft dieselben Regeln wie die Ziel-CI (Gate-Parität).
 
 **Was tessera setzt** (`merge.apply_herkunft`, Folge-Commit in `pr.open_draft_pr`):
-Die PR-Nummer steht erst nach dem Öffnen fest. Deshalb trägt der erste Commit
-den gemergten Stand mit der bisherigen Herkunft, ein zweiter Commit auf
-denselben Branch die eigene Nummer:
+nur bei einer **neuen** Datei. Die PR-Nummer steht erst nach dem Öffnen fest.
+Deshalb trägt der erste Commit die Extraktion, ein zweiter Commit auf denselben
+Branch `{"art": "tessera", "tessera_prs": [<PR>]}`. `geprueft_am` wird nie
+gesetzt. Scheitert der Folge-Commit, bleibt der PR mit dem ersten Stand stehen;
+die Reviewer-Checkliste verlangt dann das Nachtragen von Hand. Der PR erhält
+das Label `quelle:tessera` (best effort).
 
-- neue Datei: `{"art": "tessera", "tessera_prs": [<PR>]}`;
-- bestehende Datei: aus `redaktion` wird `gemischt`, `gemischt`/`tessera`
-  bleiben; die Nummer kommt sortiert und ohne Dublette in `tessera_prs`;
-- `geprueft_am` wird nie gesetzt oder geändert;
-- trägt die Zieldatei **keine** Herkunft, wird nichts geraten: kein
-  Folge-Commit, der Reviewer trägt sie nach.
-
-Scheitert der Folge-Commit, bleibt der PR mit dem ersten Stand stehen; die
-Reviewer-Checkliste verlangt dann das Nachtragen von Hand. Der PR erhält das
-Label `quelle:tessera` (best effort).
+**Bestehende Datei:** tessera gleicht nur ab (`merge.sync_existing`) und
+ändert keine Inhalte, nur `retrieved_at`. `meta.herkunft` bleibt deshalb
+unverändert, es gibt keinen Folge-Commit und kein Label `quelle:tessera` (ein
+gemergter PR mit dem Label gehört laut Ziel-Repo in `tessera_prs`). Wer
+Vorschläge aus dem Abgleich-Bericht von Hand übernimmt, führt die Herkunft
+selbst nach.
 
 ## Was bewusst NICHT im Vertrag steht
 

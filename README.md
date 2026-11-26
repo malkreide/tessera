@@ -77,7 +77,7 @@ litigious risk respectively; see `sources.yaml`). The registry `src/tessera/risk
 still lists all three — enablement is controlled solely by `sources.yaml`, so the
 heightened gate fires for any of the three wherever it touches the pipeline.
 
-For a high-risk case in the pipeline (enabled, or via a merge against an existing file),
+For a high-risk case in the pipeline (enabled, or via a reconciliation against an existing file),
 heightened review applies — defined once in `src/tessera/risk.py` and enforced by the
 contract validator:
 

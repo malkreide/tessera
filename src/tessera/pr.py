@@ -1,8 +1,10 @@
 """Human-in-the-Loop-Ausgabe: ein Draft-PR pro Leistung gegen TARGET_REPO.
 
-Ohne GITHUB_TOKEN im ENV wird KEIN API-Call versucht; stattdessen landet das
-komplette PR-Bundle (JSON + PR-Body) in out/outbox/<id>/ — der Maintainer kann
-es von dort einreichen. Die Pipeline merged NIE und pusht NIE nach main.
+Ohne GITHUB_TOKEN im ENV wird nichts geschrieben: tessera liest nur die
+(oeffentliche) Zieldatei, gleicht ab und legt das komplette PR-Bundle (JSON +
+PR-Body) in out/outbox/<id>/ — der Maintainer kann es von dort einreichen. Gibt
+es die Leistung im Ziel-Repo schon, ist sie kanonisch: Abgleich statt Merge
+(`merge.sync_existing`). Die Pipeline merged NIE und pusht NIE nach main.
 
 Der PR-Body ist Reviewer-UI und Sicherheitsflaeche zugleich:
 
@@ -35,7 +37,7 @@ if TYPE_CHECKING:  # nur Typhinweise — kein Laufzeit-Import von config (pydant
     from .config import ProcessSource
 
 from .grounding import BRIDGE_FLAG_PREFIX
-from .merge import MergeConflict, MergeReport, apply_herkunft, merge_process
+from .merge import AbgleichReport, MergeConflict, apply_herkunft, sync_existing
 from .plausibility import ACTOR_FLAG_PREFIX, ORDER_FLAG_PREFIX
 from .risk import (
     HIGH_RISK_DISCLAIMER_KEY,
@@ -122,75 +124,95 @@ def _reference_table(refs: list[dict]) -> list[str]:
     return lines
 
 
-def build_merge_warning(report: MergeReport, path: str) -> str:
-    """Reviewer-Warnung: dieser PR ueberschreibt eine bestehende, handgepflegte
-    Datei. Listet auf, welche Felder ERHALTEN (vor Verarmung geschuetzt) und
-    welche ERGAENZT wurden."""
+def _id_list(items: list[tuple[object, str]]) -> str:
+    return ", ".join(f"#{i} «{_md(label)}»" for i, label in items) or "—"
+
+
+def build_abgleich_report(report: AbgleichReport, path: str) -> str:
+    """Abgleich-Bericht fuer eine bestehende, handgepflegte Datei.
+
+    Der PR aendert an der Datei nur `retrieved_at` (Prozess und wiedergefundene
+    Belege). Alles, was die Extraktion darueber hinaus findet, steht hier als
+    Vorschlag — uebernehmen tut ein Mensch, samt Nummerierung. LLM-Text ist
+    neutralisiert (`_md`)."""
     lines = [
-        "## ⚠️ Reviewer-Warnung: bestehende handgepflegte Datei",
+        "## 🔎 Abgleich mit der bestehenden Handdatei",
         "",
-        f"Dieser PR aendert die bereits existierende Datei `{path}` im Ziel-Repo.",
-        "tessera liefert struktur-only (leere en/fr/it); deshalb wurde **nicht",
-        "blind ueberschrieben**, sondern feldweise gemerged: bestehende, nicht-",
-        "leere i18n-Werte (de/en/fr/it/ls) und description-Bloecke bleiben",
-        "erhalten, die Extraktion fuellt nur Luecken und ergaenzt neue Struktur.",
+        f"Fuer diese Leistung gibt es bereits `{path}`. Sie ist kanonisch. tessera hat",
+        "die Extraktion **nicht eingespielt**: `step_id`/`reference_id` vergibt das",
+        "Modell bei jedem Lauf neu und taugen nicht als Schluessel. Dieser PR",
+        "frischt nur `retrieved_at` auf — fuer den Prozess und fuer jede Reference,",
+        "deren Zitat die Extraktion auf derselben Seite woertlich wiedergefunden",
+        "hat. Schritte, Akteure, Texte, Status und `meta.herkunft` bleiben unveraendert.",
         "",
-        f"- Erhaltene Felder (gegen Leerung geschuetzt): **{len(report.preserved)}**",
+        f"- Aufgefrischt: **{len(report.refreshed)}**",
     ]
-    if report.preserved:
-        lines += _bullets(report.preserved)
-    lines.append(f"- Ergaenzte Felder / neue Schritte/References: **{len(report.added)}**")
-    if report.added:
-        lines += _bullets(report.added)
-    if report.refreshed:
-        lines.append(f"- Provenienz aktualisiert (frisches Crawl-Datum gewinnt): **{len(report.refreshed)}**")
-        lines += _bullets(report.refreshed)
-    if report.remapped_actors:
-        lines.append(
-            f"- Actor-Rollen auf bestehende `actors[].id` abgebildet: **{len(report.remapped_actors)}**"
-        )
-        lines += _bullets(report.remapped_actors)
-    if report.suspect_pairs:
+    lines += _bullets(report.refreshed)
+    lines += [
+        f"- Belege woertlich wiedergefunden: **{len(report.refs_confirmed)}**",
+    ]
+    if report.refs_confirmed:
+        lines.append(f"  - {_id_list(report.refs_confirmed)}")
+    if report.refs_confirmed_unverified:
+        lines += [
+            f"- ⚠️ Davon in der Handdatei `unverifiziert`: **{len(report.refs_confirmed_unverified)}** — "
+            "Zitat steht woertlich auf der Seite; Status bitte von Hand pruefen und setzen "
+            "(tessera aendert ihn nicht)",
+            f"  - {_id_list(report.refs_confirmed_unverified)}",
+        ]
+    if report.refs_not_found:
+        lines += [
+            f"- ⚠️ Belege der Handdatei NICHT wiedergefunden: **{len(report.refs_not_found)}** — "
+            "die Extraktion hat dieses Zitat nicht geliefert; das heisst nicht, dass es fehlt. "
+            "`tessera verify --online` prueft es gezielt",
+            f"  - {_id_list(report.refs_not_found)}",
+        ]
+    if report.refs_without_quote:
+        lines += [
+            f"- Belege ohne Zitat (nicht abgleichbar): **{len(report.refs_without_quote)}**",
+            f"  - {_id_list(report.refs_without_quote)}",
+        ]
+    if report.pairing_note:
+        lines += ["", f"Paarung: {report.pairing_note}"]  # eigener Text, kein LLM-Anteil
+    if report.step_pairs:
         lines += [
             "",
-            f"### ❌ Offen: {len(report.suspect_pairs)} verdaechtige(s) ID-Paar(e) — NICHT gemerged",
+            "### Zuordnung Extraktion ↔ Handdatei (bestaetigte Paarung)",
             "",
-            "Extraktion und bestehende Datei tragen unter derselben step_id/",
-            "reference_id semantisch fremde Labels — numerische IDs sind KEINE",
-            "stabilen fachlichen Schluessel. Der bestehende Eintrag blieb",
-            "unangetastet, die Extraktions-Fassung wurde verworfen. Bitte manuell",
-            "abgleichen (Schritt umnummerieren oder als neuen Schritt ergaenzen):",
-            "",
+            "| Extraktion | Handdatei |",
+            "|---|---|",
         ]
-        lines += _bullets(report.suspect_pairs)
-    if report.dropped_reference_links:
+        for ext, can in report.step_pairs:
+            lines.append(f"| {_id_list(ext)} | {_id_list(can)} |")
+    if report.step_proposals:
         lines += [
             "",
-            f"### ❌ Offen: {len(report.dropped_reference_links)} Beleg-Link(s) aus der Extraktion entfernt",
+            f"### Vorschlaege: {len(report.step_proposals)} Schritt(e) der Extraktion ohne Partner",
             "",
-            "Diese Schritte verwiesen in der Extraktion auf References, deren Paar",
-            "nicht gemerged wurde. Dieselbe `reference_id` meint in der bestehenden",
-            "Datei eine **andere** Reference — der Link haette einen fremden Beleg",
-            "gezeigt. Er wurde entfernt; bitte den passenden Beleg von Hand verlinken:",
+            "Nicht eingespielt. Pruefen, ob der Schritt in der Handdatei fehlt; wenn ja,",
+            "dort von Hand ergaenzen (eigene Nummer, Kanten, Akteur aus `actors[]`).",
+            "Nummern hier sind die der **Extraktion**.",
             "",
+            "| # | Schritt | Akteur | nach | Belege |",
+            "|---|---|---|---|---|",
         ]
-        lines += _bullets(report.dropped_reference_links)
-    if report.unmapped_actors:
+        for st in report.step_proposals:
+            after = "; ".join(_md(v) for v in st["vorgaenger"]) or "—"
+            refs = "; ".join(_md(v) for v in st["belege"]) or "—"
+            lines.append(f"| {st['step_id']} | {_md(st['label'])} | {_md(st['actor'])} | {after} | {refs} |")
+    if report.ref_proposals:
         lines += [
             "",
-            f"### ❌ Offen: {len(report.unmapped_actors)} Actor(en) ohne `actors[]`-Eintrag",
+            f"### Vorschlaege: {len(report.ref_proposals)} Belegstelle(n) ohne Gegenstueck in der Handdatei",
             "",
-            "Diese Schritt-Actors liessen sich KEINER bestehenden `actors[].id`",
-            "zuordnen und wurden **nicht geraten**. Bitte den passenden",
-            "`actors[]`-Eintrag (inkl. `type`) ergaenzen und den Schritt darauf",
-            "verweisen lassen — sonst scheitert `npm run validate:prozesse`:",
+            "Nicht eingespielt. Gegen die Seite pruefen und bei Bedarf als Reference",
+            "von Hand ergaenzen:",
             "",
         ]
-        lines += _bullets(report.unmapped_actors)
+        lines += _reference_table(report.ref_proposals)[2:]
     lines += [
         "",
-        "> Bitte den Diff gegen den Ziel-Branch genau pruefen: es darf **kein**",
-        "> belegter i18n-/description-Text verloren gehen (CI-Guard `npm run check:regression`).",
+        "> Bitte den Diff pruefen: er darf **nur** `retrieved_at`-Werte aendern.",
         "",
     ]
     return "\n".join(lines)
@@ -240,14 +262,18 @@ def build_pr_body(
     process: dict,
     flags: list[str],
     crawl_meta: list[dict],
-    merge_note: str | None = None,
+    abgleich: str | None = None,
 ) -> str:
+    """PR-Body. `process` ist immer die Extraktion. Mit `abgleich` (gerenderter
+    `build_abgleich_report`) ist es ein Abgleich-PR gegen eine bestehende
+    Handdatei: die Extraktion ist dann nicht eingespielt, sondern Vorschlag."""
     refs = process.get("references", [])
     verified = [r for r in refs if r.get("status", "verifiziert") == "verifiziert"]
     open_refs = [r for r in refs if r.get("status") == "unverifiziert"]
 
+    kind = "Abgleich" if abgleich else "Prozess"
     lines = [
-        f"# tessera v1: Prozess «{_md(process['title']['de'])}» (`{proc.id}`)",
+        f"# tessera v1: {kind} «{_md(process['title']['de'])}» (`{proc.id}`)",
         "",
         "Automatisch extrahierte **Prozess-Struktur** (struktur-only) aus den",
         "offiziellen Quellseiten. Rechtlich bindende Werte (Fristen, Gebuehren)",
@@ -257,10 +283,10 @@ def build_pr_body(
     ]
     if is_high_risk(process.get("id")):
         lines += [build_high_risk_warning(process), ""]
-    if merge_note:
-        lines += [merge_note, ""]
+    if abgleich:
+        lines += [abgleich, ""]
     lines += [
-        "## Zusammenfassung",
+        "## Zusammenfassung" + (" der Extraktion (nicht eingespielt)" if abgleich else ""),
         "",
         f"- Schritte: {len(process['steps'])}, References: {len(refs)} "
         f"({len(verified)} belegt, {len(open_refs)} offen)",
@@ -269,7 +295,7 @@ def build_pr_body(
     for m in crawl_meta:
         lines.append(f"  - {m['url']} (HTTP {m['http_status']}, Extraktor: {m['extractor']})")
     lines.append("")
-    if refs:
+    if refs and not abgleich:
         lines += _reference_table(refs)
     bridges = [f for f in flags if str(f).startswith(BRIDGE_FLAG_PREFIX)]
     other_flags = [f for f in flags if not str(f).startswith(BRIDGE_FLAG_PREFIX)]
@@ -317,16 +343,30 @@ def build_pr_body(
             "- [ ] **Reihenfolge-/Akteur-Hinweise geprueft**: geflaggte Kanten und Rollen "
             "(oben) gegen die Originalseite plausibilisiert"
         )
+    if abgleich:
+        lines += [
+            "- [ ] Der Diff aendert **nur** `retrieved_at` (Prozess und wiedergefundene Belege)",
+            "- [ ] Vorschlaege (Schritte, Belegstellen) geprueft: fehlendes in der Handdatei "
+            "von Hand ergaenzt (eigener PR oder hier) oder bewusst verworfen",
+            "- [ ] Nicht wiedergefundene Belege geprueft (`tessera verify --online`)",
+            "- [ ] `unverifiziert`-Hinweise geprueft; Status nur von Hand setzen",
+            "- [ ] `meta.herkunft` bleibt unveraendert (der Abgleich aendert keine Inhalte); "
+            "wer Vorschlaege von Hand uebernimmt, fuehrt sie nach",
+            "",
+        ]
+    else:
+        lines += [
+            "- [ ] Schritte und Reihenfolge entsprechen der offiziellen Darstellung",
+            "- [ ] Kein Schritt-Label enthaelt eine bindende Zahl (Frist/Gebuehr)",
+            "- [ ] Jede verifizierte Reference: Zitat stimmt woertlich mit der verlinkten Seite ueberein "
+            "(Tabelle oben: Klick auf den Deep-Link, Zitat vergleichen)",
+            "- [ ] Unverifizierte References: pruefen, belegen oder entfernen",
+            "- [ ] `lebenslage_ref` verlinkt korrekt auf die bestehende Lebenslage",
+            "- [ ] `meta.herkunft` stimmt: ein Folge-Commit setzt `tessera` und die Nummer "
+            "dieses PRs (fehlt er, von Hand nachtragen)",
+            "",
+        ]
     lines += [
-        "- [ ] Schritte und Reihenfolge entsprechen der offiziellen Darstellung",
-        "- [ ] Kein Schritt-Label enthaelt eine bindende Zahl (Frist/Gebuehr)",
-        "- [ ] Jede verifizierte Reference: Zitat stimmt woertlich mit der verlinkten Seite ueberein "
-        "(Tabelle oben: Klick auf den Deep-Link, Zitat vergleichen)",
-        "- [ ] Unverifizierte References: pruefen, belegen oder entfernen",
-        "- [ ] `lebenslage_ref` verlinkt korrekt auf die bestehende Lebenslage",
-        "- [ ] `meta.herkunft` stimmt: ein Folge-Commit setzt `gemischt` bzw. `tessera` "
-        "und die Nummer dieses PRs (fehlt er, von Hand nachtragen)",
-        "",
         "Validierung: `scripts/validate_contract.py` (tessera) bestanden — bitte",
         "zusaetzlich `npm run validate:prozesse` im Ziel-Repo laufen lassen.",
         "",
@@ -339,8 +379,9 @@ def build_pr_body(
     # JSON-Block: 4-Backtick-Fence, damit ein ``` in einem Zitat den Block nicht
     # sprengen kann. Ueber MAX_BODY_CHARS (GitHub-Limit 65 536) wird er durch
     # einen Hinweis ersetzt — die Datei liegt ohnehin im Diff des PRs.
+    json_title = "## Extraktion (JSON, nicht eingespielt)" if abgleich else "## JSON"
     json_block = [
-        "## JSON",
+        json_title,
         "",
         "````json",
         json.dumps(process, indent=2, ensure_ascii=False),
@@ -349,11 +390,16 @@ def build_pr_body(
     ]
     body = "\n".join(lines + json_block + footer)
     if len(body) > MAX_BODY_CHARS:
+        where = (
+            f"`out/{proc.id}.json`"
+            if abgleich
+            else f"im Diff dieses PRs und im Bundle `out/outbox/{proc.id}/`"
+        )
         note = [
-            "## JSON",
+            json_title,
             "",
             "_(JSON hier weggelassen — PR-Body-Limit. Die vollstaendige Datei",
-            f"liegt im Diff dieses PRs und im Bundle `out/outbox/{proc.id}/`.)_",
+            f"liegt {where}.)_",
             "",
         ]
         body = "\n".join(lines + note + footer)
@@ -361,11 +407,9 @@ def build_pr_body(
 
 
 def validate_merged(path: Path) -> tuple[bool, str]:
-    """Faehrt den Vertrags-Validator auf der TATSAECHLICH eingereichten (ggf.
-    gemergten) Datei. Der lokale `tessera validate` prueft nur die struktur-only
-    Extraktion (ohne actors[]); erst nach dem Merge gibt es actors[], und nur dann
-    greift die Actor-Paritaet. Gate-Paritaet zur Ziel-CI: faellt das durch, wird
-    KEIN PR geoeffnet."""
+    """Faehrt den Vertrags-Validator auf der TATSAECHLICH eingereichten Datei
+    (neue Extraktion oder abgeglichene Handdatei). Gate-Paritaet zur Ziel-CI:
+    faellt das durch, wird KEIN PR geoeffnet."""
     import subprocess  # noqa: PLC0415
 
     # UTF-8 erzwingen: sonst dekodiert/encodiert der Subprozess auf Windows die
@@ -391,88 +435,149 @@ def write_bundle(proc: ProcessSource, process: dict, body: str) -> Path:
     return outdir
 
 
+def load_pairing(
+    proc_id: str, extracted: dict, canonical: dict
+) -> tuple[list[tuple[list, list]] | None, str]:
+    """Bestaetigte, aktuelle Paarung aus reports/eval/<id>.pairs.yaml fuer den
+    Abgleich-Bericht. Rueckgabe: (Gruppen als (Extraktion-IDs, Hand-IDs), Hinweis).
+
+    Nur `status: bestaetigt` und nur, wenn die Datei zu den aktuellen Labels
+    passt (`evaluate.parse_pairing`). Sonst None — der Bericht listet dann alle
+    Extraktionsschritte als Vorschlag. Die Paarung ist Lesehilfe, kein Gate.
+    """
+    from . import evaluate  # noqa: PLC0415
+
+    path = evaluate.pairing_path(proc_id)
+    rel = f"reports/eval/{path.name}"
+    if not path.exists():
+        return None, f"keine Paarungsdatei `{rel}` — alle Extraktionsschritte als Vorschlag"
+    try:
+        import yaml  # noqa: PLC0415
+
+        data = yaml.safe_load(path.read_text(encoding="utf-8-sig"))
+        groups, status = evaluate.parse_pairing(data, extracted, canonical)
+    except evaluate.PairingError as exc:
+        return None, (
+            f"`{rel}` passt nicht zu dieser Extraktion ({len(exc.problems)} Befund(e), z.B. neuer Lauf) "
+            "— nicht verwendet"
+        )
+    except Exception as exc:  # noqa: BLE001 — Lesehilfe, darf den PR nie verhindern
+        return None, f"`{rel}` nicht lesbar ({exc.__class__.__name__}) — nicht verwendet"
+    if status != "bestaetigt":
+        return None, f"`{rel}` ist erst `{status}` — nicht verwendet"
+    pairs = [([i for i, _ in g.ext], [i for i, _ in g.can]) for g in groups]
+    return pairs, f"bestaetigte Paarung `{rel}` verwendet"
+
+
 def open_draft_pr(
     proc: ProcessSource,
     process: dict,
     flags: list[str],
     crawl_meta: list[dict],
 ) -> str | None:
-    """Erzeugt Branch + Datei + Draft-PR im Ziel-Repo. None ohne GITHUB_TOKEN.
+    """Erzeugt Branch + Datei + Draft-PR im Ziel-Repo; schreibt in jedem Fall
+    das Bundle nach out/outbox/<id>/ (eingereichter Stand + PR-Body).
 
-    Existiert die Zieldatei bereits (z.B. handgepflegt mit vollstaendigen
-    Uebersetzungen), wird NICHT blind ueberschrieben, sondern feldweise gemerged
-    (`merge.merge_process`): bestehende, belegte i18n-/description-Texte bleiben
-    erhalten, die Extraktion fuellt nur Luecken. So besteht der PR den CI-Guard
-    `npm run check:regression` im Ziel-Repo ohne `ALLOW_PROZESS_SHRINK`.
+    Existiert die Zieldatei bereits, ist sie kanonisch: kein Merge, sondern
+    Abgleich (`merge.sync_existing`). Der PR frischt nur `retrieved_at` auf und
+    traegt alles Weitere als Vorschlag im Body; `meta.herkunft` bleibt, es gibt
+    keinen Folge-Commit und kein Label. Aendert der Abgleich nichts, wird kein PR
+    geoeffnet. Ohne GITHUB_TOKEN wird die (oeffentliche) Zieldatei trotzdem
+    gelesen, damit das Bundle den Abgleich zeigt statt die Handdatei zu
+    ueberschreiben — aber nichts geschrieben. Rueckgabe: PR-URL oder None.
     """
     token = os.environ.get("GITHUB_TOKEN")
-    if not token:
-        body = build_pr_body(proc, process, flags, crawl_meta)
-        print(
-            f"  [{proc.id}] Kein GITHUB_TOKEN im ENV — PR-Bundle liegt in "
-            f"{write_bundle(proc, process, body)} (manuell einreichen)."
-        )
-        return None
-
     import httpx  # noqa: PLC0415 — lazy, Modul bleibt stdlib-importierbar
 
     target = os.environ.get("TARGET_REPO", DEFAULT_TARGET)
     api = f"https://api.github.com/repos/{target}"
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Accept": "application/vnd.github+json",
-        "User-Agent": "tessera/0.1",
-    }
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "tessera/0.1"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     branch = f"tessera/{proc.id}-{date.today().isoformat()}"
     path = f"{TARGET_PATH}/{proc.id}.json"
 
     import base64  # noqa: PLC0415
 
     with httpx.Client(headers=headers, timeout=30) as client:
-        repo = client.get(api).raise_for_status().json()
-        default_branch = repo["default_branch"]
+        default_branch: str | None = None
+        try:
+            if token:
+                default_branch = client.get(api).raise_for_status().json()["default_branch"]
+            params = {"ref": default_branch} if default_branch else None
+            existing = client.get(f"{api}/contents/{path}", params=params)
+        except httpx.HTTPError as exc:
+            if token:
+                raise
+            # Ohne Wissen, ob es eine Handdatei gibt, kein einreichbares Bundle:
+            # die rohe Extraktion koennte sie beim Einreichen ueberschreiben.
+            print(
+                f"  [{proc.id}] Kein GITHUB_TOKEN; Zieldatei nicht abrufbar ({exc.__class__.__name__}) "
+                "— kein Abgleich moeglich, KEIN Bundle. Netz pruefen und erneut ausfuehren.",
+                file=sys.stderr,
+            )
+            return None
+        if existing.status_code not in (200, 404):
+            # 401/403/429: Rechte, Policy oder Rate-Limit. Ohne Wissen, ob es eine
+            # Handdatei gibt, nichts einreichen (sie koennte ueberschrieben werden).
+            print(
+                f"  [{proc.id}] Zieldatei {path}: HTTP {existing.status_code} — unklar, ob es eine "
+                "Handdatei gibt. KEIN PR, kein Bundle.",
+                file=sys.stderr,
+            )
+            return None
 
-        # Bestehende Zieldatei laden (wird ohnehin fuer den sha gebraucht) und
-        # feldweise mergen, statt handgepflegte Daten zu verarmen.
-        existing = client.get(f"{api}/contents/{path}", params={"ref": default_branch})
         existing_sha: str | None = None
-        merge_note: str | None = None
+        abgleich: AbgleichReport | None = None
         final_process = process
         if existing.status_code == 200:
             existing_sha = existing.json()["sha"]
             try:
                 existing_doc = json.loads(base64.b64decode(existing.json()["content"]).decode("utf-8"))
-                final_process, report = merge_process(existing_doc, process)
+                pairing, pairing_note = load_pairing(proc.id, process, existing_doc)
+                final_process, abgleich = sync_existing(
+                    existing_doc, process, pairing=pairing, pairing_note=pairing_note
+                )
             except (MergeConflict, json.JSONDecodeError, ValueError) as exc:
-                # Lieber UEBERSPRINGEN als die handgepflegte Datei verarmen.
                 print(
-                    f"  [{proc.id}] Bestehende Datei {path} nicht sauber "
-                    f"mergebar ({exc}) — UEBERSPRUNGEN, kein PR.",
+                    f"  [{proc.id}] Bestehende Datei {path} nicht abgleichbar ({exc}) — UEBERSPRUNGEN, kein PR.",
                     file=sys.stderr,
                 )
                 return None
-            merge_note = build_merge_warning(report, path)
             print(
-                f"  [{proc.id}] Bestehende Datei gemerged: "
-                f"{len(report.preserved)} Felder erhalten, "
-                f"{len(report.added)} ergaenzt"
-                + (f", {len(report.remapped_actors)} Actor(en) abgebildet" if report.remapped_actors else "")
-                + (f", {len(report.unmapped_actors)} Actor(en) OFFEN" if report.unmapped_actors else "")
-                + "."
+                f"  [{proc.id}] Abgleich mit {path}: {len(abgleich.refreshed)} aufgefrischt, "
+                f"{len(abgleich.refs_confirmed)} Beleg(e) wiedergefunden, "
+                f"{len(abgleich.refs_not_found)} nicht, {len(abgleich.step_proposals)} Schritt- und "
+                f"{len(abgleich.ref_proposals)} Beleg-Vorschlag/-Vorschlaege."
             )
 
-        body = build_pr_body(proc, final_process, flags, crawl_meta, merge_note=merge_note)
+        body = build_pr_body(
+            proc,
+            process,
+            flags,
+            crawl_meta,
+            abgleich=build_abgleich_report(abgleich, path) if abgleich else None,
+        )
         bundle_dir = write_bundle(proc, final_process, body)  # lokales Artefakt = eingereichter Stand
 
-        # Gate-Paritaet: den gemergten Stand gegen den Vertrags-Validator pruefen,
-        # BEVOR ein PR aufgemacht wird. Erst hier gibt es actors[] und damit die
-        # Actor-Paritaet, die die Ziel-CI ebenfalls erzwingt.
+        if abgleich is not None and not abgleich.changed:
+            print(f"  [{proc.id}] Abgleich ohne Aenderung an {path} — KEIN PR. Bericht: {bundle_dir}")
+            return None
+
+        # Gate-Paritaet: den einzureichenden Stand gegen den Vertrags-Validator
+        # pruefen, BEVOR ein PR aufgemacht wird — auch fuers Bundle ohne Token,
+        # dessen Body «bestanden» sagt.
         merged_ok, validator_out = validate_merged(bundle_dir / f"{proc.id}.json")
         if not merged_ok:
             print(
-                f"  [{proc.id}] Gemergter Stand besteht den Vertrags-Validator NICHT "
+                f"  [{proc.id}] Einzureichender Stand besteht den Vertrags-Validator NICHT "
                 f"— KEIN PR. Bundle zur Korrektur: {bundle_dir}\n{validator_out.strip()}",
                 file=sys.stderr,
+            )
+            return None
+        if not token:
+            print(
+                f"  [{proc.id}] Kein GITHUB_TOKEN im ENV — PR-Bundle liegt in {bundle_dir} (manuell einreichen)."
             )
             return None
 
@@ -512,7 +617,7 @@ def open_draft_pr(
 
         msg = f"feat(prozesse): {proc.id} — struktur-only Extraktion (tessera v1)"
         if existing_sha:
-            msg = f"feat(prozesse): {proc.id} — Struktur ergaenzen (Handdaten erhalten, tessera v1)"
+            msg = f"feat(prozesse): {proc.id} — Abgleich, Belege aufgefrischt (tessera v1)"
         put: dict = {
             "message": msg,
             "content": base64.b64encode(content.encode()).decode(),
@@ -527,7 +632,8 @@ def open_draft_pr(
             json={
                 # Titel ist Plaintext (kein Markdown/Mentions) — nur Whitespace
                 # kollabieren, damit ein mehrzeiliges LLM-title nicht bricht.
-                "title": f"tessera v1: {_WS_RUN.sub(' ', final_process['title']['de']).strip()} ({proc.id})",
+                "title": f"tessera v1: {'Abgleich ' if existing_sha else ''}"
+                f"{_WS_RUN.sub(' ', final_process['title']['de']).strip()} ({proc.id})",
                 "head": branch,
                 "base": default_branch,
                 "body": body,
@@ -547,36 +653,38 @@ def open_draft_pr(
             if existing:
                 url = existing[0]["html_url"]
                 print(f"  [{proc.id}] Bestehender Draft-PR aktualisiert: {url}")
-                _folge_commit_herkunft(
-                    client,
-                    api,
-                    proc,
-                    path,
-                    branch,
-                    final_process,
-                    existing[0]["number"],
-                    file_sha,
-                    body,
-                    neu=existing_sha is None,
-                    http_error=httpx.HTTPError,
-                )
+                if existing_sha is None:  # Abgleich-PR: meta.herkunft bleibt, kein Label
+                    _folge_commit_herkunft(
+                        client,
+                        api,
+                        proc,
+                        path,
+                        branch,
+                        final_process,
+                        existing[0]["number"],
+                        file_sha,
+                        body,
+                        neu=True,
+                        http_error=httpx.HTTPError,
+                    )
                 return url
             created_pr.raise_for_status()  # 422 aus anderem Grund -> echter Fehler
         pr = created_pr.raise_for_status().json()
         print(f"  [{proc.id}] Draft-PR erstellt: {pr['html_url']}")
-        _folge_commit_herkunft(
-            client,
-            api,
-            proc,
-            path,
-            branch,
-            final_process,
-            pr["number"],
-            file_sha,
-            body,
-            neu=existing_sha is None,
-            http_error=httpx.HTTPError,
-        )
+        if existing_sha is None:  # Abgleich-PR: meta.herkunft bleibt, kein Label
+            _folge_commit_herkunft(
+                client,
+                api,
+                proc,
+                path,
+                branch,
+                final_process,
+                pr["number"],
+                file_sha,
+                body,
+                neu=True,
+                http_error=httpx.HTTPError,
+            )
     return pr["html_url"]
 
 

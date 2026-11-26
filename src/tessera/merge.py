@@ -1,44 +1,33 @@
-"""Feldweises Mergen gegen bestehende, handgepflegte Zieldateien.
+"""Abgleich der Extraktion gegen eine bestehende, handgepflegte Zieldatei.
 
-Hintergrund: tessera extrahiert *struktur-only* (de-Text plus leere en/fr/it).
-Im Ziel-Repo existieren fuer manche Leistungen bereits von Hand angereicherte
-Dateien mit vollstaendigen Uebersetzungen (de/en/fr/it/ls) und description-
-Bloecken. Ein blindes PUT-mit-sha wuerde diese reicheren Handdaten durch die
-aermere Extraktion ersetzen — Uebersetzungs- und Beschreibungs-Regression.
+Hintergrund: Fuer viele Leistungen gibt es im Ziel-Repo bereits einen von Hand
+modellierten, menschlich reviewten Prozess. Er ist kanonisch. tessera
+extrahiert unabhaengig davon; `step_id` und `reference_id` vergibt das Modell
+bei jedem Lauf neu. Sie sind KEINE fachlichen Schluessel gegenueber der
+Handdatei — ein Merge ueber diese Nummern fuellte Luecken im falschen Schritt,
+haengte Schritte mit Kanten auf fremde Nummern an und verlinkte Belege falsch
+(Merge-Probe hund-anmelden, kita-platz-Pilot: alle 14 ID-Paare fremd).
 
-Dieses Modul merged stattdessen FELDWEISE und VERLUSTFREI:
+Darum gilt seit dem Pilot: **Abgleich statt Merge.** `sync_existing` aendert an
+der Handdatei nur, was sich ohne ID-Zuordnung sicher sagen laesst:
 
-* Bestehende, nicht-leere i18n-Locale-Werte (de/en/fr/it/ls) gewinnen IMMER
-  gegen leere/fehlende Werte aus der Extraktion — sie werden nie geleert.
-* Bestehende description-/Freitext-Bloecke werden nie auf leer zurueckgesetzt.
-* Nur fehlende Felder werden ergaenzt; neue Schritte/References hinzugefuegt.
-* Gemerged wird ueber fachliche Schluessel (step_id, reference_id, actor.id),
-  nicht ueber Array-Index — Reihenfolgeaenderungen zerstoeren nichts.
-* Konfliktregel pro Feld: bestehender nicht-leerer Wert gewinnt; die Extraktion
-  fuellt nur Luecken (leer/None/fehlend).
+* **References ueber den natuerlichen Schluessel** `(source_url ohne Fragment,
+  normalisiertes source_quote)`. Hat die Extraktion dieselbe Stelle auf
+  derselben Seite woertlich wiedergefunden, wird `retrieved_at` dieser
+  Hand-Reference aufgefrischt. Sonst bleibt sie unangetastet. Der `status`
+  wird nie geaendert — ein wiedergefundenes Zitat einer `unverifiziert`en
+  Reference wird nur gemeldet; verifizieren tut ein Mensch.
+* **Prozess-`retrieved_at`** wird aufgefrischt.
+* Alles andere — `steps`, `actors`, `preconditions`, `title`, `description`,
+  `meta` (inkl. `herkunft`) — bleibt unveraendert. Es werden keine Schritte
+  und keine References angehaengt.
 
-Drei Schaerfen gegen stille Fehl-Merges:
-
-* **Label-Guard (steps/references):** step_id/reference_id sind LLM-vergeben —
-  KEINE stabilen fachlichen Schluessel gegenueber einer unabhaengig gepflegten
-  Datei. Tragen bestehender Eintrag und Extraktion unter derselben ID
-  semantisch fremde Labels (Aehnlichkeit unter LABEL_SIMILARITY_MIN), wird das
-  Paar NICHT gemerged: der bestehende Eintrag bleibt unangetastet, die
-  Extraktions-Fassung wird verworfen und als `suspect_pairs` geflaggt —
-  manueller Abgleich statt Luecken-Fuellen im falschen Schritt. actors[] sind
-  semantische ids (kein LLM-Zaehler) und brauchen den Guard nicht. Gezaehlt
-  werden nur Inhaltswoerter (`_guard_similarity`).
-* **Beleg-Links:** `reference_ids`, die ein Schritt aus der Extraktion
-  uebernimmt, bleiben nur, wenn die Reference unter dieser Nummer sauber
-  gemerged oder neu angehaengt wurde — sonst `dropped_reference_links`.
-* **Provenienz-Ausnahme:** `retrieved_at` (Prozess und je gepairte Reference)
-  gewinnt IMMER aus der Extraktion — das frische Crawl-Datum ist die korrekte
-  Provenienz; ein altes Datum zu «schuetzen» waere falsch (`refreshed` im
-  Report).
-
-Laesst sich ein Fall nicht sauber mergen (kaputtes JSON, id-Mismatch, doppelte
-fachliche Schluessel), wird `MergeConflict` geworfen — der Aufrufer ueberspringt
-die Datei dann lieber, als sie zu verarmen.
+Was die Extraktion darueber hinaus findet, landet als **Vorschlag** im
+`AbgleichReport` (und damit im PR-Body): ungepaarte Schritte, nicht
+wiedergefundene Hand-Belege, neue Belegstellen. Uebernehmen tut sie ein
+Mensch im Ziel-Repo. Liegt eine bestaetigte Paarung vor
+(`reports/eval/<id>.pairs.yaml`), zeigt der Bericht die Zuordnung und listet
+nur ungepaarte Schritte als Vorschlag — die Paarung ist Lesehilfe, kein Gate.
 
 Reine stdlib (kein pydantic), damit die Tests ohne Dependency-Install in der CI
 laufen — wie `tests/test_grounding.py`.
@@ -50,62 +39,46 @@ import copy
 import difflib
 import re
 from dataclasses import dataclass, field
+from urllib.parse import urldefrag
 
 from .contract import HERKUNFT_SEIT, major_minor
-
-# Locale-Keys des Datenvertrags. 'ls' = Leichte Sprache (kanonisch).
-LOCALE_KEYS = ("de", "en", "fr", "it", "ls")
-# Im tessera-Entwurf evtl. als 'leichte_sprache' gefuehrt -> auf 'ls' mappen.
-LS_ALIAS = "leichte_sprache"
-
-# i18n-/Freitext-Felder, die feldweise (pro Locale) gemerged werden.
-PROCESS_I18N_FIELDS = ("title", "description")
-STEP_I18N_FIELDS = ("label", "description")
-REFERENCE_I18N_FIELDS = ("label",)
-ACTOR_I18N_FIELDS = ("label",)
+from .grounding import normalize
 
 
 class MergeConflict(Exception):
-    """Feldweises Mergen ist fuer diesen Fall nicht sauber moeglich.
-
-    Der Aufrufer soll die Datei UEBERSPRINGEN (nicht verarmen) und das loggen.
-    """
+    """Der Abgleich ist fuer diesen Fall nicht sauber moeglich (kein JSON-Objekt,
+    id-Mismatch). Der Aufrufer soll die Datei UEBERSPRINGEN und das loggen."""
 
 
 @dataclass
-class MergeReport:
-    """Was beim Merge erhalten (vor Verarmung geschuetzt) und ergaenzt wurde."""
+class AbgleichReport:
+    """Was der Abgleich an der Handdatei geaendert hat und was er vorschlaegt."""
 
-    # Bestehende nicht-leere Werte, die gegen leere Extraktion geschuetzt wurden.
-    preserved: list[str] = field(default_factory=list)
-    # Vom Merge ergaenzte Luecken / neue Schritte / neue References.
-    added: list[str] = field(default_factory=list)
-    # Schritt-Actors, die (gender-neutral, exakt) auf eine bestehende
-    # actors[].id abgebildet wurden, z.B. "Halter:in" -> "halter".
-    remapped_actors: list[str] = field(default_factory=list)
-    # Schritt-Actors, die sich KEINER actors[].id zuordnen lassen — geflaggt,
-    # nicht geraten. Der Reviewer ergaenzt den fehlenden actors[]-Eintrag
-    # (inkl. type) von Hand. Solange offen: kanonische CI wuerde scheitern.
-    unmapped_actors: list[str] = field(default_factory=list)
-    # Provenienz-Felder (retrieved_at), bei denen das frische Crawl-Datum der
-    # Extraktion den bestehenden (aelteren) Wert ersetzt hat.
+    # Provenienz-Felder (retrieved_at), die das frische Crawl-Datum ersetzt hat.
     refreshed: list[str] = field(default_factory=list)
-    # ID-Paare (steps/references), deren Labels semantisch fremd sind — NICHT
-    # gemerged (bestehend blieb, Extraktion verworfen); manueller Abgleich.
-    suspect_pairs: list[str] = field(default_factory=list)
-    # reference_ids aus der Extraktion, die auf eine Reference zeigen wuerden,
-    # deren Paar NICHT gemerged wurde (verdaechtig oder nur bestehend) — die
-    # Nummer meint in der Handdatei etwas anderes. Entfernt statt falsch
-    # verlinkt; manueller Abgleich.
-    dropped_reference_links: list[str] = field(default_factory=list)
+    # Hand-References, deren Zitat die Extraktion auf derselben Seite
+    # woertlich wiedergefunden hat (reference_id, label.de).
+    refs_confirmed: list[tuple[object, str]] = field(default_factory=list)
+    # Davon `unverifiziert` in der Handdatei — Status bleibt, Hinweis an Menschen.
+    refs_confirmed_unverified: list[tuple[object, str]] = field(default_factory=list)
+    # Hand-References mit Zitat, die die Extraktion NICHT wiedergefunden hat.
+    refs_not_found: list[tuple[object, str]] = field(default_factory=list)
+    # Hand-References ohne Zitat — nicht abgleichbar.
+    refs_without_quote: list[tuple[object, str]] = field(default_factory=list)
+    # Belegstellen der Extraktion, die keiner Hand-Reference entsprechen.
+    ref_proposals: list[dict] = field(default_factory=list)
+    # Bestaetigte Paarung: (Extraktion [(id, label)], Hand [(id, label)]).
+    step_pairs: list[tuple[list[tuple[object, str]], list[tuple[object, str]]]] = field(default_factory=list)
+    # Schritte der Extraktion ohne Partner (ohne Paarung: alle), lesbar
+    # aufbereitet: step_id, label, actor, type, vorgaenger (Labels), belege (Labels).
+    step_proposals: list[dict] = field(default_factory=list)
+    # Hinweis zur Paarung (verwendet, nur Vorschlag, veraltet, fehlt).
+    pairing_note: str = ""
+    # Weicht der eingereichte Stand von der Handdatei ab? Ohne Aenderung kein PR.
+    changed: bool = False
 
-    @property
-    def touched_existing(self) -> bool:
-        return bool(self.preserved or self.added or self.remapped_actors or self.refreshed)
 
-
-# Unter dieser Label-Aehnlichkeit gilt ein ID-Paar (steps/references) als
-# verdaechtig und wird nicht gemerged, sondern geflaggt (suspect_pairs).
+# Unter dieser Label-Aehnlichkeit paart die Heuristik in `evaluate` nicht.
 LABEL_SIMILARITY_MIN = 0.5
 
 
@@ -136,241 +109,6 @@ def _label_similarity(a: str, b: str) -> float:
     return max(seq, tok)
 
 
-# Funktionswoerter, die in Schritt-Labels haeufig sind, aber nichts ueber den
-# Schritt sagen. Ohne sie trug «Hund … oder …» ein fremdes Paar ueber die Schwelle.
-_GUARD_STOPWORDS = frozenset(
-    "und oder der die das den dem des ein eine einen einem einer eines am im in "
-    "an auf mit von vom zu zur zum fuer bei beim nach aus ueber als sich bzw ggf "
-    "sie ihr ihre ihren ihrem ihrer".split()
-)
-# Gemeinsames Praefix, ab dem zwei Woerter als gleicher Stamm gelten
-# («anmelden»/«anmeldung», «beitragsfaktor»/«beitragsfaktorbestaetigung»).
-_GUARD_STEM_PREFIX = 6
-
-
-def _guard_similarity(a: str, b: str) -> float:
-    """Aehnlichkeit fuer den Label-Guard in [0, 1] — strenger als
-    `_label_similarity` (die `evaluate` fuer die Paarungs-Heuristik nutzt).
-
-    Nur Inhaltswoerter zaehlen (ohne `_GUARD_STOPWORDS`); zwei Woerter treffen
-    sich bei Gleichheit oder gemeinsamem Stamm (Praefix >= _GUARD_STEM_PREFIX).
-    Ueberdeckung relativ zum kuerzeren Label, damit eine laengere Formulierung
-    desselben Schritts nicht verdaechtig wird. KEINE Zeichen-Aehnlichkeit
-    (difflib): sie liegt bei deutschen Labels schon wegen gemeinsamer Silben um
-    0.5 und liess «Hund angeschafft oder mit Hund zugezogen» vs. «Hund online
-    oder am Schalter anmelden» als gleichen Schritt durch. Im Zweifel faellt
-    ein Paar unter die Schwelle — das ist die sichere Richtung (nicht gemerged,
-    geflaggt). Leere Labels sind nicht beurteilbar -> 1.0.
-    """
-    na, nb = _norm_label(a), _norm_label(b)
-    if not na or not nb:
-        return 1.0
-    ta, tb = set(na.split()), set(nb.split())
-    ca, cb = ta - _GUARD_STOPWORDS, tb - _GUARD_STOPWORDS
-    if ca and cb:
-        ta, tb = ca, cb
-    if len(ta) > len(tb):
-        ta, tb = tb, ta
-
-    def _hit(w: str) -> bool:
-        return any(
-            w == v
-            or (
-                min(len(w), len(v)) >= _GUARD_STEM_PREFIX and w[:_GUARD_STEM_PREFIX] == v[:_GUARD_STEM_PREFIX]
-            )
-            for v in tb
-        )
-
-    return sum(1 for w in ta if _hit(w)) / len(ta)
-
-
-def _item_label_de(item: dict) -> str:
-    label = item.get("label") if isinstance(item, dict) else None
-    de = label.get("de") if isinstance(label, dict) else None
-    return de if isinstance(de, str) else ""
-
-
-def _is_blank(value: object) -> bool:
-    """Luecke = None, leerer/whitespace-String. Leere Listen/Dicts zaehlen NICHT
-    als Luecke: ein leeres `depends_on` (Start-Schritt) ist bedeutungstragend."""
-    if value is None:
-        return True
-    return isinstance(value, str) and not value.strip()
-
-
-def normalize_i18n(obj: dict) -> dict:
-    """i18n-Objekt der Extraktion fuer den Merge normalisieren.
-
-    Bildet `leichte_sprache` auf `ls` ab. Aendert nichts an den Werten.
-    """
-    if not isinstance(obj, dict):
-        return obj
-    out = dict(obj)
-    if LS_ALIAS in out:
-        # 'ls' gewinnt, falls beide vorhanden und 'ls' nicht-leer; sonst Alias.
-        alias_val = out.pop(LS_ALIAS)
-        if _is_blank(out.get("ls")) and not _is_blank(alias_val):
-            out["ls"] = alias_val
-    return out
-
-
-def merge_i18n(existing: dict, incoming: dict, *, path: str, report: MergeReport) -> dict:
-    """Mergt zwei i18n-Objekte. Bestehender nicht-leerer Locale-Wert gewinnt;
-    die Extraktion fuellt nur leere/fehlende Locales."""
-    existing = normalize_i18n(existing) if isinstance(existing, dict) else {}
-    incoming = normalize_i18n(incoming) if isinstance(incoming, dict) else {}
-    out = dict(existing)
-
-    for key in sorted({*existing.keys(), *incoming.keys(), *LOCALE_KEYS}):
-        ex_val = existing.get(key)
-        in_val = incoming.get(key)
-        if not _is_blank(ex_val):
-            # Bestehender Wert bleibt. Schutzfall: Extraktion wuerde leeren.
-            out[key] = ex_val
-            if _is_blank(in_val) and key in LOCALE_KEYS and key != "de":
-                report.preserved.append(f"{path}.{key}")
-        elif not _is_blank(in_val):
-            out[key] = in_val
-            report.added.append(f"{path}.{key}")
-        elif key in existing:
-            out[key] = ex_val  # leere Locale-Form erhalten (z.B. en: "")
-    return out
-
-
-def _merge_i18n_fields(
-    existing: dict,
-    incoming: dict,
-    fields: tuple[str, ...],
-    *,
-    path: str,
-    report: MergeReport,
-    always_update: tuple[str, ...] = (),
-) -> dict:
-    """Basis = bestehendes Objekt; i18n-Felder feldweise mergen, restliche
-    Felder nur ergaenzen (Luecke fuellen, bestehend gewinnt).
-
-    `always_update`: Felder, bei denen ein nicht-leerer Extraktionswert den
-    bestehenden ERSETZT (Provenienz-Ausnahme, z.B. retrieved_at — das frische
-    Crawl-Datum ist die korrekte Provenienz; protokolliert als `refreshed`).
-    """
-    out = dict(existing)
-
-    for f in fields:
-        ex_has = isinstance(existing.get(f), dict)
-        in_has = isinstance(incoming.get(f), dict)
-        if ex_has and in_has:
-            out[f] = merge_i18n(existing[f], incoming[f], path=f"{path}.{f}", report=report)
-        elif in_has and not ex_has:
-            out[f] = normalize_i18n(incoming[f])
-            report.added.append(f"{path}.{f}")
-        # nur bestehend vorhanden -> erhalten (steckt bereits in out)
-
-    for key, in_val in incoming.items():
-        if key in fields:
-            continue
-        if key in always_update and not _is_blank(in_val):
-            if key not in existing:
-                report.added.append(f"{path}.{key}")
-            elif not _is_blank(existing.get(key)) and existing.get(key) != in_val:
-                report.refreshed.append(f"{path}.{key}")
-            out[key] = in_val
-        elif key not in out or _is_blank(out.get(key)):
-            out[key] = in_val
-            if key not in existing:
-                report.added.append(f"{path}.{key}")
-    return out
-
-
-def _index_by(items: list, key: str, *, what: str) -> dict:
-    """Liste nach fachlichem Schluessel indizieren; doppelte Schluessel sind ein
-    Konflikt (Merge nicht eindeutig moeglich)."""
-    out: dict = {}
-    for item in items:
-        if not isinstance(item, dict) or key not in item:
-            raise MergeConflict(f"{what}: Eintrag ohne Schluessel {key!r}")
-        k = item[key]
-        if k in out:
-            raise MergeConflict(f"{what}: doppelter Schluessel {key}={k!r}")
-        out[k] = item
-    return out
-
-
-def _merge_keyed_list(
-    existing_list: list,
-    incoming_list: list,
-    *,
-    key: str,
-    i18n_fields: tuple[str, ...],
-    name: str,
-    report: MergeReport,
-    label_guard: bool = False,
-    always_update: tuple[str, ...] = (),
-) -> list:
-    """Listen ueber fachlichen Schluessel mergen (stabil, index-unabhaengig).
-
-    Reihenfolge der bestehenden Liste bleibt erhalten; neue Eintraege der
-    Extraktion werden hinten angehaengt. Eintraege, die nur bestehen, bleiben.
-
-    `label_guard`: fuer LLM-vergebene numerische Schluessel (step_id,
-    reference_id). Sind die label.de eines ID-Paars semantisch fremd
-    (Aehnlichkeit < LABEL_SIMILARITY_MIN), wird NICHT gemerged: bestehender
-    Eintrag bleibt unangetastet, die Extraktions-Fassung wird verworfen und
-    als suspect_pair geflaggt (nie Luecken im falschen Eintrag fuellen).
-    """
-    existing_by_key = _index_by(existing_list, key, what=name)
-    incoming_by_key = _index_by(incoming_list, key, what=f"{name} (Extraktion)")
-
-    out: list = []
-    for item in existing_list:
-        k = item[key]
-        if k in incoming_by_key:
-            if label_guard:
-                ex_label, in_label = _item_label_de(item), _item_label_de(incoming_by_key[k])
-                sim = _guard_similarity(ex_label, in_label)
-                if sim < LABEL_SIMILARITY_MIN:
-                    out.append(item)  # unangetastet; Extraktions-Fassung verworfen
-                    report.suspect_pairs.append(
-                        f"{name}[{k}]: bestehend «{ex_label}» vs. Extraktion "
-                        f"«{in_label}» (Aehnlichkeit {sim:.2f}) — NICHT gemerged, "
-                        "manuell abgleichen"
-                    )
-                    continue
-            out.append(
-                _merge_i18n_fields(
-                    item,
-                    incoming_by_key[k],
-                    i18n_fields,
-                    path=f"{name}[{k}]",
-                    report=report,
-                    always_update=always_update,
-                )
-            )
-        else:
-            out.append(item)  # nur bestehend -> erhalten
-
-    for item in incoming_list:
-        k = item[key]
-        if k not in existing_by_key:
-            out.append(item)
-            report.added.append(f"{name}[{k}] (neu)")
-    return out
-
-
-def _merge_preconditions(existing_list: list, incoming_list: list, *, report: MergeReport) -> list:
-    """preconditions haben keinen fachlichen Schluessel -> positionsweise i18n
-    mergen (bestehend gewinnt), ueberzaehlige Extraktions-Eintraege anhaengen."""
-    out: list = []
-    for idx, ex in enumerate(existing_list):
-        if idx < len(incoming_list) and isinstance(ex, dict) and isinstance(incoming_list[idx], dict):
-            out.append(merge_i18n(ex, incoming_list[idx], path=f"preconditions[{idx}]", report=report))
-        else:
-            out.append(ex)
-    for idx in range(len(existing_list), len(incoming_list)):
-        out.append(incoming_list[idx])
-        report.added.append(f"preconditions[{idx}] (neu)")
-    return out
-
-
 _GENDER_SUFFIX = re.compile(r"(?::|/|\*|_)innen?$|(?::|/|\*|_)in$", re.IGNORECASE)
 # Umlaut-/ß-Transliteration: die kanonischen actors[].id sind ASCII (z.B.
 # "fundbuero"), das LLM liefert die Originalschreibweise ("Fundbüro"). Ohne
@@ -394,194 +132,137 @@ def _norm_actor(value: object) -> str:
     return re.sub(r"[^a-z0-9]", "", s)
 
 
-def _reconcile_step_actors(out: dict, report: MergeReport) -> None:
-    """Gleicht steps[].actor gegen actors[].id ab, wenn actors[] vorhanden ist.
+def _label_de(item: object) -> str:
+    label = item.get("label") if isinstance(item, dict) else None
+    de = label.get("de") if isinstance(label, dict) else None
+    return de if isinstance(de, str) else ""
 
-    Das Ziel-Repo verlangt, dass jeder steps[].actor eine actors[].id ist.
-    Die Extraktion liefert aber Freitext-Rollen ("Halter:in"). Hier werden
-    nur EXAKTE Normalform-Treffer (id ODER label.de) automatisch auf die id
-    umgeschrieben; alles andere wird geflaggt (unmapped_actors) — nie geraten,
-    nie ein neuer actors[]-Eintrag mit geschaetztem type erfunden.
+
+def _blank(value: object) -> bool:
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def ref_key(ref: object) -> tuple[str, str] | None:
+    """Natuerlicher Schluessel einer Reference: (Seite, Zitat).
+
+    Die Seite ohne Fragment und Trailing-Slash (Hand-References tragen oft einen
+    Deep-Link mit #Anker, die Extraktion die gecrawlte Seite), das Zitat in der
+    Normalform des Grounding-Gates. None ohne URL oder Zitat — dann gibt es
+    nichts Belastbares zu vergleichen.
     """
-    actors = out.get("actors")
-    steps = out.get("steps")
-    if not isinstance(actors, list) or not actors or not isinstance(steps, list):
-        return
-
-    actor_ids = {a["id"] for a in actors if isinstance(a, dict) and isinstance(a.get("id"), str)}
-
-    # Normalform -> id. Mehrdeutige Normalformen (Kollision) werden ausgeschlossen,
-    # damit nie auf den falschen Akteur gemappt wird.
-    norm_to_id: dict[str, str] = {}
-    ambiguous: set[str] = set()
-    for a in actors:
-        if not isinstance(a, dict) or not isinstance(a.get("id"), str):
-            continue
-        keys = {_norm_actor(a["id"])}
-        label = a.get("label")
-        if isinstance(label, dict) and isinstance(label.get("de"), str):
-            keys.add(_norm_actor(label["de"]))
-        for k in keys:
-            if not k:
-                continue
-            if k in norm_to_id and norm_to_id[k] != a["id"]:
-                ambiguous.add(k)
-            norm_to_id[k] = a["id"]
-    for k in ambiguous:
-        norm_to_id.pop(k, None)
-
-    for step in steps:
-        if not isinstance(step, dict):
-            continue
-        actor = step.get("actor")
-        if not isinstance(actor, str) or actor in actor_ids:
-            continue  # bereits eine gueltige id
-        mapped = norm_to_id.get(_norm_actor(actor))
-        sid = step.get("step_id")
-        if mapped is not None:
-            step["actor"] = mapped
-            report.remapped_actors.append(f"steps[{sid}].actor {actor!r} -> {mapped!r}")
-        else:
-            report.unmapped_actors.append(
-                f"steps[{sid}].actor {actor!r} (kein actors[]-Eintrag — bitte Akteur ergaenzen)"
-            )
+    if not isinstance(ref, dict):
+        return None
+    url, quote = ref.get("source_url"), ref.get("source_quote")
+    if not isinstance(url, str) or not isinstance(quote, str):
+        return None
+    page = urldefrag(url.strip())[0].rstrip("/")
+    q = normalize(quote)
+    if not page or not q:
+        return None
+    return page, q
 
 
-def _drop_untrusted_reference_links(existing: dict, incoming: dict, out: dict, report: MergeReport) -> None:
-    """Entfernt reference_ids aus der Extraktion, deren Reference-Paar nicht
-    gemerged wurde.
+def _dep_id(dep: object) -> object:
+    return dep.get("step_id") if isinstance(dep, dict) else dep
 
-    reference_id ist wie step_id LLM-vergeben. Uebernimmt ein Schritt seine
-    reference_ids aus der Extraktion (neuer Schritt, oder Luecke in einem
-    gemergten Paar), meint jede Nummer die Reference der EXTRAKTION. Im
-    gemergten Stand stimmt das nur, wenn diese Reference unter derselben
-    Nummer gemerged (Label-Guard bestanden) oder neu angehaengt wurde. Sonst
-    zeigt die Nummer auf eine fremde Hand-Reference — ein falscher Beleg, den
-    der Vertrags-Validator nicht bemerkt. Solche Links werden entfernt und als
-    `dropped_reference_links` geflaggt. reference_ids, die schon in der
-    Handdatei standen, bleiben unangetastet.
-    """
-    ex_by_id = {r.get("reference_id"): r for r in existing.get("references", []) if isinstance(r, dict)}
-    in_by_id = {r.get("reference_id"): r for r in incoming.get("references", []) if isinstance(r, dict)}
-    ex_refs, in_refs = set(ex_by_id), set(in_by_id)
-    # Dieselbe Entscheidung wie der Label-Guard in _merge_keyed_list.
-    suspect = {
-        k
-        for k in in_refs & ex_refs
-        if _guard_similarity(_item_label_de(ex_by_id[k]), _item_label_de(in_by_id[k])) < LABEL_SIMILARITY_MIN
+
+def _step_proposal(step: dict, ext_labels: dict, ext_ref_labels: dict) -> dict:
+    return {
+        "step_id": step.get("step_id"),
+        "label": _label_de(step),
+        "actor": step.get("actor") if isinstance(step.get("actor"), str) else "",
+        "type": step.get("type") if isinstance(step.get("type"), str) else "",
+        "vorgaenger": [ext_labels.get(_dep_id(d), f"#{_dep_id(d)}") for d in step.get("depends_on") or []],
+        "belege": [ext_ref_labels.get(r, f"#{r}") for r in step.get("reference_ids") or []],
     }
-    # Vertrauenswuerdig: Paar sauber gemerged (in beiden, nicht verdaechtig) oder
-    # neu aus der Extraktion angehaengt (nur dort -> Nummer unveraendert gueltig).
-    trusted = (in_refs - suspect) & ex_refs | (in_refs - ex_refs)
-
-    ex_steps = {s.get("step_id"): s for s in existing.get("steps", []) if isinstance(s, dict)}
-    for step in out.get("steps", []):
-        if not isinstance(step, dict) or "reference_ids" not in step:
-            continue
-        sid = step.get("step_id")
-        hand = ex_steps.get(sid)
-        if hand is not None and "reference_ids" in hand:
-            continue  # stammt aus der Handdatei
-        if hand is not None and step is hand:
-            continue  # unangetastetes Hand-Objekt (z.B. verdaechtiges Paar)
-        ids = step["reference_ids"]
-        if not isinstance(ids, list):
-            continue
-        keep = [i for i in ids if i in trusted]
-        dropped = [i for i in ids if i not in trusted]
-        if not dropped:
-            continue
-        report.dropped_reference_links.append(
-            f"steps[{sid}].reference_ids: {dropped} entfernt — Reference-Paar nicht gemerged, "
-            "die Nummer meint in der Handdatei eine andere Reference; manuell verlinken"
-        )
-        if keep:
-            step["reference_ids"] = keep
-        else:
-            del step["reference_ids"]
-            if hand is not None:
-                report.added = [a for a in report.added if a != f"steps[{sid}].reference_ids"]
 
 
-def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
-    """Mergt die Extraktion (`incoming`) verlustfrei in die bestehende,
-    handgepflegte Datei (`existing`). Bestehende Daten sind die Basis.
+def sync_existing(
+    existing: dict,
+    incoming: dict,
+    *,
+    pairing: list[tuple[list, list]] | None = None,
+    pairing_note: str = "",
+) -> tuple[dict, AbgleichReport]:
+    """Gleicht die Extraktion (`incoming`) gegen die Handdatei (`existing`) ab.
 
-    Wirft `MergeConflict`, wenn kein sauberer Merge moeglich ist (kaputtes
-    Objekt, id-Mismatch, doppelte fachliche Schluessel).
+    Rueckgabe: (einzureichender Stand, Bericht). Der Stand ist eine Kopie der
+    Handdatei, in der nur `retrieved_at` (Prozess und wiedergefundene
+    References) aufgefrischt ist. `pairing` sind die Gruppen einer bestaetigten,
+    aktuellen Paarungsdatei als (Extraktion-IDs, Hand-IDs); ohne sie gelten
+    alle Extraktionsschritte als Vorschlag. Eingaben werden nicht mutiert.
+
+    Wirft `MergeConflict` bei kaputtem Objekt oder id-Mismatch.
     """
     if not isinstance(existing, dict) or not isinstance(incoming, dict):
         raise MergeConflict("Prozess-Objekt ist kein JSON-Objekt")
-
     ex_id, in_id = existing.get("id"), incoming.get("id")
     if ex_id is not None and in_id is not None and ex_id != in_id:
         raise MergeConflict(f"id-Mismatch: bestehend {ex_id!r} != Extraktion {in_id!r}")
 
-    report = MergeReport()
-    out = dict(existing)  # Basis: alle handgepflegten (auch additiven) Felder bleiben.
+    report = AbgleichReport(pairing_note=pairing_note)
+    out = copy.deepcopy(existing)
 
-    # Top-Level i18n/Freitext (title, description) feldweise mergen; retrieved_at
-    # ist Provenienz und gewinnt immer aus der Extraktion (frisches Crawl-Datum).
-    out = _merge_i18n_fields(
-        out,
-        incoming,
-        PROCESS_I18N_FIELDS,
-        path="",
-        report=report,
-        always_update=("retrieved_at",),
-    )
-    # path="" erzeugt fuehrende Punkte -> aufraeumen.
-    report.preserved = [p.lstrip(".") for p in report.preserved]
-    report.added = [a.lstrip(".") for a in report.added]
-    report.refreshed = [r.lstrip(".") for r in report.refreshed]
+    in_date = incoming.get("retrieved_at")
+    if not _blank(in_date) and out.get("retrieved_at") != in_date:
+        if not _blank(out.get("retrieved_at")):
+            report.refreshed.append("retrieved_at")
+        out["retrieved_at"] = in_date
 
-    if "preconditions" in incoming or "preconditions" in existing:
-        out["preconditions"] = _merge_preconditions(
-            existing.get("preconditions", []), incoming.get("preconditions", []), report=report
-        )
+    # --- References ueber (Seite, Zitat) ---------------------------------------
+    in_refs = [r for r in incoming.get("references") or [] if isinstance(r, dict)]
+    in_by_key: dict[tuple[str, str], dict] = {}
+    for r in in_refs:
+        k = ref_key(r)
+        if k is not None:
+            in_by_key.setdefault(k, r)
+    matched_keys: set[tuple[str, str]] = set()
+    for r in out.get("references") or []:
+        if not isinstance(r, dict):
+            continue
+        entry = (r.get("reference_id"), _label_de(r))
+        k = ref_key(r)
+        if k is None:
+            report.refs_without_quote.append(entry)
+            continue
+        hit = in_by_key.get(k)
+        if hit is None:
+            report.refs_not_found.append(entry)
+            continue
+        matched_keys.add(k)
+        report.refs_confirmed.append(entry)
+        if r.get("status") == "unverifiziert":
+            report.refs_confirmed_unverified.append(entry)
+        new_date = hit.get("retrieved_at")
+        if not _blank(new_date) and r.get("retrieved_at") != new_date:
+            report.refreshed.append(f"references[{r.get('reference_id')}].retrieved_at")
+            r["retrieved_at"] = new_date
+    report.ref_proposals = [r for r in in_refs if ref_key(r) not in matched_keys]
 
-    if "steps" in incoming or "steps" in existing:
-        out["steps"] = _merge_keyed_list(
-            existing.get("steps", []),
-            incoming.get("steps", []),
-            key="step_id",
-            i18n_fields=STEP_I18N_FIELDS,
-            name="steps",
-            report=report,
-            # step_id ist LLM-vergeben, kein stabiler fachlicher Schluessel.
-            label_guard=True,
-        )
+    # --- Schritte: nie eingespielt, nur Paarung zeigen und Rest vorschlagen -----
+    in_steps = [s for s in incoming.get("steps") or [] if isinstance(s, dict)]
+    ext_labels = {s.get("step_id"): _label_de(s) for s in in_steps}
+    ext_ref_labels = {r.get("reference_id"): _label_de(r) for r in in_refs}
+    hand_labels = {s.get("step_id"): _label_de(s) for s in existing.get("steps") or [] if isinstance(s, dict)}
+    paired: set[object] = set()
+    for ext_ids, can_ids in pairing or []:
+        if ext_ids and can_ids:
+            report.step_pairs.append(
+                (
+                    [(i, ext_labels.get(i, "")) for i in ext_ids],
+                    [(i, hand_labels.get(i, "")) for i in can_ids],
+                )
+            )
+            paired.update(ext_ids)
+    report.step_proposals = [
+        _step_proposal(s, ext_labels, ext_ref_labels) for s in in_steps if s.get("step_id") not in paired
+    ]
 
-    if "references" in incoming or "references" in existing:
-        out["references"] = _merge_keyed_list(
-            existing.get("references", []),
-            incoming.get("references", []),
-            key="reference_id",
-            i18n_fields=REFERENCE_I18N_FIELDS,
-            name="references",
-            report=report,
-            label_guard=True,
-            # Provenienz je Reference: frisches Crawl-Datum gewinnt.
-            always_update=("retrieved_at",),
-        )
-
-    if "actors" in incoming or "actors" in existing:
-        out["actors"] = _merge_keyed_list(
-            existing.get("actors", []),
-            incoming.get("actors", []),
-            key="id",
-            i18n_fields=ACTOR_I18N_FIELDS,
-            name="actors",
-            report=report,
-        )
-
-    _drop_untrusted_reference_links(existing, incoming, out, report)
-
-    # Freitext-Actors der Extraktion gegen actors[].id abgleichen (gender-neutral,
-    # exakt). Unbekannte werden geflaggt, nicht geraten.
-    _reconcile_step_actors(out, report)
-
+    report.changed = out != existing
     return out, report
+
+
+# --- Herkunft (nur fuer NEUE Dateien) ----------------------------------------
 
 
 def apply_herkunft(process: dict, pr_number: int, *, neu: bool) -> tuple[dict, str | None]:
@@ -600,6 +281,11 @@ def apply_herkunft(process: dict, pr_number: int, *, neu: bool) -> tuple[dict, s
 
     Die Eingabe wird nicht mutiert. Wer herkunft setzt, deklariert mindestens
     Vertrag 0.2.0 — eine aeltere schema_version wird deshalb angehoben.
+
+    `pr.open_draft_pr` ruft das seit dem Abgleich (`sync_existing`) nur noch
+    fuer NEUE Dateien auf: ein Abgleich-PR aendert keine Inhalte und laesst
+    meta.herkunft unveraendert. Der Zweig fuer bestehende Dateien bleibt fuer
+    Werkzeuge und Tests erhalten.
     """
     alt = (process.get("meta") or {}).get("herkunft")
     if not neu and not isinstance(alt, dict):
