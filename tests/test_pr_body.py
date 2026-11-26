@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from tessera.grounding import BRIDGE_FLAG_PREFIX  # noqa: E402
-from tessera.merge import MergeReport  # noqa: E402
+from tessera.merge import AbgleichReport  # noqa: E402
 from tessera.plausibility import ACTOR_FLAG_PREFIX, ORDER_FLAG_PREFIX  # noqa: E402
 from tessera.pr import (  # noqa: E402
     MAX_BODY_CHARS,
@@ -29,8 +29,9 @@ from tessera.pr import (  # noqa: E402
     _folge_commit_herkunft,
     _md,
     _md_code,
-    build_merge_warning,
+    build_abgleich_report,
     build_pr_body,
+    load_pairing,
 )
 
 PROC = SimpleNamespace(id="hund-anmelden")
@@ -185,22 +186,59 @@ def test_high_risk_governance_note_matches_reality() -> None:
     assert "**automatisch extrahiert**" in body
 
 
-def test_merge_warning_renders_suspect_pairs() -> None:
-    report = MergeReport()
-    report.suspect_pairs.append(
-        "steps[2]: bestehend «Registrierung pruefen» vs. Extraktion «Hund entwurmen» (Aehnlichkeit 0.12) — NICHT gemerged, manuell abgleichen"
+def test_abgleich_report_lists_changes_and_proposals_neutralised() -> None:
+    report = AbgleichReport(
+        refreshed=["retrieved_at", "references[1].retrieved_at"],
+        refs_confirmed=[(1, "Anmeldefrist")],
+        refs_confirmed_unverified=[(1, "Anmeldefrist")],
+        refs_not_found=[(2, "Hundeabgabe")],
+        step_pairs=[([(1, "Hund anmelden")], [(1, "Hund angeschafft")])],
+        step_proposals=[
+            {
+                "step_id": 3,
+                "label": "Abgabe @team bezahlen",
+                "actor": "Halter:in",
+                "type": "",
+                "vorgaenger": ["Registrierung pruefen"],
+                "belege": [],
+            }
+        ],
+        ref_proposals=[
+            {
+                "reference_id": 5,
+                "label": {"de": "Neu"},
+                "source_url": "https://x.ch",
+                "source_quote": "Ein Satz.",
+            }
+        ],
+        pairing_note="bestaetigte Paarung verwendet",
+        changed=True,
     )
-    warn = build_merge_warning(report, "pfad/x.json")
-    assert "verdaechtige(s) ID-Paar(e) — NICHT gemerged" in warn
-    assert "Registrierung pruefen" in warn
+    text = build_abgleich_report(report, "pfad/x.json")
+    assert "Abgleich mit der bestehenden Handdatei" in text and "nicht eingespielt" in text
+    assert "references[1].retrieved_at" in text
+    assert "Davon in der Handdatei `unverifiziert`" in text
+    assert "NICHT wiedergefunden" in text and "Hundeabgabe" in text
+    assert "Zuordnung Extraktion ↔ Handdatei" in text
+    assert "1 Schritt(e) der Extraktion ohne Partner" in text
+    assert "@team" not in text, "LLM-Text muss neutralisiert sein"
+    assert "1 Belegstelle(n) ohne Gegenstueck" in text and "Ein Satz." in text
 
 
-def test_merge_warning_renders_dropped_reference_links() -> None:
-    report = MergeReport()
-    report.dropped_reference_links.append("steps[1].reference_ids: [1] entfernt — manuell verlinken")
-    warn = build_merge_warning(report, "pfad/x.json")
-    assert "Beleg-Link(s) aus der Extraktion entfernt" in warn
-    assert "steps[1].reference_ids" in warn
+def test_pr_body_abgleich_mode() -> None:
+    body = build_pr_body(PROC, _process(), [], META, abgleich="## 🔎 Abgleich mit der bestehenden Handdatei")
+    assert body.startswith("# tessera v1: Abgleich «")
+    assert "## Extraktion (JSON, nicht eingespielt)" in body
+    assert "References — Kernpruefung" not in body  # Extraktions-Tabelle entfaellt
+    assert "`meta.herkunft` bleibt unveraendert" in body
+    assert "Folge-Commit setzt" not in body
+    normal = build_pr_body(PROC, _process(), [], META)
+    assert "Folge-Commit setzt `tessera`" in normal and "## JSON" in normal
+
+
+def test_load_pairing_without_file_is_reading_aid_only() -> None:
+    pairs, note = load_pairing("gibt-es-nicht", _process(), _process())
+    assert pairs is None and "keine Paarungsdatei" in note and "alle Extraktionsschritte" in note
 
 
 def test_review_notes_shown_to_reviewers_neutralised() -> None:

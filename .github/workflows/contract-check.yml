@@ -38,7 +38,7 @@ jobs:
         run: python tests/test_binding.py
       - name: Re-Verifikations-Tests (Link-Rot + Drift, stdlib)
         run: python tests/test_verify.py
-      - name: Merge-Tests (Handdaten erhalten, stdlib)
+      - name: Abgleich-Tests (Handdatei kanonisch, stdlib)
         run: python tests/test_merge.py
       - name: PR-Body-Tests (Reviewer-UI + Markdown-Neutralisierung, stdlib)
         run: python tests/test_pr_body.py

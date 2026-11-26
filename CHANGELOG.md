@@ -22,6 +22,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Schalter anmelden». `evaluate`'s pairing heuristic is unchanged.
 
 ### Changed
+- **`tessera pr` reconciles against an existing hand file instead of merging.**
+  `step_id` and `reference_id` are assigned anew by the model on every run, so
+  they are no keys against an independently maintained hand file (merge probe
+  of `hund-anmelden`: a foreign step merged, a reference linked wrongly; the
+  `kita-platz` pilot: all 14 ID pairs foreign; `fundsache`: steps 13–15 would
+  have been appended with edges to foreign numbers). `merge.sync_existing`
+  replaces `merge_process`: the PR now changes only `retrieved_at` — of the
+  process and of each hand reference whose quote the extraction found again
+  verbatim on the same page (key: page without fragment + normalised quote).
+  Steps, actors, texts, `status` and `meta.herkunft` stay untouched; no
+  follow-up commit, no `quelle:tessera` label. The PR body carries a
+  reconciliation report instead of the merge warning: references found / not
+  found, found `unverifiziert` references (status is set by a human),
+  unpaired extraction steps and quotes as proposals. A confirmed, current
+  pairing file shows the mapping and limits proposals to unpaired steps
+  (reading aid, not a gate). No change → no PR (report only in the bundle).
+  Without a token, `pr` still reads the public target file, so the outbox
+  bundle never lays the raw extraction over a hand file; `cmd_pr` no longer
+  pre-writes that bundle. If the target file cannot be read (HTTP 403,
+  network error), no PR and no bundle. The bundle is validated in both modes. The label guard
+  and reference-link filter from the previous fix are gone with the ID merge.
 - **`kita-platz` review notes follow the split appeal step.** The curated
   `review_notes` in `sources.yaml` (shown in the PR body, never in the prompt)
   still named the Bezirksrat as the appeal body. They now name the objections

@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
-"""Tests fuer den feldweisen Merge gegen handgepflegte Zieldateien.
+"""Tests fuer den Abgleich gegen handgepflegte Zieldateien (`merge.sync_existing`).
 
 Reine stdlib (CI-faehig ohne Dependencies). Aufruf:
     python tests/test_merge.py — Exit 0 = alle Tests gruen.
 
 Deckt ab:
-  (a) bestehende en/fr/it/ls/description bleiben erhalten, wenn die Extraktion
-      sie leer liefert,
-  (b) neue Felder/Schritte/References werden ergaenzt,
-  (c) der Merge ist stabil ueber step_id/reference_id/actor.id (index-unabhaengig),
-  (d) nicht sauber mergebare Faelle werfen MergeConflict (Aufrufer ueberspringt),
-  (e) meta.herkunft bleibt beim Merge erhalten; apply_herkunft traegt die eigene
-      PR-Nummer nach (redaktion -> gemischt, neu -> tessera), raet nie.
+  (a) die Handdatei bleibt unveraendert bis auf `retrieved_at`; Schritte werden
+      nie gemerged oder angehaengt,
+  (b) References gleichen ueber (Seite ohne Fragment, normalisiertes Zitat) ab —
+      nie ueber reference_id; der Status bleibt, Neues ist nur Vorschlag,
+  (c) eine bestaetigte Paarung zeigt die Zuordnung, nur Ungepaartes ist
+      Vorschlag; ohne Aenderung meldet der Bericht `changed = False`,
+  (d) nicht abgleichbare Faelle werfen MergeConflict (Aufrufer ueberspringt),
+  (e) meta.herkunft bleibt beim Abgleich unveraendert; apply_herkunft (nur fuer
+      neue Dateien genutzt) traegt die eigene PR-Nummer nach, raet nie.
 """
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
@@ -26,7 +29,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from validate_contract import Report, validate  # noqa: E402
 
-from tessera.merge import MergeConflict, apply_herkunft, merge_process, normalize_i18n  # noqa: E402
+from tessera.merge import MergeConflict, apply_herkunft, ref_key, sync_existing  # noqa: E402
 
 
 def _contract_ok(doc: dict) -> Report:
@@ -140,364 +143,6 @@ def _extraction() -> dict:
     }
 
 
-def test_a_existing_translations_preserved() -> None:
-    """(a) Belegte en/fr/it/ls/description duerfen NICHT geleert werden."""
-    merged, report = merge_process(_existing(), _extraction())
-    assert merged["title"]["en"] == "Register a dog"
-    assert merged["title"]["fr"] == "Annoncer un chien"
-    assert merged["title"]["it"] == "Registrare un cane"
-    assert merged["title"]["ls"].startswith("Sie haben einen Hund")
-    # description-Block bleibt vollstaendig erhalten.
-    assert merged["description"]["de"].startswith("Wie Sie")
-    assert merged["description"]["en"] == "How to register."
-    # preconditions-Uebersetzung bleibt erhalten.
-    assert merged["preconditions"][0]["en"] == "Residence in Zurich"
-
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert s1["label"]["en"] == "Register dog"
-    assert s1["label"]["ls"] == "Sie melden den Hund an."
-    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
-    assert s2["label"]["fr"] == "Vérifier"
-    assert s2["description"]["en"] == "The office checks."
-
-    r1 = next(r for r in merged["references"] if r["reference_id"] == 1)
-    assert r1["label"]["fr"] == "Délai"
-    a1 = next(a for a in merged["actors"] if a["id"] == "halter")
-    assert a1["label"]["en"] == "Owner"
-
-    # Schutzfaelle wurden als 'preserved' protokolliert (en/fr/it/ls, nicht de).
-    assert any("title.en" in p for p in report.preserved)
-    assert any("steps[2].label.fr" in p for p in report.preserved)
-    assert not any(p.endswith(".de") for p in report.preserved)
-
-
-def test_a_de_gap_is_filled_but_existing_de_wins() -> None:
-    """de der Extraktion fuellt nur Luecken; bestehendes de gewinnt."""
-    merged, _ = merge_process(_existing(), _extraction())
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    # Bestehendes de gewinnt gegen abweichendes Extraktions-de.
-    assert s1["label"]["de"] == "Hund anmelden"
-
-
-def test_b_new_steps_and_references_added() -> None:
-    """(b) Neue Schritte/References/Felder werden ergaenzt."""
-    merged, report = merge_process(_existing(), _extraction())
-    step_ids = sorted(s["step_id"] for s in merged["steps"])
-    assert step_ids == [1, 2, 3]
-    ref_ids = sorted(r["reference_id"] for r in merged["references"])
-    assert ref_ids == [1, 2]
-    # Neuer Schritt 3 ist vollstaendig uebernommen.
-    s3 = next(s for s in merged["steps"] if s["step_id"] == 3)
-    assert s3["actor"] == "Steueramt"
-    # Fehlendes additives Feld (city, $schema) wurde ergaenzt.
-    assert merged["city"] == "zh"
-    assert "$schema" in merged
-    assert any("steps[3] (neu)" in a for a in report.added)
-    assert any("references[2] (neu)" in a for a in report.added)
-    assert any("city" in a for a in report.added)
-
-
-def test_c_merge_stable_over_business_keys() -> None:
-    """(c) Stabil ueber step_id/reference_id/actor.id trotz vertauschter Reihenfolge.
-
-    Bestehende Reihenfolge bleibt; gemerged wird ueber Schluessel, nicht Index.
-    """
-    existing = _existing()  # steps in Reihenfolge [2, 1]
-    extraction = _extraction()  # steps in Reihenfolge [1, 2, 3]
-    merged, _ = merge_process(existing, extraction)
-    # Bestehende Reihenfolge [2, 1] bleibt, neuer Schritt 3 wird angehaengt.
-    assert [s["step_id"] for s in merged["steps"]] == [2, 1, 3]
-    # Schritt 2 wurde mit dem RICHTIGEN Extraktions-Schritt 2 gemerged
-    # (nicht mit Index-0 = Extraktions-Schritt 1).
-    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
-    assert s2["actor"] == "Veterinaeramt"
-    assert s2["label"]["de"] == "Registrierung pruefen"
-
-
-def test_c_missing_field_filled_from_extraction() -> None:
-    """Fehlendes Feld (reference_ids an Schritt 2) wird aus Extraktion ergaenzt."""
-    existing = _existing()
-    extraction = _extraction()
-    # Schritt 2 der Extraktion bekommt reference_ids, das bestehend fehlt.
-    for s in extraction["steps"]:
-        if s["step_id"] == 2:
-            s["reference_ids"] = [2]
-    merged, _ = merge_process(existing, extraction)
-    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
-    assert s2.get("reference_ids") == [2]
-
-
-def test_normalize_leichte_sprache_alias() -> None:
-    """leichte_sprache der Extraktion wird auf ls gemappt."""
-    assert normalize_i18n({"de": "x", "leichte_sprache": "einfach"})["ls"] == "einfach"
-    # Vorhandenes nicht-leeres ls gewinnt gegen Alias.
-    out = normalize_i18n({"de": "x", "ls": "schon da", "leichte_sprache": "alt"})
-    assert out["ls"] == "schon da"
-
-
-def test_alias_fills_missing_ls_in_merge() -> None:
-    """ls-Luecke wird durch leichte_sprache der Extraktion gefuellt."""
-    existing = _existing()
-    # title hat ls; entfernen wir es, damit die Extraktion es fuellen kann.
-    del existing["title"]["ls"]
-    extraction = _extraction()
-    extraction["title"]["leichte_sprache"] = "Einfacher Titel."
-    merged, _ = merge_process(existing, extraction)
-    assert merged["title"]["ls"] == "Einfacher Titel."
-
-
-def test_e_actor_remapped_to_existing_id() -> None:
-    """(e) Freitext-Actor der Extraktion wird gender-neutral auf die
-    bestehende actors[].id abgebildet ('Halter:in' -> 'halter')."""
-    merged, report = merge_process(_existing(), _extraction())
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert s1["actor"] == "halter", s1["actor"]
-    assert any("steps[1].actor" in r and "'halter'" in r for r in report.remapped_actors)
-
-
-def test_e_actor_remapped_across_umlaut_transliteration() -> None:
-    """(e) Umlaut-Schreibweise des LLM ('Fundbüro') wird auf die ASCII-id
-    ('fundbuero') abgebildet — ue=ü-Aequivalenz, kein Fuzzy-Matching.
-    Realfall aus dem fundsache-Lauf (Schritt-actor 'Fundbüro')."""
-    existing = {
-        "schema_version": "0.1.0",
-        "id": "fundsache",
-        "lebenslage_ref": "fundsache",
-        "title": {"de": "Fundsache"},
-        "target_audience": "bevoelkerung",
-        "steps": [
-            {"step_id": 1, "actor": "fundbuero", "label": {"de": "Fund erfassen"}, "depends_on": []},
-        ],
-        "actors": [
-            {"id": "fundbuero", "label": {"de": "Fundbüro der Stadtpolizei Zürich"}, "type": "behoerde"},
-            {"id": "person", "label": {"de": "Findende oder verlierende Person"}, "type": "antragsteller"},
-        ],
-        "source_url": "https://www.stadt-zuerich.ch/vbz/de/beratung-service/fundbuero.html",
-        "retrieved_at": "2026-06-28",
-        "disclaimer_key": "Prozesse.disclaimer",
-    }
-    extraction = {
-        "id": "fundsache",
-        "steps": [
-            {
-                "step_id": 2,
-                "actor": "Fundbüro",
-                "label": {"de": "Gegen Ausweis aushaendigen"},
-                "depends_on": [1],
-            },
-        ],
-    }
-    merged, report = merge_process(existing, extraction)
-    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
-    assert s2["actor"] == "fundbuero", s2["actor"]
-    assert not report.unmapped_actors
-    rep = _contract_ok(merged)
-    assert rep.ok, rep.errors
-
-
-def test_e_unknown_actor_flagged_not_invented() -> None:
-    """(e) Ein Actor ohne passenden actors[]-Eintrag wird GEFLAGGT, nicht
-    geraten: kein neuer actors[]-Eintrag, der Wert bleibt unveraendert stehen."""
-    existing = _existing()
-    extraction = _extraction()
-    extraction["steps"].append(
-        {
-            "step_id": 4,
-            "actor": "Hundeausbildner:in",  # kein actors[]-Eintrag
-            "label": {"de": "Praxiskurs in AMICUS eintragen", "en": "", "fr": "", "it": ""},
-            "depends_on": [3],
-        }
-    )
-    merged, report = merge_process(existing, extraction)
-    s4 = next(s for s in merged["steps"] if s["step_id"] == 4)
-    assert s4["actor"] == "Hundeausbildner:in"  # unveraendert
-    assert not any(a.get("id") == "hundeausbildner" for a in merged["actors"])  # nichts erfunden
-    assert any("steps[4].actor" in u and "Hundeausbildner" in u for u in report.unmapped_actors)
-
-
-def _existing_all_halter() -> dict:
-    """Minimale Zieldatei, deren Schritte alle die Rolle Halter:in tragen und
-    deren actors[] genau einen Eintrag `halter` hat (Freitext vs. id)."""
-    return {
-        "schema_version": "0.1.0",
-        "id": "hund-anmelden",
-        "lebenslage_ref": "hund-anmelden",
-        "title": {"de": "Hund anmelden"},
-        "target_audience": "bevoelkerung",
-        "steps": [
-            {"step_id": 1, "actor": "Halter:in", "label": {"de": "Anmelden"}, "depends_on": []},
-        ],
-        "actors": [{"id": "halter", "label": {"de": "Hundehalter:in"}, "type": "antragsteller"}],
-        "source_url": "https://www.stadt-zuerich.ch/hund",
-        "retrieved_at": "2026-01-01",
-        "disclaimer_key": "process.disclaimer.unofficial",
-    }
-
-
-def test_e_remapped_actor_passes_contract_validator() -> None:
-    """Kopplung Merge<->Validator: nach dem Remap ist jeder steps[].actor eine
-    actors[].id -> der Vertrags-Validator (Actor-Paritaet) ist gruen."""
-    extraction = {
-        "id": "hund-anmelden",
-        "steps": [
-            {"step_id": 1, "actor": "Halter:in", "label": {"de": "Anmelden"}, "depends_on": []},
-            {"step_id": 2, "actor": "Halter:in", "label": {"de": "Bezahlen"}, "depends_on": [1]},
-        ],
-    }
-    merged, report = merge_process(_existing_all_halter(), extraction)
-    assert not report.unmapped_actors
-    assert all(s["actor"] == "halter" for s in merged["steps"])
-    rep = _contract_ok(merged)
-    assert rep.ok, rep.errors
-
-
-def test_e_unmapped_actor_fails_contract_validator() -> None:
-    """Gate-Paritaet: ein unmapped Actor laesst den Vertrags-Validator scheitern
-    (genau der Fehler, den die Ziel-CI wirft) — kein stilles Durchrutschen."""
-    existing = _existing()
-    extraction = _extraction()
-    extraction["steps"].append(
-        {
-            "step_id": 4,
-            "actor": "Hundeausbildner:in",
-            "label": {"de": "Praxiskurs eintragen", "en": "", "fr": "", "it": ""},
-            "depends_on": [3],
-        }
-    )
-    merged, _ = merge_process(existing, extraction)
-    rep = _contract_ok(merged)
-    assert not rep.ok
-    assert any("actor" in e and "Hundeausbildner" in e for e in rep.errors), rep.errors
-
-
-def test_e_no_actors_leaves_free_text_actors() -> None:
-    """Ohne actors[] in der Zieldatei bleibt der Freitext-Actor unangetastet
-    (die kanonische Regel greift nur, wenn actors[] vorhanden ist)."""
-    existing = _existing()
-    del existing["actors"]
-    merged, report = merge_process(existing, _extraction())
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert s1["actor"] == "Halter:in"
-    assert not report.remapped_actors and not report.unmapped_actors
-
-
-def test_e_ambiguous_normform_not_mapped() -> None:
-    """Kollidieren zwei actors auf dieselbe Normalform, wird NICHT gemappt
-    (lieber flaggen als auf den falschen Akteur zeigen)."""
-    existing = _existing()
-    # Zwei Eintraege, deren Labels auf dieselbe Normalform "halter" fallen
-    # ("Halter:in" -> halter, "Halter" -> halter): mehrdeutig -> kein Mapping.
-    existing["actors"] = [
-        {"id": "halter-a", "label": {"de": "Halter:in"}, "type": "antragsteller"},
-        {"id": "halter-b", "label": {"de": "Halter"}, "type": "antragsteller"},
-    ]
-    merged, report = merge_process(existing, _extraction())
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert s1["actor"] == "Halter:in"  # nicht gemappt (mehrdeutig)
-    assert any("steps[1].actor" in u for u in report.unmapped_actors)
-
-
-def test_f_suspect_step_pair_not_merged() -> None:
-    """(f) Gleiche step_id, semantisch fremdes Label -> NICHT mergen: der
-    bestehende Schritt bleibt unangetastet, die Extraktions-Fassung wird
-    verworfen und als suspect_pair geflaggt (IDs sind LLM-vergeben, keine
-    stabilen fachlichen Schluessel)."""
-    existing = _existing()
-    extraction = _extraction()
-    for s in extraction["steps"]:
-        if s["step_id"] == 2:
-            s["label"]["de"] = "Hund entwurmen lassen"  # voellig anderer Schritt
-            s["type"] = "prozess"  # wuerde sonst als Luecke gefuellt
-    merged, report = merge_process(existing, extraction)
-    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
-    assert s2["label"]["de"] == "Registrierung pruefen"
-    assert "type" not in s2, s2  # nichts aus der fremden Fassung uebernommen
-    assert any("steps[2]" in p and "Hund entwurmen" in p for p in report.suspect_pairs), report.suspect_pairs
-    # Es gibt weiterhin genau EINEN Schritt 2 (keine Duplikat-ID angehaengt).
-    assert [s["step_id"] for s in merged["steps"]].count(2) == 1
-
-
-def test_f_similar_labels_still_merge() -> None:
-    """(f) Laengere Formulierung desselben Schritts ist KEIN Verdachtsfall
-    («Hund anmelden» vs. «Hund online oder am Schalter anmelden»)."""
-    merged, report = merge_process(_existing(), _extraction())
-    assert not report.suspect_pairs, report.suspect_pairs
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert s1["label"]["de"] == "Hund anmelden"  # bestehend gewinnt wie bisher
-
-
-def test_f_umlaut_spelling_is_not_suspect() -> None:
-    """(f) Umlaut- vs. ae/oe/ue-Schreibweise desselben Labels ist kein Verdacht."""
-    existing = _existing()
-    extraction = _extraction()
-    for s in extraction["steps"]:
-        if s["step_id"] == 2:
-            s["label"]["de"] = "Registrierung prüfen"  # Umlaut statt 'ue'
-    _, report = merge_process(existing, extraction)
-    assert not report.suspect_pairs, report.suspect_pairs
-
-
-def test_f_suspect_reference_pair_not_merged() -> None:
-    """(f) Gleiche reference_id, fremdes Label -> bestehende Reference bleibt
-    komplett unangetastet (inkl. retrieved_at: kein Refresh am falschen Paar)."""
-    existing = _existing()
-    extraction = _extraction()
-    extraction["references"][0]["label"]["de"] = "Hoehe der Hundeabgabe"  # war Anmeldefrist
-    merged, report = merge_process(existing, extraction)
-    r1 = next(r for r in merged["references"] if r["reference_id"] == 1)
-    assert r1["label"]["de"] == "Anmeldefrist"
-    assert r1["retrieved_at"] == "2026-01-01"  # kein Refresh am verdaechtigen Paar
-    assert any("references[1]" in p for p in report.suspect_pairs), report.suspect_pairs
-
-
-def test_g_retrieved_at_always_refreshed() -> None:
-    """(g) Provenienz-Ausnahme: retrieved_at gewinnt aus der Extraktion —
-    auf Prozess-Ebene und je sauber gepairter Reference; protokolliert."""
-    merged, report = merge_process(_existing(), _extraction())
-    assert merged["retrieved_at"] == "2026-06-14"
-    r1 = next(r for r in merged["references"] if r["reference_id"] == 1)
-    assert r1["retrieved_at"] == "2026-06-14"
-    assert any(r == "retrieved_at" for r in report.refreshed), report.refreshed
-    assert any("references[1].retrieved_at" in r for r in report.refreshed), report.refreshed
-
-
-def test_g_retrieved_at_not_invented() -> None:
-    """(g) Liefert die Extraktion KEIN retrieved_at, bleibt das bestehende."""
-    existing = _existing()
-    extraction = _extraction()
-    del extraction["retrieved_at"]
-    for r in extraction["references"]:
-        r.pop("retrieved_at", None)
-    merged, report = merge_process(existing, extraction)
-    assert merged["retrieved_at"] == "2026-01-01"
-    r1 = next(r for r in merged["references"] if r["reference_id"] == 1)
-    assert r1["retrieved_at"] == "2026-01-01"
-    assert not report.refreshed, report.refreshed
-
-
-def test_d_conflict_on_id_mismatch() -> None:
-    """(d) id-Mismatch ist nicht sauber mergebar -> MergeConflict."""
-    existing = _existing()
-    extraction = _extraction()
-    extraction["id"] = "umzug-melden"
-    try:
-        merge_process(existing, extraction)
-    except MergeConflict:
-        return
-    raise AssertionError("MergeConflict bei id-Mismatch erwartet")
-
-
-def test_d_conflict_on_duplicate_keys() -> None:
-    """(d) Doppelte fachliche Schluessel sind nicht eindeutig -> MergeConflict."""
-    existing = _existing()
-    existing["steps"].append({"step_id": 1, "actor": "X", "label": {"de": "Dup"}, "depends_on": []})
-    try:
-        merge_process(existing, _extraction())
-    except MergeConflict:
-        return
-    raise AssertionError("MergeConflict bei doppeltem step_id erwartet")
-
-
 def _mit_herkunft(herkunft: dict | None) -> dict:
     doc = _existing()
     doc["schema_version"] = "0.2.0"
@@ -507,12 +152,135 @@ def _mit_herkunft(herkunft: dict | None) -> dict:
     return doc
 
 
-def test_e_merge_keeps_herkunft() -> None:
-    """(e) Der Merge verliert meta.herkunft der Zieldatei nicht (Basis = bestehend)."""
-    existing = _mit_herkunft({"art": "gemischt", "tessera_prs": [156], "geprueft_am": "2026-10-01"})
-    merged, _ = merge_process(existing, _extraction())
-    assert merged["meta"]["herkunft"] == existing["meta"]["herkunft"]
-    assert merged["schema_version"] == "0.2.0"
+def _without_dates(doc: dict) -> dict:
+    out = copy.deepcopy(doc)
+    out.pop("retrieved_at", None)
+    for r in out.get("references", []):
+        r.pop("retrieved_at", None)
+    return out
+
+
+def test_a_hand_file_unchanged_except_retrieved_at() -> None:
+    existing, extraction = _existing(), _extraction()
+    before = copy.deepcopy(existing)
+    out, report = sync_existing(existing, extraction)
+    assert existing == before and extraction == _extraction(), "Eingaben duerfen nicht mutiert werden"
+    assert _without_dates(out) == _without_dates(existing)
+    assert out["retrieved_at"] == "2026-06-14"
+    assert out["references"][0]["retrieved_at"] == "2026-06-14"
+    assert report.refreshed == ["retrieved_at", "references[1].retrieved_at"], report.refreshed
+    assert report.changed
+
+
+def test_a_steps_never_merged_or_appended() -> None:
+    """Gleiche step_id, anderes Label, neuer Schritt 3: nichts davon landet in der
+    Datei — alles steht als Vorschlag im Bericht (ohne Paarung: alle Schritte)."""
+    out, report = sync_existing(_existing(), _extraction())
+    assert out["steps"] == _existing()["steps"]
+    assert [p["step_id"] for p in report.step_proposals] == [1, 2, 3]
+    p3 = report.step_proposals[2]
+    assert p3["label"] == "Veranlagung der Hundeabgabe" and p3["actor"] == "Steueramt"
+    assert p3["vorgaenger"] == ["Registrierung pruefen"]  # Kanten als Labels, nicht als IDs
+    assert p3["belege"] == ["Hoehe der Hundeabgabe"]
+
+
+def test_a_result_passes_contract_validator_like_hand_file() -> None:
+    out, _ = sync_existing(_existing(), _extraction())
+    assert _contract_ok(out).errors == _contract_ok(_existing()).errors
+
+
+def test_b_reference_matched_by_page_and_quote_not_by_id() -> None:
+    """Anderes reference_id, Deep-Link mit Anker, typografische Anfuehrungszeichen:
+    dieselbe Stelle auf derselben Seite -> wiedergefunden."""
+    existing = _existing()
+    existing["references"][0]["source_url"] = "https://www.stadt-zuerich.ch/hund/#frist"
+    existing["references"][0]["source_quote"] = "Melden Sie den Hund «innert zehn Tagen» an."
+    extraction = _extraction()
+    extraction["references"][0]["reference_id"] = 7
+    extraction["references"][0]["source_quote"] = 'Melden Sie den Hund "innert zehn Tagen" an.'
+    out, report = sync_existing(existing, extraction)
+    assert report.refs_confirmed == [(1, "Anmeldefrist")], report.refs_confirmed
+    assert out["references"][0]["retrieved_at"] == "2026-06-14"
+    assert out["references"][0]["source_url"].endswith("#frist")  # Deep-Link bleibt
+
+
+def test_b_same_id_other_quote_is_not_a_match() -> None:
+    """Gleiche reference_id, anderes Zitat: NICHT wiedergefunden, Datum bleibt."""
+    extraction = _extraction()
+    extraction["references"][0]["source_quote"] = "Die Hundeabgabe ist jaehrlich zu bezahlen."
+    out, report = sync_existing(_existing(), extraction)
+    assert report.refs_not_found == [(1, "Anmeldefrist")]
+    assert out["references"][0]["retrieved_at"] == "2026-01-01"
+    assert len(report.ref_proposals) == 2
+
+
+def test_b_new_reference_is_proposal_not_appended() -> None:
+    out, report = sync_existing(_existing(), _extraction())
+    assert [r["reference_id"] for r in out["references"]] == [1]
+    assert [r["reference_id"] for r in report.ref_proposals] == [2]
+
+
+def test_b_status_never_changed() -> None:
+    """Wiedergefundenes Zitat einer unverifizierten Reference: Status bleibt,
+    der Bericht meldet es (verifizieren tut ein Mensch)."""
+    existing = _existing()
+    existing["references"][0]["status"] = "unverifiziert"
+    out, report = sync_existing(existing, _extraction())
+    assert out["references"][0]["status"] == "unverifiziert"
+    assert report.refs_confirmed_unverified == [(1, "Anmeldefrist")]
+
+
+def test_b_reference_without_quote_not_comparable() -> None:
+    existing = _existing()
+    existing["references"][0]["source_quote"] = ""
+    out, report = sync_existing(existing, _extraction())
+    assert report.refs_without_quote == [(1, "Anmeldefrist")]
+    assert out["references"][0]["retrieved_at"] == "2026-01-01"
+    assert ref_key({"source_url": "https://x.ch", "source_quote": "  "}) is None
+
+
+def test_c_confirmed_pairing_shows_pairs_and_proposes_rest() -> None:
+    out, report = sync_existing(
+        _existing(), _extraction(), pairing=[([1], [1]), ([2], [2]), ([], [9])], pairing_note="verwendet"
+    )
+    assert report.step_pairs == [
+        ([(1, "Hund online oder am Schalter anmelden")], [(1, "Hund anmelden")]),
+        ([(2, "Registrierung pruefen")], [(2, "Registrierung pruefen")]),
+    ]
+    assert [p["step_id"] for p in report.step_proposals] == [3]
+    assert report.pairing_note == "verwendet"
+    assert out["steps"] == _existing()["steps"]  # Paarung spielt nichts ein
+
+
+def test_c_nothing_to_change() -> None:
+    """Gleiche Daten wie in der Handdatei: changed False (pr oeffnet keinen PR)."""
+    extraction = _extraction()
+    extraction["retrieved_at"] = "2026-01-01"
+    extraction["references"][0]["retrieved_at"] = "2026-01-01"
+    out, report = sync_existing(_existing(), extraction)
+    assert out == _existing() and not report.changed and not report.refreshed
+
+
+def test_d_conflict_on_id_mismatch() -> None:
+    """(d) id-Mismatch ist nicht abgleichbar -> MergeConflict."""
+    extraction = _extraction()
+    extraction["id"] = "umzug-melden"
+    for bad in ((_existing(), extraction), ([], _extraction())):
+        try:
+            sync_existing(*bad)
+        except MergeConflict:
+            continue
+        raise AssertionError(
+            f"MergeConflict erwartet: {bad[1].get('id') if isinstance(bad[1], dict) else bad}"
+        )
+
+
+def test_e_sync_keeps_meta_and_herkunft() -> None:
+    """(e) Abgleich-PR aendert keine Inhalte -> meta (inkl. herkunft) bleibt."""
+    existing = _mit_herkunft({"art": "redaktion"})
+    out, _ = sync_existing(existing, _extraction())
+    assert out["meta"] == existing["meta"]
+    assert out["schema_version"] == "0.2.0"
 
 
 def test_e_apply_herkunft_redaktion_wird_gemischt() -> None:
@@ -555,93 +323,6 @@ def test_e_apply_herkunft_raet_nicht() -> None:
     out, note = apply_herkunft(doc, 403, neu=False)
     assert out is doc
     assert note and "nicht geraten" in note and "#403" in note
-
-
-def test_f_shared_function_words_are_suspect() -> None:
-    """(f) Funktionswoerter tragen kein fremdes Paar ueber die Schwelle: «Hund …
-    oder …» teilt nur «Hund» und «oder» mit dem Startknoten (Merge-Probe
-    hund-anmelden, 2026-11-24 — vorher Aehnlichkeit 0.52, gemerged)."""
-    existing = _existing()
-    for s in existing["steps"]:
-        if s["step_id"] == 1:
-            s["label"]["de"] = "Hund angeschafft oder mit Hund zugezogen"
-            del s["reference_ids"]
-    merged, report = merge_process(existing, _extraction())
-    assert any("steps[1]" in p for p in report.suspect_pairs), report.suspect_pairs
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert s1["label"]["de"] == "Hund angeschafft oder mit Hund zugezogen"
-    assert "reference_ids" not in s1, s1  # nichts aus der fremden Fassung
-
-
-def test_f_same_stem_is_not_suspect() -> None:
-    """(f) Gleicher Wortstamm («anmelden»/«Anmeldung») ist kein Verdacht."""
-    existing = _existing()
-    extraction = _extraction()
-    for s in extraction["steps"]:
-        if s["step_id"] == 1:
-            s["label"]["de"] = "Anmeldung des Hundes"
-    for s in existing["steps"]:
-        if s["step_id"] == 1:
-            s["label"]["de"] = "Hund anmelden"
-    _, report = merge_process(existing, extraction)
-    assert not report.suspect_pairs, report.suspect_pairs
-
-
-def test_h_gap_filled_reference_link_to_suspect_reference_dropped() -> None:
-    """(h) Fuellt die Extraktion reference_ids in einem gemergten Schritt, und
-    die Reference unter dieser Nummer ist ein verdaechtiges Paar, meint die
-    Nummer in der Handdatei etwas anderes -> Link entfernt und geflaggt."""
-    existing = _existing()
-    for s in existing["steps"]:
-        if s["step_id"] == 1:
-            del s["reference_ids"]  # Luecke, die die Extraktion fuellen wuerde
-    extraction = _extraction()
-    extraction["references"][0]["label"]["de"] = "Hoehe der Hundeabgabe"  # fremd zu «Anmeldefrist»
-    merged, report = merge_process(existing, extraction)
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert "reference_ids" not in s1, s1
-    assert "steps[1].reference_ids" not in report.added, report.added
-    assert any("steps[1].reference_ids: [1]" in d for d in report.dropped_reference_links), (
-        report.dropped_reference_links
-    )
-
-
-def test_h_new_step_link_to_suspect_reference_dropped() -> None:
-    """(h) Ein neuer Schritt behaelt Links auf neue References, verliert aber
-    den auf ein verdaechtiges Paar."""
-    existing = _existing()
-    extraction = _extraction()
-    extraction["references"][0]["label"]["de"] = "Hoehe der Hundeabgabe"
-    for s in extraction["steps"]:
-        if s["step_id"] == 3:
-            s["reference_ids"] = [1, 2]
-    merged, report = merge_process(existing, extraction)
-    s3 = next(s for s in merged["steps"] if s["step_id"] == 3)
-    assert s3["reference_ids"] == [2], s3  # 2 ist neu angehaengt -> Nummer gueltig
-    assert any("steps[3].reference_ids: [1]" in d for d in report.dropped_reference_links)
-
-
-def test_h_trusted_reference_links_kept() -> None:
-    """(h) Sauber gemergte und neue References bleiben verlinkt; Links aus der
-    Handdatei werden nie angefasst."""
-    existing = _existing()
-    for s in existing["steps"]:
-        if s["step_id"] == 2:
-            s.pop("reference_ids", None)
-    extraction = _extraction()
-    for s in extraction["steps"]:
-        if s["step_id"] == 2:
-            s["reference_ids"] = [1]  # Paar 1 «Anmeldefrist» gemerged
-    merged, report = merge_process(existing, extraction)
-    assert not report.dropped_reference_links, report.dropped_reference_links
-    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
-    s3 = next(s for s in merged["steps"] if s["step_id"] == 3)
-    assert s2["reference_ids"] == [1] and s3["reference_ids"] == [2]
-    # Hand-Link bleibt, auch wenn die Reference verdaechtig waere.
-    extraction["references"][0]["label"]["de"] = "Hoehe der Hundeabgabe"
-    merged, report = merge_process(_existing(), extraction)
-    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
-    assert s1["reference_ids"] == [1]
 
 
 def main() -> int:

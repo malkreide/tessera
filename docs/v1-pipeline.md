@@ -12,7 +12,7 @@
 - **CLI / Mechanik:** `tessera preflight | crawl | extract | validate | verify |
   eval | pr | run` (`src/tessera/`, schlichte Schleife, kein Orchestrierungs-Framework).
 - **Gates im Code:** Grounding-Gate (`grounding.py`), Label↔Wert-Gate
-  (`binding.py`), feldweiser Merge gegen Handdaten (`merge.py`),
+  (`binding.py`), Abgleich statt Merge gegen Handdaten (`merge.py`),
   Hochrisiko-Registry (`risk.py`), tri-state Re-Verifikation (`verify.py`,
   `reach.py`) — alle mit stdlib-Tests in CI (`.github/workflows/contract-check.yml`).
 - **Datenvertrag** auf das kanonische v0-Schema in `maschinerie-zuerich`
@@ -94,7 +94,7 @@ Schlichte Schleife je Leistung: `preflight → crawl → extract → validate �
 → pr`, mit menschlichem Review an den markierten Stellen. **Pilot (seit
 2026-10-09):** `fundsache` (VBZ Fundbuero; nur Quellen auf stadt-zuerich.ch,
 deren Nutzungsbedingungen freigegeben sind; risikoarm; handmodellierte
-Zieldatei mit `actors[]` vorhanden → Actor-Abgleich beim Merge und Messung mit
+Zieldatei mit `actors[]` vorhanden → Abgleich statt Merge im PR und Messung mit
 `tessera eval`). **Dann:** `umzug-melden` (eUmzug beachten) und
 `hund-anmelden` — letzteres erst, wenn auch die Nutzungsbedingungen von
 `www.zh.ch` freigegeben sind (eine Quelle liegt dort).
@@ -268,26 +268,28 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
 ### B.6 — Draft-PR emittieren
 - **Vorbedingung:** `GITHUB_TOKEN`; Validator Exit 0.
 - **Aktion:** `tessera pr --id <id>`. (Ohne Token: Bundle in `out/outbox/<id>/`.)
-- **Feldweiser Merge:** existiert die Zieldatei
-  (`stadt-zuerich-next/data/prozesse/zh/<id>.json`), wird ueber fachliche
-  Schluessel (`step_id`/`reference_id`/`actor.id`) gemergt — bestehende i18n-/
-  `description`-Bloecke bleiben erhalten, die Extraktion fuellt nur Luecken. Nicht
-  sauber mergebar → Datei ueberspringen statt verarmen (kein PR). Der PR-Body
-  traegt die Merge-Warnung mit erhaltenen/ergaenzten Feldern; so besteht der PR
-  den Ziel-Guard `check:regression` ohne `ALLOW_PROZESS_SHRINK`. Drei Schaerfen:
-  **Label-Guard** — `step_id`/`reference_id` sind LLM-vergeben, keine stabilen
-  fachlichen Schluessel; sind die Labels eines ID-Paars semantisch fremd
-  (Aehnlichkeit < `merge.LABEL_SIMILARITY_MIN` = 0.5), wird das Paar NICHT
-  gemerged, sondern als `suspect_pairs` im PR geflaggt (bestehend bleibt
-  unangetastet). Gezaehlt werden nur Inhaltswoerter (gleiche Woerter oder
-  gleicher Stamm), keine Zeichen-Aehnlichkeit — Funktionswoerter wie «oder»
-  trugen sonst ein fremdes Paar ueber die Schwelle. **Beleg-Links** —
-  `reference_ids`, die ein Schritt aus der Extraktion uebernimmt, bleiben nur,
-  wenn die Reference unter dieser Nummer sauber gemerged oder neu angehaengt
-  wurde; sonst meint die Nummer in der Handdatei einen anderen Beleg, der Link
-  wird entfernt und als `dropped_reference_links` geflaggt.
-  **Provenienz-Ausnahme** — `retrieved_at` (Prozess und je gepairte Reference) gewinnt immer aus der Extraktion (frisches Crawl-Datum),
-  protokolliert als `refreshed`.
+- **Abgleich statt Merge:** existiert die Zieldatei
+  (`stadt-zuerich-next/data/prozesse/zh/<id>.json`), ist sie kanonisch
+  (`merge.sync_existing`). `step_id`/`reference_id` vergibt das Modell bei
+  jedem Lauf neu — keine Schluessel gegenueber der Handdatei (Merge-Probe
+  hund-anmelden: fremder Schritt gemergt, Beleg falsch verlinkt; kita-platz:
+  alle 14 ID-Paare fremd). Der PR aendert darum **nur `retrieved_at`**: fuer
+  den Prozess und fuer jede Hand-Reference, deren Zitat die Extraktion auf
+  derselben Seite woertlich wiedergefunden hat (Schluessel: Seite ohne
+  Fragment + normalisiertes Zitat). Schritte, Akteure, Texte, `status` und
+  `meta.herkunft` bleiben unveraendert; es gibt keinen Folge-Commit und kein
+  Label `quelle:tessera`. Alles Weitere steht als **Abgleich-Bericht** im
+  PR-Body: wiedergefundene / nicht wiedergefundene Belege, wiedergefundene
+  `unverifiziert`e Belege (Status setzt ein Mensch), Schritte und
+  Belegstellen der Extraktion ohne Partner als Vorschlag. Eine bestaetigte,
+  aktuelle Paarung (`reports/eval/<id>.pairs.yaml`) zeigt die Zuordnung und
+  beschraenkt die Vorschlaege auf Ungepaartes — Lesehilfe, kein Gate. Aendert
+  der Abgleich nichts, wird kein PR geoeffnet (Bericht nur im Bundle). Ohne
+  Token liest `pr` die oeffentliche Zieldatei trotzdem, damit das Bundle den
+  Abgleich zeigt und nie die rohe Extraktion ueber eine Handdatei legt.
+  Nicht abgleichbar (id-Mismatch, kaputtes JSON) oder Zieldatei nicht
+  abrufbar (HTTP 403, Netzfehler) → kein PR, kein Bundle. `check:regression` besteht ohne
+  `ALLOW_PROZESS_SHRINK`, weil nichts verarmt.
 - **Erwartetes Resultat:** Draft-PR (`draft: true`, Branch
   `tessera/<id>-<datum>`) mit Reviewer-Checkliste; Ziel-CI `validate:prozesse`,
   `check:regression`, `check:links` gruen.
