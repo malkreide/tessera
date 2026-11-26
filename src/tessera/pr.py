@@ -163,6 +163,18 @@ def build_merge_warning(report: MergeReport, path: str) -> str:
             "",
         ]
         lines += _bullets(report.suspect_pairs)
+    if report.dropped_reference_links:
+        lines += [
+            "",
+            f"### ❌ Offen: {len(report.dropped_reference_links)} Beleg-Link(s) aus der Extraktion entfernt",
+            "",
+            "Diese Schritte verwiesen in der Extraktion auf References, deren Paar",
+            "nicht gemerged wurde. Dieselbe `reference_id` meint in der bestehenden",
+            "Datei eine **andere** Reference — der Link haette einen fremden Beleg",
+            "gezeigt. Er wurde entfernt; bitte den passenden Beleg von Hand verlinken:",
+            "",
+        ]
+        lines += _bullets(report.dropped_reference_links)
     if report.unmapped_actors:
         lines += [
             "",

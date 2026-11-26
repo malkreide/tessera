@@ -195,6 +195,14 @@ def test_merge_warning_renders_suspect_pairs() -> None:
     assert "Registrierung pruefen" in warn
 
 
+def test_merge_warning_renders_dropped_reference_links() -> None:
+    report = MergeReport()
+    report.dropped_reference_links.append("steps[1].reference_ids: [1] entfernt — manuell verlinken")
+    warn = build_merge_warning(report, "pfad/x.json")
+    assert "Beleg-Link(s) aus der Extraktion entfernt" in warn
+    assert "steps[1].reference_ids" in warn
+
+
 def test_review_notes_shown_to_reviewers_neutralised() -> None:
     proc = SimpleNamespace(id="hund-anmelden", review_notes="Zieldatei hat actors[] (halter)\n  <b>x</b>")
     body = build_pr_body(proc, _process(), [], META)

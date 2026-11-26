@@ -17,7 +17,7 @@ Dieses Modul merged stattdessen FELDWEISE und VERLUSTFREI:
 * Konfliktregel pro Feld: bestehender nicht-leerer Wert gewinnt; die Extraktion
   fuellt nur Luecken (leer/None/fehlend).
 
-Zwei Schaerfen gegen stille Fehl-Merges:
+Drei Schaerfen gegen stille Fehl-Merges:
 
 * **Label-Guard (steps/references):** step_id/reference_id sind LLM-vergeben —
   KEINE stabilen fachlichen Schluessel gegenueber einer unabhaengig gepflegten
@@ -26,7 +26,11 @@ Zwei Schaerfen gegen stille Fehl-Merges:
   Paar NICHT gemerged: der bestehende Eintrag bleibt unangetastet, die
   Extraktions-Fassung wird verworfen und als `suspect_pairs` geflaggt —
   manueller Abgleich statt Luecken-Fuellen im falschen Schritt. actors[] sind
-  semantische ids (kein LLM-Zaehler) und brauchen den Guard nicht.
+  semantische ids (kein LLM-Zaehler) und brauchen den Guard nicht. Gezaehlt
+  werden nur Inhaltswoerter (`_guard_similarity`).
+* **Beleg-Links:** `reference_ids`, die ein Schritt aus der Extraktion
+  uebernimmt, bleiben nur, wenn die Reference unter dieser Nummer sauber
+  gemerged oder neu angehaengt wurde — sonst `dropped_reference_links`.
 * **Provenienz-Ausnahme:** `retrieved_at` (Prozess und je gepairte Reference)
   gewinnt IMMER aus der Extraktion — das frische Crawl-Datum ist die korrekte
   Provenienz; ein altes Datum zu «schuetzen» waere falsch (`refreshed` im
@@ -89,6 +93,11 @@ class MergeReport:
     # ID-Paare (steps/references), deren Labels semantisch fremd sind — NICHT
     # gemerged (bestehend blieb, Extraktion verworfen); manueller Abgleich.
     suspect_pairs: list[str] = field(default_factory=list)
+    # reference_ids aus der Extraktion, die auf eine Reference zeigen wuerden,
+    # deren Paar NICHT gemerged wurde (verdaechtig oder nur bestehend) — die
+    # Nummer meint in der Handdatei etwas anderes. Entfernt statt falsch
+    # verlinkt; manueller Abgleich.
+    dropped_reference_links: list[str] = field(default_factory=list)
 
     @property
     def touched_existing(self) -> bool:
@@ -125,6 +134,54 @@ def _label_similarity(a: str, b: str) -> float:
     ta, tb = set(na.split()), set(nb.split())
     tok = len(ta & tb) / min(len(ta), len(tb))
     return max(seq, tok)
+
+
+# Funktionswoerter, die in Schritt-Labels haeufig sind, aber nichts ueber den
+# Schritt sagen. Ohne sie trug «Hund … oder …» ein fremdes Paar ueber die Schwelle.
+_GUARD_STOPWORDS = frozenset(
+    "und oder der die das den dem des ein eine einen einem einer eines am im in "
+    "an auf mit von vom zu zur zum fuer bei beim nach aus ueber als sich bzw ggf "
+    "sie ihr ihre ihren ihrem ihrer".split()
+)
+# Gemeinsames Praefix, ab dem zwei Woerter als gleicher Stamm gelten
+# («anmelden»/«anmeldung», «beitragsfaktor»/«beitragsfaktorbestaetigung»).
+_GUARD_STEM_PREFIX = 6
+
+
+def _guard_similarity(a: str, b: str) -> float:
+    """Aehnlichkeit fuer den Label-Guard in [0, 1] — strenger als
+    `_label_similarity` (die `evaluate` fuer die Paarungs-Heuristik nutzt).
+
+    Nur Inhaltswoerter zaehlen (ohne `_GUARD_STOPWORDS`); zwei Woerter treffen
+    sich bei Gleichheit oder gemeinsamem Stamm (Praefix >= _GUARD_STEM_PREFIX).
+    Ueberdeckung relativ zum kuerzeren Label, damit eine laengere Formulierung
+    desselben Schritts nicht verdaechtig wird. KEINE Zeichen-Aehnlichkeit
+    (difflib): sie liegt bei deutschen Labels schon wegen gemeinsamer Silben um
+    0.5 und liess «Hund angeschafft oder mit Hund zugezogen» vs. «Hund online
+    oder am Schalter anmelden» als gleichen Schritt durch. Im Zweifel faellt
+    ein Paar unter die Schwelle — das ist die sichere Richtung (nicht gemerged,
+    geflaggt). Leere Labels sind nicht beurteilbar -> 1.0.
+    """
+    na, nb = _norm_label(a), _norm_label(b)
+    if not na or not nb:
+        return 1.0
+    ta, tb = set(na.split()), set(nb.split())
+    ca, cb = ta - _GUARD_STOPWORDS, tb - _GUARD_STOPWORDS
+    if ca and cb:
+        ta, tb = ca, cb
+    if len(ta) > len(tb):
+        ta, tb = tb, ta
+
+    def _hit(w: str) -> bool:
+        return any(
+            w == v
+            or (
+                min(len(w), len(v)) >= _GUARD_STEM_PREFIX and w[:_GUARD_STEM_PREFIX] == v[:_GUARD_STEM_PREFIX]
+            )
+            for v in tb
+        )
+
+    return sum(1 for w in ta if _hit(w)) / len(ta)
 
 
 def _item_label_de(item: dict) -> str:
@@ -269,7 +326,7 @@ def _merge_keyed_list(
         if k in incoming_by_key:
             if label_guard:
                 ex_label, in_label = _item_label_de(item), _item_label_de(incoming_by_key[k])
-                sim = _label_similarity(ex_label, in_label)
+                sim = _guard_similarity(ex_label, in_label)
                 if sim < LABEL_SIMILARITY_MIN:
                     out.append(item)  # unangetastet; Extraktions-Fassung verworfen
                     report.suspect_pairs.append(
@@ -390,6 +447,62 @@ def _reconcile_step_actors(out: dict, report: MergeReport) -> None:
             )
 
 
+def _drop_untrusted_reference_links(existing: dict, incoming: dict, out: dict, report: MergeReport) -> None:
+    """Entfernt reference_ids aus der Extraktion, deren Reference-Paar nicht
+    gemerged wurde.
+
+    reference_id ist wie step_id LLM-vergeben. Uebernimmt ein Schritt seine
+    reference_ids aus der Extraktion (neuer Schritt, oder Luecke in einem
+    gemergten Paar), meint jede Nummer die Reference der EXTRAKTION. Im
+    gemergten Stand stimmt das nur, wenn diese Reference unter derselben
+    Nummer gemerged (Label-Guard bestanden) oder neu angehaengt wurde. Sonst
+    zeigt die Nummer auf eine fremde Hand-Reference — ein falscher Beleg, den
+    der Vertrags-Validator nicht bemerkt. Solche Links werden entfernt und als
+    `dropped_reference_links` geflaggt. reference_ids, die schon in der
+    Handdatei standen, bleiben unangetastet.
+    """
+    ex_by_id = {r.get("reference_id"): r for r in existing.get("references", []) if isinstance(r, dict)}
+    in_by_id = {r.get("reference_id"): r for r in incoming.get("references", []) if isinstance(r, dict)}
+    ex_refs, in_refs = set(ex_by_id), set(in_by_id)
+    # Dieselbe Entscheidung wie der Label-Guard in _merge_keyed_list.
+    suspect = {
+        k
+        for k in in_refs & ex_refs
+        if _guard_similarity(_item_label_de(ex_by_id[k]), _item_label_de(in_by_id[k])) < LABEL_SIMILARITY_MIN
+    }
+    # Vertrauenswuerdig: Paar sauber gemerged (in beiden, nicht verdaechtig) oder
+    # neu aus der Extraktion angehaengt (nur dort -> Nummer unveraendert gueltig).
+    trusted = (in_refs - suspect) & ex_refs | (in_refs - ex_refs)
+
+    ex_steps = {s.get("step_id"): s for s in existing.get("steps", []) if isinstance(s, dict)}
+    for step in out.get("steps", []):
+        if not isinstance(step, dict) or "reference_ids" not in step:
+            continue
+        sid = step.get("step_id")
+        hand = ex_steps.get(sid)
+        if hand is not None and "reference_ids" in hand:
+            continue  # stammt aus der Handdatei
+        if hand is not None and step is hand:
+            continue  # unangetastetes Hand-Objekt (z.B. verdaechtiges Paar)
+        ids = step["reference_ids"]
+        if not isinstance(ids, list):
+            continue
+        keep = [i for i in ids if i in trusted]
+        dropped = [i for i in ids if i not in trusted]
+        if not dropped:
+            continue
+        report.dropped_reference_links.append(
+            f"steps[{sid}].reference_ids: {dropped} entfernt — Reference-Paar nicht gemerged, "
+            "die Nummer meint in der Handdatei eine andere Reference; manuell verlinken"
+        )
+        if keep:
+            step["reference_ids"] = keep
+        else:
+            del step["reference_ids"]
+            if hand is not None:
+                report.added = [a for a in report.added if a != f"steps[{sid}].reference_ids"]
+
+
 def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
     """Mergt die Extraktion (`incoming`) verlustfrei in die bestehende,
     handgepflegte Datei (`existing`). Bestehende Daten sind die Basis.
@@ -461,6 +574,8 @@ def merge_process(existing: dict, incoming: dict) -> tuple[dict, MergeReport]:
             name="actors",
             report=report,
         )
+
+    _drop_untrusted_reference_links(existing, incoming, out, report)
 
     # Freitext-Actors der Extraktion gegen actors[].id abgleichen (gender-neutral,
     # exakt). Unbekannte werden geflaggt, nicht geraten.
