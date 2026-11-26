@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Phase C: four more services in `sources.yaml`.** `abfall`, `betreibung`,
+  `umwelt` (noise reporting) and `heiraten` — low-risk, each with an existing,
+  editorially maintained hand file in maschinerie-zuerich and sources only on
+  `www.stadt-zuerich.ch` (ToU verdict in place). For them `pr` produces a
+  reconciliation PR and `eval` measures against the hand file. All official
+  URLs were checked on 2026-11-26 (HTTP 200, robots allowed, tessera user
+  agent, 2 s delay). Not crawled yet. `heiraten` is marked medium risk: two of
+  its hand references sit only in a Fedlex PDF.
+
 ### Fixed
 - **Merge no longer links a step to a foreign reference.** `reference_ids` a
   step takes over from the extraction (new step, or a gap in a merged pair)
@@ -22,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Schalter anmelden». `evaluate`'s pairing heuristic is unchanged.
 
 ### Changed
+- **Pilot report: from merge to reconciliation.** New addendum on the merge
+  probe of `hund-anmelden` (a foreign step merged, a reference linked wrongly,
+  validator green), the ID-pair analysis for `kita-platz` and `fundsache`, and
+  the switch to reconciliation (#102, #103, maschinerie-zuerich #394) with the
+  three maintainer decisions. Open item 6: the first real `pr` run. The
+  rejected-quote proposal is marked as implemented (#88).
 - **`tessera pr` reconciles against an existing hand file instead of merging.**
   `step_id` and `reference_id` are assigned anew by the model on every run, so
   they are no keys against an independently maintained hand file (merge probe

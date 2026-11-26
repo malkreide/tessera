@@ -220,6 +220,94 @@ processes:
       Struktur bewusst im Prompt — Akteurs- und Strukturwerte sind hier nicht
       unabhaengig vom Massstab.
 
+  # --- Phase C (2026-11-26, Maintainer-Entscheid) ------------------------------
+  # Vier risikoarme Leistungen mit bestehender, redaktionell gepflegter Zieldatei
+  # in maschinerie-zuerich, Quellen nur auf www.stadt-zuerich.ch (ToU-Verdikt
+  # vorhanden). `pr` liefert fuer sie einen Abgleich-PR (merge.sync_existing),
+  # `eval` misst gegen die Zieldatei. Alle official_urls am 2026-11-26 mit dem
+  # tessera-User-Agent und 2 s Pause auf HTTP 200 geprueft, robots.txt erlaubt.
+  # Gecrawlt wird erst beim naechsten lokalen Lauf des Maintainers.
+
+  - id: abfall
+    service_name: "Abfall entsorgen (Kehricht, Recycling, Sperrgut)"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung.html"
+      - "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/zueri-sack.html"
+      - "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/wo-und-wann-entsorgen/abfuhr-sperrgut-metall-elektro-grubengut.html"
+      - "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/entsorgungskalender.html"
+    catalog_keywords: ["abfall", "kehricht", "entsorgung", "sperrgut", "recycling"]
+    notes: >-
+      Gebuehren und Preise NUR als references (Label ohne Zahl + Deep-Link +
+      woertliches Zitat), nie als Wert im Schritt-Label. Abfuhrtage und -zeiten
+      haengen vom Quartier ab: keine Wochentage, Daten oder Uhrzeiten als Wert
+      im Label. Die Lebenslage umfasst Hauskehricht, Wertstoffe, Sperrgut und
+      Sonderabfall.
+    review_notes: >-
+      Risikoarm, aber gebuehrenbehaftet. Bestehende Zieldatei (Herkunft
+      redaktion): 13 Schritte, actors[] (person, erz), 2 References
+      (Gebuehr Zueri-Sack, Gebuehr Sperrgut-Abholung) — beide auf den
+      gecrawlten Seiten. Viele Zweige (Abfallart, Abholung oder Sammelstelle)
+      ueber vier Seiten: guter Test fuer Reihenfolge und Kanten.
+
+  - id: betreibung
+    service_name: "Betreibungsregisterauszug bestellen"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/betreibungen/betreibungsregisterauszug-bestellen.html"
+    catalog_keywords: ["betreibung", "betreibungsregister", "auszug"]
+    notes: >-
+      Struktur-only: keine personenbezogenen Angaben, keine Beispiele mit
+      Namen oder Adressen. Gebuehren und Fristen NUR als references (Label ohne
+      Zahl + Deep-Link + woertliches Zitat), nie als Wert im Schritt-Label.
+    review_notes: >-
+      Kurzer Kontrollfall (eine Seite). Bestehende Zieldatei (Herkunft
+      redaktion): 7 Schritte, actors[] (bestellende, betreibungsamt),
+      3 References (Inhalt und Zeitraum, Ausweis, Gebuehr und Versand) — alle
+      auf der gecrawlten Seite. Betreibungsrecht (SchKG), aber ohne Rechtsmittel
+      im Prozess.
+
+  - id: umwelt
+    service_name: "Laerm melden (Laermbelaestigung)"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/de/stadtleben/zusammenleben/oeffentlicher-raum/nachbarschaft-nachtleben/laerm.html"
+    catalog_keywords: ["laerm", "laermklage", "laermschutz", "nachtruhe"]
+    notes: >-
+      Ruhezeiten und Uhrzeiten (z.B. Nachtruhe) NUR als references (Label ohne
+      Zahl + Deep-Link + woertliches Zitat), nie als Wert im Schritt-Label.
+      Telefonnummern nicht ins Label. Die Lebenslage umfasst akuten Laerm und
+      Laerm von ortsfesten Anlagen.
+    review_notes: >-
+      Kurzer Kontrollfall (eine Seite). id `umwelt` = Dateiname und
+      lebenslage_ref der Zieldatei (Titel «Laerm melden»). Bestehende Zieldatei
+      (Herkunft redaktion): 8 Schritte, actors[] (betroffene, ugz, stapo),
+      5 References (u.a. Nachtruhe, Ruecksicht am Abend und Sonntag) — alle auf
+      der gecrawlten Seite.
+
+  - id: heiraten
+    service_name: "Heiraten (Ehevorbereitung und Trauung)"
+    target_audience: bevoelkerung
+    official_urls:
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/heiraten.html"
+      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/heiraten/ehevorbereitung.html"
+    catalog_keywords: ["heirat", "ehe", "trauung", "zivilstand", "ehevorbereitung"]
+    notes: >-
+      SENSIBEL: Aufenthaltsrecht und Staatsangehoerigkeit nur so beschreiben,
+      wie die Quelle sie nennt; nichts verallgemeinern oder bewerten.
+      Struktur-only, keine personenbezogenen Angaben. Gebuehren, Fristen und
+      Altersgrenzen NUR als references (Label ohne Zahl + Deep-Link +
+      woertliches Zitat), nie als Wert im Schritt-Label.
+    review_notes: >-
+      Mittleres Risiko — als letzte der vier laufen lassen, genau reviewen.
+      Bestehende Zieldatei (Herkunft redaktion): 11 Schritte, actors[] (paar,
+      zivilstandsamt, migrationsamt), 3 References. Zwei davon (Ehefaehigkeit,
+      Gueltigkeitsfrist des Ehevorbereitungsverfahrens) stehen nur in einer
+      Fedlex-PDF (ZGB), die v1 nicht liest — im Abgleich erscheinen sie als
+      «nicht wiedergefunden», das ist erwartet. Belegbar auf den Seiten: die
+      Gebuehren (ehevorbereitung.html). Zweig Aufenthaltsnachweis
+      (migrationsamt) besonders pruefen.
+
 # NICHT freigeschaltet: baugesuch (Baubewilligung), sozialhilfe — beide bleiben
 # bewusst von der Automatik ausgeschlossen (hoechstes bzw. existenzielles Risiko).
 # veranstaltung ist die einzige vorgesehene Hochrisiko-Ausnahme, derzeit bis zum
