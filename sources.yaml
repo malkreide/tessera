@@ -232,7 +232,9 @@ processes:
     service_name: "Abfall entsorgen (Kehricht, Recycling, Sperrgut)"
     target_audience: bevoelkerung
     official_urls:
-      - "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung.html"
+      # Ohne die Uebersichtsseite entsorgung.html (Quelle der Zieldatei): nur
+      # Navigationskacheln und News-Teaser, extrahierbar blieben 52 Zeichen
+      # Sprunglinks (Fingerprint-Lauf 2026-11-26, #105).
       - "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/zueri-sack.html"
       - "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/wo-und-wann-entsorgen/abfuhr-sperrgut-metall-elektro-grubengut.html"
       - "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/entsorgungskalender.html"
@@ -248,7 +250,7 @@ processes:
       redaktion): 13 Schritte, actors[] (person, erz), 2 References
       (Gebuehr Zueri-Sack, Gebuehr Sperrgut-Abholung) — beide auf den
       gecrawlten Seiten. Viele Zweige (Abfallart, Abholung oder Sammelstelle)
-      ueber vier Seiten: guter Test fuer Reihenfolge und Kanten.
+      ueber drei Seiten: guter Test fuer Reihenfolge und Kanten.
 
   - id: betreibung
     service_name: "Betreibungsregisterauszug bestellen"
@@ -289,7 +291,9 @@ processes:
     service_name: "Heiraten (Ehevorbereitung und Trauung)"
     target_audience: bevoelkerung
     official_urls:
-      - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/heiraten.html"
+      # Ohne die Uebersichtsseite heiraten.html (Quelle der Zieldatei): nur
+      # Navigationskacheln, extrahierbar blieben 52 Zeichen Sprunglinks
+      # (Fingerprint-Lauf 2026-11-26, #105).
       - "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/heiraten/ehevorbereitung.html"
     catalog_keywords: ["heirat", "ehe", "trauung", "zivilstand", "ehevorbereitung"]
     notes: >-
