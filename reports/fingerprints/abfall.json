@@ -1,0 +1,24 @@
+{
+  "id": "abfall",
+  "retrieved_at": "2026-11-26",
+  "urls": [
+    {
+      "url": "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/zueri-sack.html",
+      "sha256": "dd6d320ff743295cf1211f7da140420cebab48a4bab0070ec9012ed9fb11ace4",
+      "chars": 3528,
+      "text_file": "abfall/01-zueri-sack.txt"
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/wo-und-wann-entsorgen/abfuhr-sperrgut-metall-elektro-grubengut.html",
+      "sha256": "f4cea7fbfcead28baef2cf1a4344f764a25512d37ec8229ca99f354f3631d34d",
+      "chars": 3788,
+      "text_file": "abfall/02-abfuhr-sperrgut-metall-elektro-grubengut.txt"
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/umwelt-und-energie/entsorgung/entsorgungskalender.html",
+      "sha256": "0cd8f7669a1b94a076b27d128823af2bcc28a6cc8bca7809018c82ef88858ca1",
+      "chars": 1586,
+      "text_file": "abfall/03-entsorgungskalender.txt"
+    }
+  ]
+}
