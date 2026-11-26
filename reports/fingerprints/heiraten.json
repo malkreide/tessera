@@ -1,0 +1,18 @@
+{
+  "id": "heiraten",
+  "retrieved_at": "2026-11-26",
+  "urls": [
+    {
+      "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/heiraten.html",
+      "sha256": "ade4e03a4eed85be6196ef64bee6a248300da60cc50b8259e5d18c22aefd518f",
+      "chars": 52,
+      "text_file": "heiraten/01-heiraten.txt"
+    },
+    {
+      "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/heiraten/ehevorbereitung.html",
+      "sha256": "8e52c8b59dd8668fd7a62791b7c644389be0d09e0086d9761a1ec5b6b3eb0114",
+      "chars": 3261,
+      "text_file": "heiraten/02-ehevorbereitung.txt"
+    }
+  ]
+}

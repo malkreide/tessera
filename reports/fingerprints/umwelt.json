@@ -1,0 +1,12 @@
+{
+  "id": "umwelt",
+  "retrieved_at": "2026-11-26",
+  "urls": [
+    {
+      "url": "https://www.stadt-zuerich.ch/de/stadtleben/zusammenleben/oeffentlicher-raum/nachbarschaft-nachtleben/laerm.html",
+      "sha256": "e3999aed59f1c9aea2812c2fdf305303c0fb833de75d97bff1a776f6e348eb51",
+      "chars": 8387,
+      "text_file": "umwelt/01-laerm.txt"
+    }
+  ]
+}
