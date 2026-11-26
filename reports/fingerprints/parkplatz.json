@@ -1,26 +1,24 @@
 {
   "id": "parkplatz",
-  "retrieved_at": "2026-10-05",
+  "retrieved_at": "2026-11-26",
   "urls": [
     {
       "url": "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen.html",
-      "sha256": "c497e9b68dcda69f16d5c3132dfe20066ceabc52b54e6884763750cea9dc2318",
-      "chars": 852
+      "sha256": "5f9425d320c7c831eb5e4910931df993ab2af5c29f05631f67651291dd054858",
+      "chars": 870,
+      "text_file": "parkplatz/01-parkbewilligungen.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte.html",
-      "sha256": "6fce2f1c8ddec43c12e92bd351a1799211679669300a6e217a6b4e2ca3055dac",
-      "chars": 1923
-    },
-    {
-      "url": "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/parkbewilligungen/anwohnerparkkarte/antragsformular-ap-privatpersonen.html",
-      "sha256": "ade4e03a4eed85be6196ef64bee6a248300da60cc50b8259e5d18c22aefd518f",
-      "chars": 52
+      "sha256": "0d7ba4c9852a401c8d68cd3d18325cd3a80592c8e28d4ae8b2c560360bf15590",
+      "chars": 2009,
+      "text_file": "parkplatz/02-anwohnerparkkarte.txt"
     },
     {
       "url": "https://www.stadt-zuerich.ch/de/mobilitaet/parkieren/rechtliche-grundlagen/agb.html",
-      "sha256": "4773ece699e26ff1a968f40d31584f4536e97a10c9182ac3b853ddc82eb641dd",
-      "chars": 1311
+      "sha256": "8ef6e5a296ab1a2604c69ebdc1753ae21879304ed395ac2d8b0ecfa7c8883c0b",
+      "chars": 1343,
+      "text_file": "parkplatz/03-agb.txt"
     }
   ]
 }
