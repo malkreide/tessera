@@ -1,0 +1,12 @@
+{
+  "id": "betreibung",
+  "retrieved_at": "2026-11-26",
+  "urls": [
+    {
+      "url": "https://www.stadt-zuerich.ch/de/lebenslagen/einwohner-services/betreibungen/betreibungsregisterauszug-bestellen.html",
+      "sha256": "5b0458bd57ceffa93855b040037d272da9740c499189200c1ade31489b94f64d",
+      "chars": 6545,
+      "text_file": "betreibung/01-betreibungsregisterauszug-bestellen.txt"
+    }
+  ]
+}
