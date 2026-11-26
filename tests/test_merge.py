@@ -557,6 +557,93 @@ def test_e_apply_herkunft_raet_nicht() -> None:
     assert note and "nicht geraten" in note and "#403" in note
 
 
+def test_f_shared_function_words_are_suspect() -> None:
+    """(f) Funktionswoerter tragen kein fremdes Paar ueber die Schwelle: «Hund …
+    oder …» teilt nur «Hund» und «oder» mit dem Startknoten (Merge-Probe
+    hund-anmelden, 2026-11-24 — vorher Aehnlichkeit 0.52, gemerged)."""
+    existing = _existing()
+    for s in existing["steps"]:
+        if s["step_id"] == 1:
+            s["label"]["de"] = "Hund angeschafft oder mit Hund zugezogen"
+            del s["reference_ids"]
+    merged, report = merge_process(existing, _extraction())
+    assert any("steps[1]" in p for p in report.suspect_pairs), report.suspect_pairs
+    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
+    assert s1["label"]["de"] == "Hund angeschafft oder mit Hund zugezogen"
+    assert "reference_ids" not in s1, s1  # nichts aus der fremden Fassung
+
+
+def test_f_same_stem_is_not_suspect() -> None:
+    """(f) Gleicher Wortstamm («anmelden»/«Anmeldung») ist kein Verdacht."""
+    existing = _existing()
+    extraction = _extraction()
+    for s in extraction["steps"]:
+        if s["step_id"] == 1:
+            s["label"]["de"] = "Anmeldung des Hundes"
+    for s in existing["steps"]:
+        if s["step_id"] == 1:
+            s["label"]["de"] = "Hund anmelden"
+    _, report = merge_process(existing, extraction)
+    assert not report.suspect_pairs, report.suspect_pairs
+
+
+def test_h_gap_filled_reference_link_to_suspect_reference_dropped() -> None:
+    """(h) Fuellt die Extraktion reference_ids in einem gemergten Schritt, und
+    die Reference unter dieser Nummer ist ein verdaechtiges Paar, meint die
+    Nummer in der Handdatei etwas anderes -> Link entfernt und geflaggt."""
+    existing = _existing()
+    for s in existing["steps"]:
+        if s["step_id"] == 1:
+            del s["reference_ids"]  # Luecke, die die Extraktion fuellen wuerde
+    extraction = _extraction()
+    extraction["references"][0]["label"]["de"] = "Hoehe der Hundeabgabe"  # fremd zu «Anmeldefrist»
+    merged, report = merge_process(existing, extraction)
+    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
+    assert "reference_ids" not in s1, s1
+    assert "steps[1].reference_ids" not in report.added, report.added
+    assert any("steps[1].reference_ids: [1]" in d for d in report.dropped_reference_links), (
+        report.dropped_reference_links
+    )
+
+
+def test_h_new_step_link_to_suspect_reference_dropped() -> None:
+    """(h) Ein neuer Schritt behaelt Links auf neue References, verliert aber
+    den auf ein verdaechtiges Paar."""
+    existing = _existing()
+    extraction = _extraction()
+    extraction["references"][0]["label"]["de"] = "Hoehe der Hundeabgabe"
+    for s in extraction["steps"]:
+        if s["step_id"] == 3:
+            s["reference_ids"] = [1, 2]
+    merged, report = merge_process(existing, extraction)
+    s3 = next(s for s in merged["steps"] if s["step_id"] == 3)
+    assert s3["reference_ids"] == [2], s3  # 2 ist neu angehaengt -> Nummer gueltig
+    assert any("steps[3].reference_ids: [1]" in d for d in report.dropped_reference_links)
+
+
+def test_h_trusted_reference_links_kept() -> None:
+    """(h) Sauber gemergte und neue References bleiben verlinkt; Links aus der
+    Handdatei werden nie angefasst."""
+    existing = _existing()
+    for s in existing["steps"]:
+        if s["step_id"] == 2:
+            s.pop("reference_ids", None)
+    extraction = _extraction()
+    for s in extraction["steps"]:
+        if s["step_id"] == 2:
+            s["reference_ids"] = [1]  # Paar 1 «Anmeldefrist» gemerged
+    merged, report = merge_process(existing, extraction)
+    assert not report.dropped_reference_links, report.dropped_reference_links
+    s2 = next(s for s in merged["steps"] if s["step_id"] == 2)
+    s3 = next(s for s in merged["steps"] if s["step_id"] == 3)
+    assert s2["reference_ids"] == [1] and s3["reference_ids"] == [2]
+    # Hand-Link bleibt, auch wenn die Reference verdaechtig waere.
+    extraction["references"][0]["label"]["de"] = "Hoehe der Hundeabgabe"
+    merged, report = merge_process(_existing(), extraction)
+    s1 = next(s for s in merged["steps"] if s["step_id"] == 1)
+    assert s1["reference_ids"] == [1]
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

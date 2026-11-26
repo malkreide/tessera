@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Merge no longer links a step to a foreign reference.** `reference_ids` a
+  step takes over from the extraction (new step, or a gap in a merged pair)
+  name the extraction's references. They are now kept only if that reference
+  was merged under the same number or appended as new; otherwise the link is
+  removed and flagged as `dropped_reference_links` in the PR body. Found in a
+  merge probe of `hund-anmelden`, where a step ended up pointing at a hand
+  reference with different content and the contract validator stayed green.
+- **Label guard counts content words only.** The guard now compares content
+  words (same word or same stem), without stop words and without character
+  similarity. Character similarity is around 0.5 for many German labels and let
+  «Hund angeschafft oder mit Hund zugezogen» merge into «Hund online oder am
+  Schalter anmelden». `evaluate`'s pairing heuristic is unchanged.
+
 ### Changed
 - **`kita-platz` review notes follow the split appeal step.** The curated
   `review_notes` in `sources.yaml` (shown in the PR body, never in the prompt)
