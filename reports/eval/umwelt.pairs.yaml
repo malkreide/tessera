@@ -1,0 +1,104 @@
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+#
+# Vorschlag von Claude fuer den Lauf L5 vom 2026-11-27, aus dem
+# `--propose-pairs`-Entwurf korrigiert. Extraktions-Labels aus der
+# Konsolenausgabe des Laufs uebernommen, Hand-Labels aus maschinerie-zuerich
+# main; out/*.json und die Quellseiten wurden dabei NICHT eingesehen.
+# `nicht_belegbar` nur fuer Start-, Entscheidungs- und Endknoten — ob ein
+# fehlender Inhaltsschritt auf den Quellseiten steht, ist ungeprueft.
+# Vom Maintainer am 2026-11-27 bestaetigt (inkl. akteure:).
+
+leistung: umwelt
+status: bestaetigt
+gruppen:
+  # --- Entsprechungen ---------------------------------------------------------
+  - extraktion:
+      1: "Art des Lärms bestimmen"
+    hand:
+      2: "Welche Art von Lärm?"
+    notiz: "Bestimmung der Laermart = Entscheidung"
+  - extraktion:
+      9: "Polizei anrufen bei Lärmproblemen"
+    hand:
+      3: "Akuter Lärm jetzt: Polizei anrufen"
+    notiz: "die Heuristik paarte faelschlich mit dem Polizeischritt Hand 4"
+  - extraktion:
+      10: "Eingehende Lärmklagen in Einsatzjournalen sammeln und weiterbearbeiten"
+    hand:
+      4: "Stadtpolizei nimmt die Lärmklage auf"
+  - extraktion:
+      7: "Bei Lärm von ortsfesten Anlagen den Umwelt- und Gesundheitsschutz kontaktieren"
+    hand:
+      6: "Lärm von ortsfester Anlage: UGZ kontaktieren"
+
+  # --- Nur in der Extraktion --------------------------------------------------
+  - extraktion:
+      2: "Lärmverursachende Personen im öffentlichen Raum direkt ansprechen"
+    hand: {}
+    notiz: "Selbsthilfe (direktes Gespraech); Handdatei modelliert sie nicht"
+  - extraktion:
+      3: "Unterstützung durch sip züri bei Konflikten im öffentlichen Raum"
+    hand: {}
+    notiz: "Vermittlung durch sip zueri; Handdatei modelliert sie nicht"
+  - extraktion:
+      4: "Bei Lärm aus Gastbetrieb das Gespräch mit den Verantwortlichen suchen"
+    hand: {}
+    notiz: "Selbsthilfe (direktes Gespraech); Handdatei modelliert sie nicht"
+  - extraktion:
+      5: "Bei Lärm aus Nachbarwohnung die Nachbarn direkt ansprechen"
+    hand: {}
+    notiz: "Selbsthilfe (direktes Gespraech); Handdatei modelliert sie nicht"
+  - extraktion:
+      6: "Verhalten der Verwaltung bzw. dem Vermieter melden, wenn kein Gespräch möglich ist"
+    hand: {}
+    notiz: "Weg ueber die Verwaltung; Handdatei modelliert ihn nicht"
+  - extraktion:
+      8: "Quartierverein kontaktieren, um gemeinsam aktiv zu werden"
+    hand: {}
+    notiz: "Weg ueber den Quartierverein; Handdatei modelliert ihn nicht"
+  - extraktion:
+      11: "Anzeige wegen Nachtruhestörung ausfüllen und einreichen"
+    hand: {}
+    notiz: "Folgeschritt nach der Laermklage; Handdatei endet mit Hand 5"
+  - extraktion:
+      12: "Als Zeugin oder Zeuge aufgeboten werden, falls die Gegenpartei bestreitet"
+    hand: {}
+    notiz: "Folgeschritt nach der Anzeige; Handdatei modelliert ihn nicht"
+
+  # --- Nur in der Handdatei ---------------------------------------------------
+  - extraktion: {}
+    hand:
+      1: "Sie fühlen sich durch Lärm gestört"
+    nicht_belegbar: true
+    notiz: "Startknoten"
+  - extraktion: {}
+    hand:
+      5: "Lärmklage aufgenommen"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+  - extraktion: {}
+    hand:
+      7: "UGZ prüft und berät"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      8: "Anliegen bei der zuständigen Fachstelle"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+
+akteure:
+  "Betroffene Person": betroffene
+  "sip züri": null  # Vermittlung im oeffentlichen Raum, kein Akteur der Handdatei
+  "Umwelt- und Gesundheitsschutz": ugz
+  "Fachgruppe Lärmschutz": stapo

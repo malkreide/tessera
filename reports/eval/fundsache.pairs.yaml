@@ -6,66 +6,69 @@
 # woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
 # zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
 # die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
 # Nach dem Pruefen `status: bestaetigt` setzen.
 #
-# Vorschlag von Claude fuer den Lauf vom 2026-10-13 (nach review_notes, PR #70),
-# aus dem `--propose-pairs`-Entwurf korrigiert — out/fundsache.json und die
-# Quellseiten wurden dabei nicht eingesehen. Gleiche Regeln wie beim Lauf vom
-# 2026-10-12. Vom Maintainer am 2026-10-14 bestaetigt (inkl. akteure:).
+# Vorschlag von Claude fuer den Lauf L5 vom 2026-11-27, aus dem
+# `--propose-pairs`-Entwurf korrigiert. Extraktions-Labels aus der
+# Konsolenausgabe des Laufs uebernommen, Hand-Labels aus maschinerie-zuerich
+# main; out/*.json und die Quellseiten wurden dabei NICHT eingesehen.
+# `nicht_belegbar` nur fuer Start-, Entscheidungs- und Endknoten — ob ein
+# fehlender Inhaltsschritt auf den Quellseiten steht, ist ungeprueft.
+# Vom Maintainer am 2026-11-27 bestaetigt (inkl. akteure:).
 
 leistung: fundsache
 status: bestaetigt
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
-      9: "Gefundene Sachen aus Tram oder Bus dem Fahrpersonal geben"
-      10: "Gefundene Sachen bei ZVV-Contact oder der VBZ-Beratungsstelle abgeben"
-      11: "Gefundene Sachen auf öffentlichem Grund bei einem Polizeiposten abgeben"
-      12: "Gefundene Sachen beim Fundbüro der Stadt Zürich abgeben"
-      13: "Gefundene Sachen per Post an die angegebene Adresse schicken"
+      1: "Gefundene Sache in Tram oder Bus dem Fahrpersonal geben oder bei ZVV-Contact bzw. VBZ-Beratungsstelle abgeben"
+      2: "Gefundene Sache auf öffentlichem Grund bei einem Polizeiposten oder beim Fundbüro der Stadt Zürich abgeben"
+      3: "Gefundene Sache per Post an das Fundbüro schicken, wenn persönliche Abgabe nicht möglich ist"
     hand:
       3: "Fundsache melden oder abgeben"
-    notiz: "Extraktion fuehrt die Abgabekanaele einzeln, die Handdatei fasst sie zusammen"
+    notiz: "Abgabekanaele einzeln extrahiert (wie L2), Handdatei fasst sie zusammen"
   - extraktion:
-      1: "Verlust online als Verlust-Anzeige melden"
-      2: "Verlust beim Fundbüro, bei ZVV-Contact oder bei Mitarbeitenden vom Ereignismanagement und Fahrdienst melden"
+      4: "Online eine Verlust-Anzeige für übrige Artikel machen"
     hand:
       6: "Verlust melden (Suchauftrag)"
-    notiz: "Meldekanaele fuer den Verlust einzeln extrahiert"
+    notiz: "Verlustmeldung; die Heuristik paarte faelschlich den Ausweis-Sonderfall (Ext 9)"
   - extraktion:
       7: "Verlierer:in benachrichtigen, wenn der Gegenstand gefunden wurde"
     hand:
       11: "Suchauftrag läuft (Benachrichtigung bei einem Fund)"
-    notiz: "nur die Benachrichtigung; den Abgleich (Hand 7) nennt dieser Lauf nicht"
+    notiz: "nur die Benachrichtigung (wie L2); die Heuristik paarte mit dem Endzustand Hand 10"
   - extraktion:
-      8: "Im Fundbüro nachfragen und Fundgegenstand abholen"
+      8: "Fundgegenstand im Fundbüro abholen und Gebühr bezahlen"
     hand:
       9: "Gegen Ausweis abholen"
-    notiz: "Abholung im Fundbuero"
+    notiz: "Abholung; die Heuristik paarte faelschlich mit dem Startknoten Hand 1"
 
   # --- Nur in der Extraktion --------------------------------------------------
   - extraktion:
-      3: "Verlust eines Ausweises sofort der Polizei melden"
+      5: "Massenartikel direkt im Fundbüro suchen und abholen"
     hand: {}
-    notiz: "Sonderfall Ausweis; Handdatei modelliert ihn nicht"
-  - extraktion:
-      4: "Polizeibericht für die Beantragung eines neuen Ausweises verwenden"
-    hand: {}
-    notiz: "Sonderfall Ausweis; Handdatei modelliert ihn nicht"
-  - extraktion:
-      5: "Verlorenen Ausweis einziehen, da er ungültig ist"
-    hand: {}
-    notiz: "Sonderfall Ausweis (behoerdlicher Folgeschritt); Handdatei modelliert ihn nicht"
+    notiz: "Sonderfall Massenartikel (Selbstsuche statt Verlustmeldung); Handdatei modelliert ihn nicht"
   - extraktion:
       6: "Express-Suche für dringend benötigte Gegenstände aus VBZ- oder Forchbahn-Fahrzeugen beantragen"
     hand: {}
     notiz: "Zusatzleistung; Handdatei modelliert sie nicht"
   - extraktion:
-      14: "Von VBZ und Forchbahn gefundene Gegenstände nach Ablauf der Aufbewahrungsfrist öffentlich verkaufen"
+      9: "Verlust eines Ausweises sofort der Polizei melden und Polizeibericht erhalten"
+    hand: {}
+    notiz: "Sonderfall Ausweis; Handdatei modelliert ihn nicht"
+  - extraktion:
+      10: "Verlorenen und damit ungültigen Ausweis einziehen"
+    hand: {}
+    notiz: "Sonderfall Ausweis (behoerdlicher Folgeschritt); Handdatei modelliert ihn nicht"
+  - extraktion:
+      11: "Nicht abgeholte Fundgegenstände aus dem öffentlichen Verkehr nach Ablauf der Aufbewahrungsfrist öffentlich verkaufen lassen"
     hand: {}
     notiz: "Folge nach Ablauf der Aufbewahrung; Handdatei modelliert sie nicht"
   - extraktion:
-      15: "Nicht abgeholte Gegenstände vom öffentlichen Grund bei einer öffentlichen Versteigerung verkaufen"
+      12: "Nicht abgeholte Fundgegenstände vom öffentlichen Grund nach Ablauf der Aufbewahrungsfrist an öffentlicher Versteigerung verkaufen"
     hand: {}
     notiz: "Folge nach Ablauf der Aufbewahrung; Handdatei modelliert sie nicht"
 
@@ -83,17 +86,17 @@ gruppen:
   - extraktion: {}
     hand:
       4: "Fund erfassen und aufbewahren"
-    notiz: "Aufbewahrung steht in der Quelle (versteigerung.html, rechtsgrundlage.html), Erfassung von Funden nicht ausdruecklich (geprueft 2026-10-14) — teilweise echte Luecke"
+    notiz: "nicht extrahiert; laut L2-Pruefung (2026-10-14) teilweise echte Luecke"
   - extraktion: {}
     hand:
       5: "Fund gemeldet"
     nicht_belegbar: true
-    notiz: "Endzustand; die Quelle nennt Finderlohn nur verneinend fuer das Unternehmen (rechtsgrundlage.html), keinen Anspruch der Finderin/des Finders (geprueft 2026-10-14); Handdatei-Label seit maschinerie-zuerich#357 ohne «ggf. Finderlohn-Anspruch»"
+    notiz: "Endzustand"
   - extraktion: {}
     hand:
       7: "Mit Fundbestand abgleichen"
     nicht_belegbar: true
-    notiz: "fehlt in diesem Lauf (im Lauf vom 2026-10-12 in Ext 12 enthalten); die Quelle nennt den Abgleich nicht ausdruecklich, nur die Benachrichtigung (geprueft 2026-10-14)"
+    notiz: "die Quelle nennt den Abgleich nicht ausdruecklich (geprueft 2026-10-14, L2)"
   - extraktion: {}
     hand:
       8: "Gegenstand vorhanden?"
@@ -110,9 +113,6 @@ gruppen:
     nicht_belegbar: true
     notiz: "Endzustand"
 
-# Rollennamen der Extraktion, die weder ID noch Label der Handdatei-actors[]
-# treffen (person, fundbuero). Vorschlag von Claude, aus den review_notes.
 akteure:
-  "Verlierer:in": person
   "Finder:in": person
-  "fundsachenverkauf.ch": null  # Verkaufsplattform, kein Akteur im Sinne der Handdatei
+  "Verlierer:in": person

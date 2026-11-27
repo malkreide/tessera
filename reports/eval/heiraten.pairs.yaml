@@ -1,0 +1,115 @@
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+#
+# Vorschlag von Claude fuer den Lauf L5 vom 2026-11-27, aus dem
+# `--propose-pairs`-Entwurf korrigiert. Extraktions-Labels aus der
+# Konsolenausgabe des Laufs uebernommen, Hand-Labels aus maschinerie-zuerich
+# main; out/*.json und die Quellseiten wurden dabei NICHT eingesehen.
+# `nicht_belegbar` nur fuer Start-, Entscheidungs- und Endknoten — ob ein
+# fehlender Inhaltsschritt auf den Quellseiten steht, ist ungeprueft.
+# Vom Maintainer am 2026-11-27 bestaetigt (inkl. akteure:).
+
+leistung: heiraten
+status: bestaetigt
+gruppen:
+  # --- Entsprechungen ---------------------------------------------------------
+  - extraktion:
+      1: "Bei auslaendischem Pass Kontaktformular ausfuellen (Heirat ausserhalb der Stadt Zuerich)"
+      12: "Bei Schweizer Pass vor dem Hochzeitstermin anrufen, um den Termin fuer die Ehevorbereitung zu vereinbaren (Heirat ausserhalb der Stadt Zuerich)"
+      4: "Am ausgewaehlten Termin ins Stadthaus kommen"
+      5: "Sich ausweisen und Dokumente mitbringen"
+      6: "Formular zur Eheschliessung ausfuellen und unterschreiben"
+    hand:
+      2: "Gesuch um Ehevorbereitung beim Zivilstandsamt einreichen"
+    notiz: "Gesuch in Einzelschritten (Anmeldung je Pass, Termin, Ausweis, Formular)"
+  - extraktion:
+      11: "Zivilstandsamt am Hochzeitsort ueber Abschluss der Ehevorbereitung informieren (Heirat ausserhalb der Stadt Zuerich)"
+    hand:
+      6: "Ehevorbereitung abschliessen und bestätigen"
+    notiz: "Abschluss der Ehevorbereitung; in der Extraktion nur fuer die Heirat ausserhalb"
+
+  # --- Nur in der Extraktion --------------------------------------------------
+  - extraktion:
+      2: "Bei Bedarf anrufen, wenn Sie eine Dolmetschhilfe brauchen"
+    hand: {}
+    notiz: "Dolmetschhilfe; Handdatei modelliert sie nicht"
+  - extraktion:
+      3: "Liste mit moeglichen Dolmetschhilfen zusenden"
+    hand: {}
+    notiz: "Dolmetschhilfe; Handdatei modelliert sie nicht"
+  - extraktion:
+      13: "Eine Person als Dolmetschhilfe auswaehlen und kontaktieren"
+    hand: {}
+    notiz: "Dolmetschhilfe; Handdatei modelliert sie nicht"
+  - extraktion:
+      7: "Ablauf der Hochzeit besprechen und Bedarf fuer Dolmetschhilfe klaeren"
+    hand: {}
+    notiz: "Besprechung im Vorbereitungsgespraech; Hand 7 (Termin und Lokal vereinbaren) ist enger"
+  - extraktion:
+      8: "Hochzeitsdokumente vorbestellen"
+    hand: {}
+    notiz: "Vorbestellung durch das Paar; Hand 10 (Eheurkunde ausstellen) ist der spaetere Amtsschritt — die Heuristik paarte beide"
+  - extraktion:
+      9: "Alle Gebuehren berechnen und Gesamtbetrag mitteilen"
+    hand: {}
+    notiz: "Gebuehren; Handdatei fuehrt keinen eigenen Schritt"
+  - extraktion:
+      10: "Gesamtbetrag vor Ort bezahlen"
+    hand: {}
+    notiz: "Gebuehren; Handdatei fuehrt keinen eigenen Schritt"
+
+  # --- Nur in der Handdatei ---------------------------------------------------
+  # Seit #106 crawlt heiraten nur noch ehevorbereitung.html; Trauung und
+  # Eheurkunde (Hand 7–10) haben damit keine Quellseite mehr im Crawl.
+  - extraktion: {}
+    hand:
+      1: "Entscheidung zu heiraten"
+    nicht_belegbar: true
+    notiz: "Startknoten"
+  - extraktion: {}
+    hand:
+      3: "Ehefähigkeit und Unterlagen prüfen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      4: "Ausländische Staatsangehörige ohne gesicherten Aufenthalt?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      5: "Rechtmässigen Aufenthalt nachweisen und prüfen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      7: "Trauungstermin und Trauungslokal vereinbaren"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      8: "Zwei volljährige Trauzeugen bestimmen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      9: "Zivile Trauung durchführen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      10: "Eheurkunde ausstellen"
+    notiz: "nicht extrahiert (vgl. Ext 8)"
+  - extraktion: {}
+    hand:
+      11: "Verheiratet"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+
+akteure:
+  "Eheleute": paar

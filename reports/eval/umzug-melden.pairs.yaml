@@ -1,0 +1,144 @@
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+#
+# Vorschlag von Claude fuer den Lauf L5 vom 2026-11-27, aus dem
+# `--propose-pairs`-Entwurf korrigiert. Extraktions-Labels aus der
+# Konsolenausgabe des Laufs uebernommen, Hand-Labels aus maschinerie-zuerich
+# main; out/*.json und die Quellseiten wurden dabei NICHT eingesehen.
+# `nicht_belegbar` nur fuer Start-, Entscheidungs- und Endknoten — ob ein
+# fehlender Inhaltsschritt auf den Quellseiten steht, ist ungeprueft.
+# Vom Maintainer am 2026-11-27 bestaetigt (inkl. akteure:).
+
+leistung: umzug-melden
+status: bestaetigt
+gruppen:
+  # --- Entsprechungen ---------------------------------------------------------
+  - extraktion:
+      1: "Wohnsitz tatsaechlich nach Zuerich verlegen"
+    hand:
+      1: "Umzug steht bevor oder ist erfolgt"
+    notiz: "Ausloeser; in der Extraktion nur fuer den Zuzug aus dem Ausland"
+  - extraktion:
+      2: "Termin fuer die Anmeldung des Zuzugs aus dem Ausland buchen"
+      3: "Zuzug aus dem Ausland persoenlich beim Personenmeldeamt melden"
+      6: "Wohnungswechsel persoenlich beim Personenmeldeamt melden, wenn online nicht moeglich"
+    hand:
+      5: "Persönlich mit Termin melden"
+    notiz: "persoenliche Meldung je Fall (Zuzug Ausland, Wohnungswechsel) einzeln extrahiert"
+  - extraktion:
+      5: "Wohnungswechsel innerhalb der Stadt online melden"
+    hand:
+      4: "Online melden: Stadt Zürich oder eUmzugCH"
+    notiz: "Zuzug aus der Schweiz (eUmzugCH) nennt diese Extraktion nicht"
+  - extraktion:
+      7: "Wohnungswechsel verarbeiten und Bestaetigung per E-Mail zusenden"
+    hand:
+      11: "Eintrag im Einwohnerregister nachführen"
+      12: "Anmeldebestätigung / Wohnsitznachweis ausstellen"
+    notiz: "Verarbeiten und Bestaetigen in einem Schritt"
+  - extraktion:
+      8: "Wegzug innerhalb der Schweiz online ueber eUmzug melden"
+    hand:
+      17: "Online abmelden über eUmzugCH"
+    notiz: "die Heuristik paarte Hand 17 faelschlich mit dem Wegzug ins Ausland (Ext 9)"
+  - extraktion:
+      9: "Wegzug ins Ausland oder Beendigung des Wochenaufenthalts ueber das Online-Formular abmelden"
+    hand:
+      18: "Abmeldeerklärung über das Kontaktformular einreichen"
+    notiz: "gleiche Bedingung wie Hand 18; die Extraktion nennt ein Online-Formular, die Handdatei das Kontaktformular — gegen die Quellseite pruefen (Seiten seit L4 geaendert)"
+  - extraktion:
+      10: "Wegzug persoenlich beim Personenmeldeamt melden, wenn online nicht moeglich"
+    hand:
+      19: "Persönlich mit Termin abmelden"
+  - extraktion:
+      11: "Bei Bedarf Abmeldebestaetigung im Webshop bestellen"
+    hand:
+      22: "Abmeldebestätigung im Webshop bestellen"
+
+  # --- Nur in der Extraktion --------------------------------------------------
+  - extraktion:
+      4: "Bei Bedarf Fristverlaengerung ueber das Kontaktformular beantragen"
+    hand: {}
+    notiz: "Fristverlaengerung; Handdatei nennt nur die Meldefrist (Hand 2). Die Heuristik paarte faelschlich mit Hand 18"
+
+  # --- Nur in der Handdatei ---------------------------------------------------
+  - extraktion: {}
+    hand:
+      2: "Meldefrist beachten"
+    notiz: "nicht extrahiert (vgl. Ext 4)"
+  - extraktion: {}
+    hand:
+      3: "Woher ziehen Sie um und wie können Sie melden?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      6: "Meldung und Unterlagen prüfen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      7: "Unterlagen vollständig?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      8: "Fehlende Unterlagen nachreichen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      9: "Ausländische Staatsangehörigkeit?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      10: "Meldung an das Migrationsamt / Bewilligung anpassen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      13: "An neuer Adresse angemeldet"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+  - extraktion: {}
+    hand:
+      14: "Zuzug, Umzug oder Wegzug?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      15: "Meldefrist für den Wegzug beachten"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      16: "Wie abmelden?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      20: "Abmeldung im Einwohnerregister verarbeiten"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      21: "Abmeldebestätigung benötigt?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      23: "Aus der Stadt Zürich abgemeldet"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+
+akteure:
+  "Zuziehende Person": person
+  "Umziehende Person": person
+  "Wegziehende Person": person
+  "Personenmeldeamt": bev  # Personenmeldeamt gehoert zum Bevoelkerungsamt

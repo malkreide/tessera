@@ -1,0 +1,134 @@
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+#
+# Vorschlag von Claude fuer den Lauf L5 vom 2026-11-27, aus dem
+# `--propose-pairs`-Entwurf korrigiert. Extraktions-Labels aus der
+# Konsolenausgabe des Laufs uebernommen, Hand-Labels aus maschinerie-zuerich
+# main; out/*.json und die Quellseiten wurden dabei NICHT eingesehen.
+# `nicht_belegbar` nur fuer Start-, Entscheidungs- und Endknoten — ob ein
+# fehlender Inhaltsschritt auf den Quellseiten steht, ist ungeprueft.
+# Vom Maintainer am 2026-11-27 bestaetigt (inkl. akteure:).
+
+leistung: parkplatz
+status: bestaetigt
+gruppen:
+  # --- Entsprechungen ---------------------------------------------------------
+  - extraktion:
+      1: "Anwohnerparkkarte bei der Bewilligungsstelle anfordern (online, telefonisch oder schriftlich)"
+      2: "Parkkarte schriftlich bei der Bewilligungsstelle beantragen (bei ausserkantonalen/auslaendischen Nummernschildern, Wochenaufenthalt oder Gewerbebetrieb)"
+    hand:
+      3: "Antrag online stellen"
+    notiz: "Antragswege einzeln extrahiert; die Handdatei nennt nur den Online-Weg. Die Heuristik paarte Ext 2 faelschlich mit dem Endzustand Hand 15"
+
+  # --- Nur in der Extraktion --------------------------------------------------
+  - extraktion:
+      3: "Fuer Carsharing: schriftliches und begruendetes Gesuch einreichen"
+    hand: {}
+    notiz: "Sonderfall Carsharing; Handdatei modelliert ihn nicht"
+  - extraktion:
+      4: "Parkkarte ausdrucken und falten gemaess Auflagen"
+    hand: {}
+    notiz: "ausgedruckte Karte; die Handdatei modelliert eine Aktivierung des Kennzeichens im System (Hand 10) — gegen die Quellseite pruefen"
+  - extraktion:
+      5: "Parkkarte wird jaehrlich automatisch erneuert"
+    hand: {}
+    notiz: "Erneuerung; Handdatei modelliert sie nicht"
+  - extraktion:
+      6: "Uebrige Carsharing-Mitglieder reichen jaehrlich einen neuen Antrag ein"
+    hand: {}
+    notiz: "Sonderfall Carsharing; Handdatei modelliert ihn nicht"
+  - extraktion:
+      7: "Bei Reparatur/Service des Fahrzeugs provisorische Bewilligung fuer Ersatzfahrzeug bestellen"
+    hand: {}
+    notiz: "Sonderfall Ersatzfahrzeug; Handdatei modelliert ihn nicht"
+  - extraktion:
+      8: "Ersatzbewilligung zusammen mit Originalbewilligung sichtbar im Ersatzfahrzeug anbringen"
+    hand: {}
+    notiz: "Sonderfall Ersatzfahrzeug; Handdatei modelliert ihn nicht"
+
+  # --- Nur in der Handdatei ---------------------------------------------------
+  # Seit #109 fehlt die Formularseite antragsformular-ap-privatpersonen.html
+  # (lieferte nur Navigation); der Antrags- und Pruefablauf der Handdatei
+  # (Hand 2, 4–11) hat damit keine Quellseite mehr im Crawl.
+  - extraktion: {}
+    hand:
+      1: "Wohnsitz in blauer Zone + Auto"
+    nicht_belegbar: true
+    notiz: "Startknoten"
+  - extraktion: {}
+    hand:
+      2: "Voraussetzungen selbst prüfen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      4: "Antrag prüfen (Wohnsitz, Halterschaft, Zone)"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      5: "Unterlagen vollständig?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      6: "Fehlende Unterlagen nachliefern"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      7: "Berechtigt?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      8: "Rechnung zustellen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      9: "Rechnung bezahlen"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      10: "Kennzeichen im Parkkartensystem aktivieren"
+    notiz: "nicht extrahiert; vgl. Ext 4 (ausgedruckte Karte)"
+  - extraktion: {}
+    hand:
+      11: "Antrag ablehnen (mit Begründung)"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      12: "Rechtsmittel ergreifen?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      13: "Rechtsmittel gemäss Rechtsmittelbelehrung im Entscheid"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      14: "Laufende Kontrolle durch Stadtpolizei"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      15: "Parkkarte aktiv"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+  - extraktion: {}
+    hand:
+      16: "Antrag rechtskräftig abgelehnt"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+
+akteure:
+  "Fahrzeughalter*in": halter
+  "Fahrzeuggemeinschaft": null  # gemeinsame Halterschaft; Handdatei modelliert sie nicht
+  "Halter*in des Carsharing-Fahrzeugs": null  # Sonderfall Carsharing
+  "Carsharing-Mitglied": null  # Sonderfall Carsharing

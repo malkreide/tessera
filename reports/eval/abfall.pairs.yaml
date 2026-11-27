@@ -1,0 +1,101 @@
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+#
+# Vorschlag von Claude fuer den Lauf L5 vom 2026-11-27, aus dem
+# `--propose-pairs`-Entwurf korrigiert. Extraktions-Labels aus der
+# Konsolenausgabe des Laufs uebernommen, Hand-Labels aus maschinerie-zuerich
+# main; out/*.json und die Quellseiten wurden dabei NICHT eingesehen.
+# `nicht_belegbar` nur fuer Start-, Entscheidungs- und Endknoten — ob ein
+# fehlender Inhaltsschritt auf den Quellseiten steht, ist ungeprueft.
+# Vom Maintainer am 2026-11-27 bestaetigt (inkl. akteure:).
+
+leistung: abfall
+status: bestaetigt
+gruppen:
+  # --- Entsprechungen ---------------------------------------------------------
+  - extraktion:
+      1: "Hauskehricht im Züri-Sack sammeln"
+      2: "Züri-Sack im Detailhandel kaufen"
+    hand:
+      4: "Kehricht im offiziellen Sack am Abfuhrtag bereitstellen"
+    notiz: "Gebuehrensack kaufen und befuellen; die Handdatei fasst das im offiziellen Sack zusammen"
+  - extraktion:
+      3: "Sammeltermine im Entsorgungskalender für die eigene Adresse abrufen"
+    hand:
+      3: "Abfuhrtermine im Abfallkalender prüfen"
+    notiz: "Termine nachschlagen; die Heuristik liess beide ungepaart"
+  - extraktion:
+      4: "Wertstoffe sortieren und separat entsorgen"
+    hand:
+      6: "Wertstoffe trennen (Papier, Karton, Glas, Metall)"
+    notiz: "die Heuristik liess beide ungepaart"
+  - extraktion:
+      5: "Sperrgut, Metall, Elektrogeräte und Grubengut vor der Abholung trennen"
+      6: "Abhol-Service telefonisch beim Service Center bestellen"
+      7: "Abholtermin vereinbaren"
+      8: "Material am vereinbarten Tag sichtbar vor der Liegenschaft bereitstellen"
+      10: "Sperrgut, Metall, Grubengut und Elektrogeräte im Mobilen Recyclinghof entsorgen"
+    hand:
+      11: "Sperrgut-Abholung bestellen oder zum Recyclinghof bringen"
+    notiz: "Abhol-Service in Einzelschritten plus Bringweg (Mobiler Recyclinghof); die Handdatei fasst beides in einem Schritt"
+  - extraktion:
+      11: "Sonderabfall beim Sonderabfallmobil entsorgen"
+    hand:
+      12: "Sonderabfall zum Sammelpunkt oder Schadstoffmobil bringen"
+
+  # --- Nur in der Extraktion --------------------------------------------------
+  - extraktion:
+      9: "Bereitgestelltes Material am Strassenrand abholen"
+    hand: {}
+    notiz: "Abholung des Sperrguts durch ERZ; die Handdatei modelliert nur die Kehricht-Abfuhr (Hand 5) als ERZ-Schritt"
+
+  # --- Nur in der Handdatei ---------------------------------------------------
+  - extraktion: {}
+    hand:
+      1: "Abfall fällt an"
+    nicht_belegbar: true
+    notiz: "Startknoten"
+  - extraktion: {}
+    hand:
+      2: "Welche Abfallart?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      5: "ERZ holt den Hauskehricht ab"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      7: "Abholung oder Sammelstelle?"
+    nicht_belegbar: true
+    notiz: "Entscheidung"
+  - extraktion: {}
+    hand:
+      8: "Papier und Karton am Sammeltag bereitstellen"
+    notiz: "nicht extrahiert; seit #106 ohne entsorgung.html — ob die drei verbliebenen Seiten Papier/Karton nennen, ist ungeprueft"
+  - extraktion: {}
+    hand:
+      9: "Glas und Metall zur Quartier-Sammelstelle bringen"
+    notiz: "nicht extrahiert; wie Hand 8"
+  - extraktion: {}
+    hand:
+      10: "ERZ verwertet die Wertstoffe"
+    notiz: "nicht extrahiert"
+  - extraktion: {}
+    hand:
+      13: "Abfall korrekt entsorgt"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+
+akteure:
+  "Bevölkerung": person
