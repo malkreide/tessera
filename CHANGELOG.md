@@ -10,12 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Step pairings for run L5 (2026-11-27), all eight services.** Curated from
   the `--propose-pairs` drafts against the hand files in maschinerie-zuerich
-  (`reports/eval/*.pairs.yaml`, status `vorschlag`). They replace the L2/L4
+  (`reports/eval/*.pairs.yaml`), confirmed by the maintainer on 2026-11-27,
+  `akteure:` included. They replace the L2/L4
   pairings for `fundsache` and `kita-platz`. Six files are new: `abfall`,
   `betreibung`, `umwelt`, `parkplatz`, `umzug-melden` and `heiraten`. Only
   start, decision and end nodes are marked `nicht_belegbar`; whether a
-  missing content step is on the source pages has not been checked. The
-  maintainer has to confirm them.
+  missing content step is on the source pages has not been checked.
+- **Pilot report: addendum «Lauf L5 und Phase C».** Metrics for all eight
+  services. Low recall at `parkplatz`/`heiraten` measures the narrowed crawl
+  (#106, #109), not the extraction. Low precision marks content the hand file
+  does not model. Also covers the reconciliation without a token, two
+  source/hand-file discrepancies (`umzug-melden`, `parkplatz`) and the 401
+  abort as an operational finding. Open items 6–8 updated.
 - **Phase C: four more services in `sources.yaml`.** `abfall`, `betreibung`,
   `umwelt` (noise reporting) and `heiraten` — low-risk, each with an existing,
   editorially maintained hand file in maschinerie-zuerich and sources only on

@@ -17,9 +17,10 @@
 # main; out/*.json und die Quellseiten wurden dabei NICHT eingesehen.
 # `nicht_belegbar` nur fuer Start-, Entscheidungs- und Endknoten — ob ein
 # fehlender Inhaltsschritt auf den Quellseiten steht, ist ungeprueft.
+# Vom Maintainer am 2026-11-27 bestaetigt (inkl. akteure:).
 
 leistung: kita-platz
-status: vorschlag
+status: bestaetigt
 gruppen:
   # --- Entsprechungen ---------------------------------------------------------
   - extraktion:
