@@ -1,0 +1,67 @@
+# Schritt-Paarung fuer `tessera eval` (Extraktion <-> Handdatei).
+#
+# Jede Gruppe ordnet n Extraktionsschritte m Handschritten zu (1:1, n:1, 1:n).
+# Eine Seite leer = Schritt bewusst ohne Entsprechung. `nicht_belegbar: true`
+# (nur ohne Extraktionsschritte) markiert Handschritte, die die Quelle nicht
+# woertlich nennt (Start-/Entscheidungs-/Endknoten); der Report zeigt dann
+# zusaetzlich den Recall ohne sie. Jede Schritt-ID beider Dateien genau einmal;
+# die Labels muessen den aktuellen Dateien entsprechen (sonst veraltet).
+# Optional `akteure:` — extrahierte Rollennamen, die weder ID noch Label der
+# Handdatei-actors[] treffen: `Name: id` (zuordnen), `Name: null` (bewusst ohne
+# Entsprechung) oder `Name: ""` (noch offen).
+# Nach dem Pruefen `status: bestaetigt` setzen.
+#
+# Vorschlag von Claude fuer den Lauf L5 vom 2026-11-27, aus dem
+# `--propose-pairs`-Entwurf korrigiert. Extraktions-Labels aus der
+# Konsolenausgabe des Laufs uebernommen, Hand-Labels aus maschinerie-zuerich
+# main; out/*.json und die Quellseiten wurden dabei NICHT eingesehen.
+# `nicht_belegbar` nur fuer Start-, Entscheidungs- und Endknoten — ob ein
+# fehlender Inhaltsschritt auf den Quellseiten steht, ist ungeprueft.
+
+leistung: betreibung
+status: vorschlag
+gruppen:
+  # --- Entsprechungen ---------------------------------------------------------
+  - extraktion:
+      1: "Bestellweg waehlen: Onlineformular, Briefpost oder persoenlich am Schalter"
+    hand:
+      3: "Wie bestellen?"
+    notiz: "Wahl des Bestellwegs = Entscheidung; die Heuristik paarte faelschlich mit Hand 5"
+  - extraktion:
+      7: "Elektronische Kopie eines amtlichen Ausweises bereithalten"
+    hand:
+      2: "Amtlichen Ausweis bereithalten"
+  - extraktion:
+      8: "Onlineformular ausfuellen und Ausweiskopie im Laufe der Bestellung hochladen"
+    hand:
+      4: "Online-Formular ausfüllen und Ausweis hochladen"
+  - extraktion:
+      2: "Zustaendiges Betreibungsamt fuer die Adresse ermitteln"
+      3: "Amt zu den Schalteroeffnungszeiten aufsuchen und amtlichen Ausweis vorlegen"
+      4: "Am Schalter bar oder mit Debitkarte bezahlen"
+      5: "Zustaendiges Betreibungsamt fuer die betroffene Adresse ermitteln"
+      6: "Anfrage ausfuellen und Ausweiskopie beilegen, per Briefpost senden"
+    hand:
+      5: "Brieflich oder am Schalter bestellen"
+    notiz: "Schalter (Ext 2–4) und Brief (Ext 5–6) einzeln extrahiert, Amt ermitteln je Weg doppelt; die Handdatei fasst beide Wege zusammen"
+  - extraktion:
+      9: "Angaben bei der Einwohnerkontrolle ueberpruefen"
+      10: "Auszug erstellen und ausstellen"
+    hand:
+      6: "Zuständiges Amt erstellt den Auszug"
+    notiz: "Bearbeitung durch das Amt; die Heuristik paarte Ext 10 mit dem Endzustand Hand 7 und Ext 2 mit Hand 6"
+
+  # --- Nur in der Handdatei ---------------------------------------------------
+  - extraktion: {}
+    hand:
+      1: "Auszug aus dem Betreibungsregister wird benötigt"
+    nicht_belegbar: true
+    notiz: "Startknoten"
+  - extraktion: {}
+    hand:
+      7: "Auszug erhalten (gegen Gebühr)"
+    nicht_belegbar: true
+    notiz: "Endzustand"
+
+akteure:
+  "Bestellende Person": bestellende
