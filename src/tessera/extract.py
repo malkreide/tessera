@@ -33,6 +33,7 @@ from __future__ import annotations
 import os
 
 from .config import ProcessSource
+from .runguard import MissingKeyError
 from .schema import XProcess
 
 DEFAULT_MODEL = "anthropic:claude-opus-4-8"
@@ -274,7 +275,7 @@ def _require_key(model: str) -> None:
     prefix = model.split(":", 1)[0].lower()
     env = _KEY_ENV_BY_PREFIX.get(prefix)
     if env and not os.environ.get(env):
-        raise SystemExit(
+        raise MissingKeyError(
             f"LLM-Key fehlt: ENV-Variable {env} ist nicht gesetzt (Modell {model!r}).\n"
             "Keys richtet der Maintainer ein (CLAUDE.md, Credentials-Grenze); "
             "tessera liest sie nur aus dem ENV. Abbruch ohne Extraktion."

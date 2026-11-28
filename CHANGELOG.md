@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`extract` no longer leaves stale output behind, and a bad key stops the run
+  at once** (`runguard.py`). Before each attempt the previous
+  `out/<id>.json` and its flags move to `*.prev`. A failed attempt therefore
+  leaves no output, and later steps report «fehlt» instead of working on an
+  old extraction. An ordinary error (token limit, HTTP 429/529, network) ends
+  only that service; the loop goes on and exits 1 with a summary. A rejected
+  login (HTTP 401/403) or a missing key ends the whole run with a clear
+  message and lists the services not tried. `validate`, `verify`, `eval` and
+  `pr` also refuse an `out/<id>.json` older than the last crawl. Found in run
+  L5, where an expired key aborted `extract` for all services with a
+  traceback.
 - **Step pairings for run L5 (2026-11-27), all eight services.** Curated from
   the `--propose-pairs` drafts against the hand files in maschinerie-zuerich
   (`reports/eval/*.pairs.yaml`), confirmed by the maintainer on 2026-11-27,

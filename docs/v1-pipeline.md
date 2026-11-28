@@ -193,6 +193,16 @@ print({k:(v['allowed'],v['tou_allowed'],v['tou_blocked']) for k,v in g.items()})
   vorkommt (Akteur). Der Prozess bleibt unveraendert. FAQ-Seiten (`faq` /
   `haeufige-fragen` im URL-Pfad) zaehlen fuer die Reihenfolge nicht: ihr Text
   folgt den Fragen, nicht dem Prozess.
+- **Abbrueche und veraltete Ausgaben (`runguard.py`):** Vor jedem Versuch
+  verschiebt `extract` die vorige `out/<id>.json` samt Flags nach `*.prev`.
+  Scheitert der Versuch, gibt es keine Ausgabe, und die Folgeschritte melden
+  «fehlt» statt auf altem Stand zu arbeiten. Ein gewoehnlicher Fehler (z.B.
+  Token-Limit, HTTP 429/529, Netz) beendet nur diese Leistung, die Schleife
+  laeuft weiter (Exit 1 mit Zusammenfassung). Lehnt der Anbieter die Anmeldung
+  ab (HTTP 401/403) oder fehlt der Key, endet der ganze Lauf sofort: Jede
+  weitere Leistung scheiterte am selben Key. `validate`, `verify`, `eval` und
+  `pr` verweigern zudem eine `out/<id>.json`, die aelter ist als der letzte
+  Crawl (`reports/raw/<id>/meta.json`). Anlass: Lauf L5, Pilotbericht.
 - **Keine Leichte Sprache:** Die Extraktion erzeugt kein `ls` (in v1
   ausgeschlossen, `CLAUDE.md`); ein geliefertes `ls` ist ein Schemafehler bzw.
   ein Bruch von `contracts.struktur_only`. `ls` fuellt die Maschinerie von Hand.
