@@ -28,6 +28,8 @@ jobs:
         run: python tests/test_pipeline_integration.py
       - name: Component-Contract-Tests (validierte I/O-Grenzen, stdlib)
         run: python tests/test_component.py
+      - name: Runguard-Tests (Abbruch bei 401/403, keine veraltete Ausgabe, stdlib)
+        run: python tests/test_runguard.py
       - name: Extraktor-Registry-Tests (Auswahl-Kern, stdlib)
         run: python tests/test_registry.py
       - name: Veranstaltung-Extraktor-Tests (spezialisierter Extraktor, stdlib)

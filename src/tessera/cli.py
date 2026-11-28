@@ -32,6 +32,15 @@ from .config import ROOT, SourcesConfig, load_sources
 
 OUT = ROOT / "out"
 FLAGS_SUFFIX = ".flags.json"
+# = crawl.RAW; hier ohne Import, weil crawl httpx am Modulkopf laedt.
+RAW = ROOT / "reports" / "raw"
+
+
+def _stale(proc_id: str) -> str:
+    """Grund, aus dem out/<id>.json veraltet ist (aelter als der letzte Crawl); leer = ok."""
+    from .runguard import stale_reason  # noqa: PLC0415
+
+    return stale_reason(OUT / f"{proc_id}.json", RAW / proc_id / "meta.json")
 
 
 def _procs(cfg: SourcesConfig, ids: list[str] | None):
@@ -91,13 +100,19 @@ def cmd_crawl(cfg: SourcesConfig, ids: list[str] | None) -> int:
 
 
 def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
-    from . import steps  # noqa: PLC0415
+    from . import runguard, steps  # noqa: PLC0415
     from .component import ComponentError  # noqa: PLC0415
 
     OUT.mkdir(exist_ok=True)
-    rc = 0
-    for proc in _procs_for_extraction(cfg, ids, "extract"):
+    procs = list(_procs_for_extraction(cfg, ids, "extract"))
+    failed: list[str] = []
+    for index, proc in enumerate(procs):
         print(f"Extrahiere {proc.id} …")
+        out_json = OUT / f"{proc.id}.json"
+        flags_json = OUT / f"{proc.id}{FLAGS_SUFFIX}"
+        # Vorige Ausgabe zuerst wegraeumen: scheitert dieser Versuch, arbeiten
+        # validate/verify/eval/pr nicht still auf dem alten Stand weiter.
+        retired = runguard.retire_previous([out_json, flags_json])
         # Validierte Component-Kette (load->extract->to_contract->ground->plausibility->screen).
         # Jede Grenze prueft Ein-/Ausgabe; eine Verletzung stoppt DIESE Leistung
         # hart (kein Muell in out/), die Schleife laeuft mit der naechsten weiter.
@@ -105,18 +120,63 @@ def cmd_extract(cfg: SourcesConfig, ids: list[str] | None) -> int:
             result = steps.run_extract(proc)
         except ComponentError as exc:
             print(f"  [{proc.id}] {exc}", file=sys.stderr)
-            rc = 1
+            failed.append(proc.id)
+            _report_retired(proc.id, retired)
+            continue
+        except runguard.MissingKeyError as exc:
+            # Gilt fuer jede Leistung — kein Weiterversuch.
+            print(f"  [{proc.id}] {exc}", file=sys.stderr)
+            _report_retired(proc.id, retired)
+            return _abort_extract(procs[index + 1 :])
+        except SystemExit as exc:
+            # z.B. Token-Limit, fehlende Snapshots: nur diese Leistung.
+            print(f"  [{proc.id}] {exc}", file=sys.stderr)
+            failed.append(proc.id)
+            _report_retired(proc.id, retired)
+            continue
+        except Exception as exc:  # noqa: BLE001 — eine Leistung darf den Lauf nicht beenden
+            status = runguard.auth_status(exc)
+            if status is not None:
+                print(
+                    f"  [{proc.id}] Der LLM-Anbieter lehnt die Anmeldung ab (HTTP {status}): "
+                    "API-Key ungueltig, abgelaufen oder ohne Berechtigung. Den Key erneuert der "
+                    "Maintainer (CLAUDE.md, Credentials-Grenze), danach `tessera extract` erneut.",
+                    file=sys.stderr,
+                )
+                _report_retired(proc.id, retired)
+                return _abort_extract(procs[index + 1 :])
+            print(f"  [{proc.id}] Extraktion fehlgeschlagen — {runguard.describe(exc)}", file=sys.stderr)
+            failed.append(proc.id)
+            _report_retired(proc.id, retired)
             continue
         process, flags = result.process, result.flags
-        out_json = OUT / f"{proc.id}.json"
         out_json.write_text(json.dumps(process, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        (OUT / f"{proc.id}{FLAGS_SUFFIX}").write_text(
-            json.dumps(flags, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
+        flags_json.write_text(json.dumps(flags, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"  [{proc.id}] -> {out_json} ({len(process['steps'])} Schritte, {len(flags)} Flags)")
         for f in flags:
             print(f"    ⚠ {f}")
-    return rc
+    if failed:
+        print(
+            f"Extraktion fehlgeschlagen fuer: {', '.join(failed)} "
+            f"({len(procs) - len(failed)}/{len(procs)} extrahiert). Fuer diese Leistungen gibt es "
+            "keine out/<id>.json — die Folgeschritte melden «fehlt».",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
+def _report_retired(proc_id: str, retired: list) -> None:
+    if retired:
+        names = ", ".join(f"out/{p.name}" for p in retired)
+        print(f"  [{proc_id}] vorige Ausgabe liegt in {names} (nicht mehr verwendet).", file=sys.stderr)
+
+
+def _abort_extract(remaining: list) -> int:
+    if remaining:
+        names = ", ".join(p.id for p in remaining)
+        print(f"Abbruch des Laufs — nicht versucht: {names}.", file=sys.stderr)
+    return 1
 
 
 def cmd_validate(cfg: SourcesConfig, ids: list[str] | None) -> int:
@@ -130,6 +190,10 @@ def cmd_validate(cfg: SourcesConfig, ids: list[str] | None) -> int:
                 print(f"  [{proc.id}] keine Ausgabe — Extraktion gesperrt (sources.yaml).", file=sys.stderr)
                 continue
             print(f"  [{proc.id}] out/{proc.id}.json fehlt — zuerst `tessera extract`.", file=sys.stderr)
+            rc = 1
+            continue
+        if stale := _stale(proc.id):
+            print(f"  [{proc.id}] {stale}", file=sys.stderr)
             rc = 1
             continue
         # Eingangskontrolle fuer JEDE Ausgabe: der Vertrags-Validator muss Exit 0 liefern.
@@ -170,6 +234,10 @@ def cmd_verify(cfg: SourcesConfig, ids: list[str] | None, online: bool = False) 
             out_json = OUT / f"{proc.id}.json"
             if not out_json.exists():
                 print(f"  [{proc.id}] out/{proc.id}.json fehlt — zuerst `tessera extract`.", file=sys.stderr)
+                rc = 1
+                continue
+            if stale := _stale(proc.id):
+                print(f"  [{proc.id}] {stale}", file=sys.stderr)
                 rc = 1
                 continue
             process = json.loads(out_json.read_text(encoding="utf-8"))
@@ -322,7 +390,6 @@ def cmd_diff(
 
 def cmd_pr(cfg: SourcesConfig, ids: list[str] | None) -> int:
     from . import pr as pr_mod  # noqa: PLC0415
-    from .crawl import RAW  # noqa: PLC0415
 
     rc = 0
     for proc in _procs_for_extraction(cfg, ids, "pr"):
@@ -330,6 +397,10 @@ def cmd_pr(cfg: SourcesConfig, ids: list[str] | None) -> int:
         flags_file = OUT / f"{proc.id}{FLAGS_SUFFIX}"
         if not out_json.exists():
             print(f"  [{proc.id}] out/{proc.id}.json fehlt.", file=sys.stderr)
+            rc = 1
+            continue
+        if stale := _stale(proc.id):
+            print(f"  [{proc.id}] {stale} KEIN PR.", file=sys.stderr)
             rc = 1
             continue
         if cmd_validate(cfg, [proc.id]) != 0:
@@ -434,6 +505,10 @@ def cmd_eval(
         out_json = OUT / f"{proc.id}.json"
         if not out_json.exists():
             print(f"  [{proc.id}] out/{proc.id}.json fehlt — zuerst `tessera extract`.", file=sys.stderr)
+            rc = 1
+            continue
+        if stale := _stale(proc.id):
+            print(f"  [{proc.id}] {stale}", file=sys.stderr)
             rc = 1
             continue
         if against:
